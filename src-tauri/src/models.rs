@@ -2,26 +2,43 @@ use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
 use std::{collections::HashMap, hash::Hash};
 
-// Index information for 
+// A searchable index and the sources that are synchronized into it.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct Index {
-    id: i32,
-    name: String,
-    description: String,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
-    file_source_ids: Vec<FileSource>,
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub status: String,
+    pub vectorizer: String,
+    pub store: String,
+    pub chunks: String,
+    pub sources: Vec<FileSource>,
 }
 
 // Use OpenDAL to access files from different sources
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct FileSource {
-    id: i32,
-    name: String,
-    uri: String,
-    oauth_id: Option<i32>,
-    api_key: Option<String>,
-    extras: Option<HashMap<String, String>>,
+    pub name: String,
+    pub source_type: String,
+    pub path: String,
+    pub files: u32,
+    pub last_sync: String,
+}
+
+/// A semantic-search hit returned to the UI.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResult {
+    pub title: String,
+    pub source: String,
+    pub content_type: String,
+    pub score: String,
+    pub excerpt: String,
+    pub updated_at: String,
 }
 
 // OAuth without client secret (PKCE flow)

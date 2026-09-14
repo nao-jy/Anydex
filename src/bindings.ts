@@ -5,12 +5,20 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 /** Commands */
 export const commands = {
 	greet: (name: string) => __TAURI_INVOKE<string>("greet", { name }),
-	listIndexes: () => __TAURI_INVOKE<IndexOverview[]>("list_indexes"),
+	listIndexes: () => __TAURI_INVOKE<Index[]>("list_indexes"),
 	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),
 };
 
 /* Types */
-export type IndexOverview = {
+export type FileSource = {
+	name: string,
+	sourceType: string,
+	path: string,
+	files: number,
+	lastSync: string,
+};
+
+export type Index = {
 	id: string,
 	name: string,
 	description: string,
@@ -20,17 +28,10 @@ export type IndexOverview = {
 	vectorizer: string,
 	store: string,
 	chunks: string,
-	sources: MockFileSource[],
+	sources: FileSource[],
 };
 
-export type MockFileSource = {
-	name: string,
-	sourceType: string,
-	path: string,
-	files: number,
-	lastSync: string,
-};
-
+/**  A semantic-search hit returned to the UI. */
 export type SearchResult = {
 	title: string,
 	source: string,

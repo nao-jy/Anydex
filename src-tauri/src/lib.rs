@@ -1,70 +1,34 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use specta_typescript::Typescript;
 use tauri_specta::{collect_commands, collect_events, Builder};
-use serde::Serialize;
 use std::time::Duration;
 
 pub mod models;
+use models::{FileSource, Index, SearchResult};
 
-#[derive(Debug, Clone, Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-struct MockFileSource {
-    name: String,
-    source_type: String,
-    path: String,
-    files: u32,
-    last_sync: String,
-}
-
-#[derive(Debug, Clone, Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-struct IndexOverview {
-    id: String,
-    name: String,
-    description: String,
-    created_at: String,
-    updated_at: String,
-    status: String,
-    vectorizer: String,
-    store: String,
-    chunks: String,
-    sources: Vec<MockFileSource>,
-}
-
-#[derive(Debug, Clone, Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-struct SearchResult {
-    title: String,
-    source: String,
-    content_type: String,
-    score: String,
-    excerpt: String,
-    updated_at: String,
-}
-
-fn mock_indexes() -> Vec<IndexOverview> {
+fn mock_indexes() -> Vec<Index> {
     vec![
-        IndexOverview {
+        Index {
             id: "idx_01".into(), name: "社内ナレッジ".into(), description: "チーム文書、議事録、設計資料を横断検索".into(), created_at: "2026/09/01".into(), updated_at: "2026/09/14 09:12".into(), status: "同期済み".into(), vectorizer: "Multimodal Embedding v1".into(), store: "SQLite Vector（ローカル）".into(), chunks: "4,281".into(),
             sources: vec![
-                MockFileSource { name: "チーム文書".into(), source_type: "Amazon S3".into(), path: "s3://example-documents/knowledge-base".into(), files: 248, last_sync: "今日 09:12".into() },
-                MockFileSource { name: "ローカルノート".into(), source_type: "Filesystem".into(), path: "~/Documents/notes".into(), files: 84, last_sync: "今日 09:10".into() },
+                FileSource { name: "チーム文書".into(), source_type: "Amazon S3".into(), path: "s3://example-documents/knowledge-base".into(), files: 248, last_sync: "今日 09:12".into() },
+                FileSource { name: "ローカルノート".into(), source_type: "Filesystem".into(), path: "~/Documents/notes".into(), files: 84, last_sync: "今日 09:10".into() },
             ],
         },
-        IndexOverview {
+        Index {
             id: "idx_02".into(), name: "プロダクト資料".into(), description: "仕様書、リリースノート、UI 資産".into(), created_at: "2026/08/22".into(), updated_at: "2026/09/13 18:30".into(), status: "同期中".into(), vectorizer: "Text Embedding v3".into(), store: "SQLite Vector（ローカル）".into(), chunks: "1,926".into(),
-            sources: vec![MockFileSource { name: "プロダクトリポジトリ".into(), source_type: "Filesystem".into(), path: "~/work/product/docs".into(), files: 127, last_sync: "同期中".into() }],
+            sources: vec![FileSource { name: "プロダクトリポジトリ".into(), source_type: "Filesystem".into(), path: "~/work/product/docs".into(), files: 127, last_sync: "同期中".into() }],
         },
-        IndexOverview {
+        Index {
             id: "idx_03".into(), name: "デザインアセット".into(), description: "ブランド画像とデザインガイドライン".into(), created_at: "2026/09/05".into(), updated_at: "2026/09/12 16:04".into(), status: "エラー".into(), vectorizer: "Vision Embedding v2".into(), store: "SQLite Vector（ローカル）".into(), chunks: "3,740".into(),
-            sources: vec![MockFileSource { name: "画像アーカイブ".into(), source_type: "Amazon S3".into(), path: "s3://example-assets/design".into(), files: 312, last_sync: "09/12 16:04".into() }],
+            sources: vec![FileSource { name: "画像アーカイブ".into(), source_type: "Amazon S3".into(), path: "s3://example-assets/design".into(), files: 312, last_sync: "09/12 16:04".into() }],
         },
     ]
 }
 
 #[tauri::command]
 #[specta::specta]
-fn list_indexes() -> Vec<IndexOverview> { mock_indexes() }
+fn list_indexes() -> Vec<Index> { mock_indexes() }
 
 #[tauri::command]
 #[specta::specta]
