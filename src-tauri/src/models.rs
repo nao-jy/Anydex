@@ -100,6 +100,7 @@ pub struct Chunk {
     index_id: i32,
     source_id: i32,
     file_path: String,
+    content_type: String,
     content: Option<String>,
     content_vector: Option<Vec<f32>>,
     modality: Modality,
