@@ -34,17 +34,17 @@ export const Index = () => {
       {isLoading && <Text c="dimmed" ta="center" py="xl">インデックスを読み込んでいます…</Text>}
       {isError && <Text c="red" ta="center" py="xl">インデックスを取得できませんでした。</Text>}
       {!isLoading && !isError && <Accordion multiple value={open} onChange={setOpen} variant="separated" radius="md">
-        {sortedIndexes.map(index => <Accordion.Item value={index.id} key={index.id}>
+        {sortedIndexes.map(index => <Accordion.Item value={index.id.toString()} key={index.id}>
           <Accordion.Control><Group justify="space-between" wrap="nowrap" pr="md">
             <Box><Group gap="sm"><Text fw={700} size="lg">{index.name}</Text><Badge color={statusColor[index.status] ?? "gray"} variant="light">{index.status}</Badge></Group><Text size="sm" c="dimmed" mt={3}>{index.description}</Text></Box>
             <Group gap="xl" visibleFrom="sm"><DateInfo label="作成日" value={index.createdAt} /><DateInfo label="最終更新日" value={index.updatedAt} /></Group>
           </Group></Accordion.Control>
           <Accordion.Panel><Stack gap="lg" pb="sm">
-            <SimpleGrid cols={{ base: 1, sm: 3 }}><Metric label="Indexer" value={`${index.indexer.length} 件`} /><Metric label="前回の処理ファイル数" value={`${index.indexer.reduce((total, item) => total + (item.lastProcessedFiles ?? 0), 0)} 件`} /><Metric label="ベクトル化" value={index.vectorizer} /></SimpleGrid>
+            <SimpleGrid cols={{ base: 1, sm: 3 }}><Metric label="Indexer" value={`${index.indexer.length} 件`} /><Metric label="前回の処理ファイル数" value={`${index.indexer.reduce((total, item) => total + (item.lastProcessedFiles ?? 0), 0)} 件`} /><Metric label="ベクトル化" value={index.vectorizer.name} /></SimpleGrid>
             <Divider />
             <Group justify="space-between"><Text fw={700}>Indexer</Text><Button variant="subtle" size="compact-sm">＋ 追加</Button></Group>
             <Stack gap="sm">{index.indexer.map((indexer, position) => <Paper withBorder p="md" radius="md" key={`${indexer.fileSource.name}-${position}`}><Group justify="space-between" align="flex-start"><Group align="flex-start" gap="sm"><ThemeIcon variant="light" color="indigo">↗</ThemeIcon><Box><Text fw={600}>{indexer.fileSource.name}</Text><Text size="sm" c="dimmed">{formatSourceType(indexer.fileSource.uri)} · {indexer.fileSource.uri}</Text><Text size="xs" c="dimmed" mt={4}>同期: {formatSchedule(indexer.schedule.rule)}（{formatDateTime(indexer.schedule.dtstart, indexer.schedule.timezone)} 起点）</Text></Box></Group><Box ta="right"><Text size="sm">{indexer.lastProcessedFiles == null ? "未実行" : `${indexer.lastProcessedFiles} ファイル`}</Text><Text size="xs" c="dimmed">最終成功: {indexer.lastSuccess ? formatDateTime(indexer.lastSuccess, indexer.schedule.timezone) : "なし"}</Text></Box></Group></Paper>)}</Stack>
-            <Setting label="ベクトル化" value={index.vectorizer} detail="OpenAPI エンドポイント" />
+            <Setting label="ベクトル化" value={index.vectorizer.name} detail="OpenAPI エンドポイント" />
             <Group justify="flex-end"><Button variant="default">設定を編集</Button><Button>今すぐ同期</Button></Group>
           </Stack></Accordion.Panel>
         </Accordion.Item>)}
@@ -54,7 +54,7 @@ export const Index = () => {
 };
 
 function DateInfo({ label, value }: { label: string; value: string }) { return <Box><Text size="xs" c="dimmed">{label}</Text><Text size="sm">{value}</Text></Box>; }
-function Metric({ label, value }: { label: string; value: string }) { return <Paper bg="gray.0" p="md" radius="md"><Text size="xs" c="dimmed">{label}</Text><Text fw={700} size="lg" mt={3}>{value}</Text></Paper>; }
+function Metric({ label, value }: { label: string; value: string }) { return <Paper p="md" radius="md"><Text size="xs" c="dimmed">{label}</Text><Text fw={700} size="lg" mt={3}>{value}</Text></Paper>; }
 function Setting({ label, value, detail }: { label: string; value: string; detail: string }) { return <Paper withBorder p="md" radius="md"><Text size="xs" c="dimmed">{label}</Text><Text fw={600} mt={3}>{value}</Text><Text size="xs" c="dimmed" mt={4}>{detail}</Text></Paper>; }
 
 const sourceTypeLabels: Record<string, string> = { fs: "Filesystem", s3: "Amazon S3", gcs: "Google Cloud Storage", azblob: "Azure Blob Storage", webdav: "WebDAV", http: "HTTP", https: "HTTPS" };

@@ -5,7 +5,7 @@ use std::time::Duration;
 use chrono::{TimeZone, Utc};
 
 pub mod models;
-use models::{FileSource, Index, Indexer, Schedule, SearchResult};
+use models::{FileSource, Index, Vectorizer, Indexer, Schedule, SearchResult};
 
 fn utc_datetime(year: i32, month: u32, day: u32, hour: u32, minute: u32) -> chrono::DateTime<Utc> {
     Utc.with_ymd_and_hms(year, month, day, hour, minute, 0)
@@ -42,18 +42,18 @@ fn mock_indexer(
 fn mock_indexes() -> Vec<Index> {
     vec![
         Index {
-            id: "idx_01".into(), name: "社内ナレッジ".into(), description: "チーム文書、議事録、設計資料を横断検索".into(), created_at: "2026/09/01".into(), updated_at: "2026/09/14 09:12".into(), status: "同期済み".into(), vectorizer: "Multimodal Embedding v1".into(),
+            id: 1, name: "社内ナレッジ".into(), description: "チーム文書、議事録、設計資料を横断検索".into(), created_at: utc_datetime(2026, 9, 1, 0, 0), updated_at: utc_datetime(2026, 9, 14, 9, 12), status: "同期済み".into(), vectorizer: Vectorizer { name: "Text Embedding v3".into(), endpoints: Default::default(), dimensions: 768 },
             indexer: vec![
                 mock_indexer("チーム文書", "s3://example-documents/knowledge-base", "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", Some(utc_datetime(2026, 9, 14, 0, 12)), Some(utc_datetime(2026, 9, 14, 0, 12)), Some(248)),
                 mock_indexer("ローカルノート", "fs:///Users/example/Documents/notes", "FREQ=DAILY;INTERVAL=1", Some(utc_datetime(2026, 9, 14, 0, 10)), Some(utc_datetime(2026, 9, 14, 0, 10)), Some(84)),
             ],
         },
         Index {
-            id: "idx_02".into(), name: "プロダクト資料".into(), description: "仕様書、リリースノート、UI 資産".into(), created_at: "2026/08/22".into(), updated_at: "2026/09/13 18:30".into(), status: "同期中".into(), vectorizer: "Text Embedding v3".into(),
+            id: 2, name: "プロダクト資料".into(), description: "仕様書、リリースノート、UI 資産".into(), created_at: utc_datetime(2026, 8, 22, 0, 0), updated_at: utc_datetime(2026, 9, 13, 18, 30), status: "同期中".into(), vectorizer: Vectorizer { name: "Text Embedding v3".into(), endpoints: Default::default(), dimensions: 768 },
             indexer: vec![mock_indexer("プロダクトリポジトリ", "fs:///Users/example/work/product/docs", "FREQ=DAILY;INTERVAL=1", Some(utc_datetime(2026, 9, 14, 0, 15)), Some(utc_datetime(2026, 9, 13, 9, 30)), Some(127))],
         },
         Index {
-            id: "idx_03".into(), name: "デザインアセット".into(), description: "ブランド画像とデザインガイドライン".into(), created_at: "2026/09/05".into(), updated_at: "2026/09/12 16:04".into(), status: "エラー".into(), vectorizer: "Vision Embedding v2".into(),
+            id: 3, name: "デザインアセット".into(), description: "ブランド画像とデザインガイドライン".into(), created_at: utc_datetime(2026, 9, 5, 0, 0), updated_at: utc_datetime(2026, 9, 12, 16, 4), status: "エラー".into(), vectorizer: Vectorizer { name: "Text Embedding v3".into(), endpoints: Default::default(), dimensions: 768 },
             indexer: vec![mock_indexer("画像アーカイブ", "s3://example-assets/design", "FREQ=WEEKLY;BYDAY=FR", Some(utc_datetime(2026, 9, 12, 7, 4)), None, None)],
         },
     ]

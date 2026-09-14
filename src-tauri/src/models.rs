@@ -1,18 +1,18 @@
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap};
 
 // A searchable index and the sources that are synchronized into it.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Index {
-    pub id: String,
+    pub id: i32,
     pub name: String,
     pub description: String,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub status: String,
-    pub vectorizer: String,
+    pub vectorizer: Vectorizer,
     pub indexer: Vec<Indexer>,
 }
 
@@ -79,64 +79,29 @@ pub struct OAuthAuthentication {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
-pub enum Modality{
-    Text, Image, Other(String)
-}
-impl PartialEq for Modality {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            // 両方がActiveで、中身の文字列が同じならtrue
-            (Modality::Text, Modality::Text) => true,
-            (Modality::Image, Modality::Image) => true,
-            (Modality::Other(a), Modality::Other(b)) => a == b,
-            
-            // それ以外（ActiveとInactiveの比較など）はすべてfalse
-            _ => false,
-        }
-    }
-}
-impl Eq for Modality {}
-impl Hash for Modality {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match self {
-            Modality::Text => {
-                state.write_u8(0);
-            }
-            Modality::Image => {
-                state.write_u8(1);
-            }
-            Modality::Other(s) => {
-                state.write_u8(2);
-                s.hash(state);
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct APISchema {
-    endpoint: String,
-    request_schema: serde_json::Value,
+    pub endpoint: String,
+    pub request_schema: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct Vectorizer {
-    id: i32,
-    name: String,
-    endpoints: HashMap<Modality, APISchema>,
+    pub name: String,
+    pub endpoints: HashMap<String, APISchema>,
+    pub dimensions: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct Chunk {
-    id: String,
-    index_id: i32,
-    source_id: i32,
-    file_path: String,
-    content_type: String,
-    content: Option<String>,
-    content_vector: Option<Vec<f32>>,
-    modality: Modality,
-    metadata: Option<HashMap<String, String>>,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
+    pub id: String,
+    pub index_id: i32,
+    pub source_id: i32,
+    pub file_path: String,
+    pub content_type: String,
+    pub content: Option<String>,
+    pub content_vector: Option<Vec<f32>>,
+    pub modality: String,
+    pub metadata: Option<HashMap<String, String>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }

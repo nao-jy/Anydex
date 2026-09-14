@@ -10,6 +10,11 @@ export const commands = {
 };
 
 /* Types */
+export type APISchema = {
+	endpoint: string,
+	request_schema: string,
+};
+
 export type FileSource = {
 	name: string,
 	uri: string,
@@ -17,13 +22,13 @@ export type FileSource = {
 };
 
 export type Index = {
-	id: string,
+	id: number,
 	name: string,
 	description: string,
 	createdAt: string,
 	updatedAt: string,
 	status: string,
-	vectorizer: string,
+	vectorizer: Vectorizer,
 	indexer: Indexer[],
 };
 
@@ -50,5 +55,11 @@ export type SearchResult = {
 	score: string,
 	excerpt: string,
 	updatedAt: string,
+};
+
+export type Vectorizer = {
+	name: string,
+	endpoints: { [key in string]: APISchema },
+	dimensions: number,
 };
 
