@@ -5,5 +5,38 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 /** Commands */
 export const commands = {
 	greet: (name: string) => __TAURI_INVOKE<string>("greet", { name }),
+	listIndexes: () => __TAURI_INVOKE<IndexOverview[]>("list_indexes"),
+	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),
+};
+
+/* Types */
+export type IndexOverview = {
+	id: string,
+	name: string,
+	description: string,
+	createdAt: string,
+	updatedAt: string,
+	status: string,
+	vectorizer: string,
+	store: string,
+	chunks: string,
+	sources: MockFileSource[],
+};
+
+export type MockFileSource = {
+	name: string,
+	sourceType: string,
+	path: string,
+	files: number,
+	lastSync: string,
+};
+
+export type SearchResult = {
+	title: string,
+	source: string,
+	contentType: string,
+	score: string,
+	excerpt: string,
+	updatedAt: string,
 };
 
