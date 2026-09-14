@@ -10,12 +10,12 @@ const statusColor: Record<string, "teal" | "blue" | "red" | "gray"> = { "同期�
 export const Index = () => {
   const [sortKey, setSortKey] = useState<SortKey>("updatedAt");
   const [direction, setDirection] = useState<Direction>("desc");
-  const [open, setOpen] = useState<string[]>(["idx_01"]);
+  const [open, setOpen] = useState<string[]>([]);
   const { data: indexes = [], isLoading, isError } = useQuery({ queryKey: ["indexes"], queryFn: commands.listIndexes });
   const sortedIndexes = useMemo(() => [...indexes].sort((a, b) => {
     const result = a[sortKey].localeCompare(b[sortKey], "ja");
     return direction === "asc" ? result : -result;
-  }), [sortKey, direction]);
+  }), [sortKey, direction, indexes]);
   const chooseSort = (key: SortKey) => {
     if (sortKey === key) setDirection(value => value === "asc" ? "desc" : "asc");
     else { setSortKey(key); setDirection(key === "name" ? "asc" : "desc"); }
@@ -40,11 +40,11 @@ export const Index = () => {
             <Group gap="xl" visibleFrom="sm"><DateInfo label="作成日" value={index.createdAt} /><DateInfo label="最終更新日" value={index.updatedAt} /></Group>
           </Group></Accordion.Control>
           <Accordion.Panel><Stack gap="lg" pb="sm">
-            <SimpleGrid cols={{ base: 1, sm: 3 }}><Metric label="ファイルソース" value={`${index.sources.length} 件`} /><Metric label="インデックス済みチャンク" value={index.chunks} /><Metric label="同期スケジュール" value="毎日 09:00" /></SimpleGrid>
+            <SimpleGrid cols={{ base: 1, sm: 3 }}><Metric label="Indexer" value={`${index.indexer.length} 件`} /><Metric label="前回の処理ファイル数" value={`${index.indexer.reduce((total, item) => total + (item.lastProcessedFiles ?? 0), 0)} 件`} /><Metric label="ベクトル化" value={index.vectorizer} /></SimpleGrid>
             <Divider />
-            <Group justify="space-between"><Text fw={700}>ファイルソース</Text><Button variant="subtle" size="compact-sm">＋ 追加</Button></Group>
-            <Stack gap="sm">{index.sources.map(source => <Paper withBorder p="md" radius="md" key={source.name}><Group justify="space-between" align="flex-start"><Group align="flex-start" gap="sm"><ThemeIcon variant="light" color="indigo">↗</ThemeIcon><Box><Text fw={600}>{source.name}</Text><Text size="sm" c="dimmed">{source.sourceType} · {source.path}</Text></Box></Group><Box ta="right"><Text size="sm">{source.files} ファイル</Text><Text size="xs" c="dimmed">最終同期: {source.lastSync}</Text></Box></Group></Paper>)}</Stack>
-            <SimpleGrid cols={{ base: 1, sm: 2 }}><Setting label="ベクトル化" value={index.vectorizer} detail="OpenAPI エンドポイント" /><Setting label="検索 DB" value={index.store} detail="接続正常" /></SimpleGrid>
+            <Group justify="space-between"><Text fw={700}>Indexer</Text><Button variant="subtle" size="compact-sm">＋ 追加</Button></Group>
+            <Stack gap="sm">{index.indexer.map((indexer, position) => <Paper withBorder p="md" radius="md" key={`${indexer.fileSource.name}-${position}`}><Group justify="space-between" align="flex-start"><Group align="flex-start" gap="sm"><ThemeIcon variant="light" color="indigo">↗</ThemeIcon><Box><Text fw={600}>{indexer.fileSource.name}</Text><Text size="sm" c="dimmed">{formatSourceType(indexer.fileSource.uri)} · {indexer.fileSource.uri}</Text><Text size="xs" c="dimmed" mt={4}>同期: {formatSchedule(indexer.schedule.rule)}（{formatDateTime(indexer.schedule.dtstart, indexer.schedule.timezone)} 起点）</Text></Box></Group><Box ta="right"><Text size="sm">{indexer.lastProcessedFiles == null ? "未実行" : `${indexer.lastProcessedFiles} ファイル`}</Text><Text size="xs" c="dimmed">最終成功: {indexer.lastSuccess ? formatDateTime(indexer.lastSuccess, indexer.schedule.timezone) : "なし"}</Text></Box></Group></Paper>)}</Stack>
+            <Setting label="ベクトル化" value={index.vectorizer} detail="OpenAPI エンドポイント" />
             <Group justify="flex-end"><Button variant="default">設定を編集</Button><Button>今すぐ同期</Button></Group>
           </Stack></Accordion.Panel>
         </Accordion.Item>)}
@@ -56,3 +56,29 @@ export const Index = () => {
 function DateInfo({ label, value }: { label: string; value: string }) { return <Box><Text size="xs" c="dimmed">{label}</Text><Text size="sm">{value}</Text></Box>; }
 function Metric({ label, value }: { label: string; value: string }) { return <Paper bg="gray.0" p="md" radius="md"><Text size="xs" c="dimmed">{label}</Text><Text fw={700} size="lg" mt={3}>{value}</Text></Paper>; }
 function Setting({ label, value, detail }: { label: string; value: string; detail: string }) { return <Paper withBorder p="md" radius="md"><Text size="xs" c="dimmed">{label}</Text><Text fw={600} mt={3}>{value}</Text><Text size="xs" c="dimmed" mt={4}>{detail}</Text></Paper>; }
+
+const sourceTypeLabels: Record<string, string> = { fs: "Filesystem", s3: "Amazon S3", gcs: "Google Cloud Storage", azblob: "Azure Blob Storage", webdav: "WebDAV", http: "HTTP", https: "HTTPS" };
+const weekdays: Record<string, string> = { MO: "月", TU: "火", WE: "水", TH: "木", FR: "金", SA: "土", SU: "日" };
+
+function formatSourceType(uri: string) {
+  const scheme = uri.match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase();
+  return scheme ? (sourceTypeLabels[scheme] ?? scheme) : "Unknown";
+}
+
+function formatSchedule(rule: string) {
+  const fields = Object.fromEntries(rule.split(";").map(field => field.split("=", 2)).filter((field): field is [string, string] => field.length === 2));
+  const interval = fields.INTERVAL && fields.INTERVAL !== "1" ? Number(fields.INTERVAL) : 1;
+  if (fields.FREQ === "DAILY") return interval === 1 ? "毎日" : `${interval} 日おき`;
+  if (fields.FREQ === "WEEKLY") {
+    const days = fields.BYDAY?.split(",").map(day => weekdays[day] ?? day).join("・");
+    return `${interval === 1 ? "毎週" : `${interval} 週おき`}${days ? ` ${days}曜` : ""}`;
+  }
+  if (fields.FREQ === "MONTHLY") return interval === 1 ? "毎月" : `${interval} か月おき`;
+  return rule;
+}
+
+function formatDateTime(value: string, timezone: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return value;
+  return new Intl.DateTimeFormat("ja-JP", { dateStyle: "short", timeStyle: "short", timeZone: timezone }).format(date);
+}

@@ -13,9 +13,26 @@ pub struct Index {
     pub updated_at: String,
     pub status: String,
     pub vectorizer: String,
-    pub store: String,
-    pub chunks: String,
-    pub sources: Vec<FileSource>,
+    pub indexer: Vec<Indexer>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct Schedule {
+    pub timezone: String,        // "Asia/Tokyo"
+    pub dtstart: DateTime<Utc>,  // 繰り返しの基準時刻
+    pub rule: String,            // RFC 5545 RRULE
+    pub misfire_policy: String, // "skip" or "catchup"
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct Indexer {
+    pub file_source: FileSource,
+    pub schedule: Schedule,
+    pub last_start: Option<DateTime<Utc>>,
+    pub last_success: Option<DateTime<Utc>>,
+    pub last_processed_files: Option<i32>,
 }
 
 // Use OpenDAL to access files from different sources
@@ -23,10 +40,8 @@ pub struct Index {
 #[serde(rename_all = "camelCase")]
 pub struct FileSource {
     pub name: String,
-    pub source_type: String,
-    pub path: String,
-    pub files: u32,
-    pub last_sync: String,
+    pub uri: String,
+    pub extras: HashMap<String, String>,
 }
 
 /// A semantic-search hit returned to the UI.

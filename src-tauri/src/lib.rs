@@ -2,33 +2,69 @@
 use specta_typescript::Typescript;
 use tauri_specta::{collect_commands, collect_events, Builder};
 use std::time::Duration;
+use chrono::{TimeZone, Utc};
 
 pub mod models;
-use models::{FileSource, Index, SearchResult};
+use models::{FileSource, Index, Indexer, Schedule, SearchResult};
+
+fn utc_datetime(year: i32, month: u32, day: u32, hour: u32, minute: u32) -> chrono::DateTime<Utc> {
+    Utc.with_ymd_and_hms(year, month, day, hour, minute, 0)
+        .single()
+        .expect("mock date must be valid")
+}
+
+fn mock_indexer(
+    name: &str,
+    uri: &str,
+    rule: &str,
+    last_start: Option<chrono::DateTime<Utc>>,
+    last_success: Option<chrono::DateTime<Utc>>,
+    last_processed_files: Option<i32>,
+) -> Indexer {
+    Indexer {
+        file_source: FileSource {
+            name: name.into(),
+            uri: uri.into(),
+            extras: Default::default(),
+        },
+        schedule: Schedule {
+            timezone: "Asia/Tokyo".into(),
+            dtstart: utc_datetime(2026, 9, 14, 0, 0),
+            rule: rule.into(),
+            misfire_policy: "catchup".into(),
+        },
+        last_start,
+        last_success,
+        last_processed_files,
+    }
+}
 
 fn mock_indexes() -> Vec<Index> {
     vec![
         Index {
-            id: "idx_01".into(), name: "社内ナレッジ".into(), description: "チーム文書、議事録、設計資料を横断検索".into(), created_at: "2026/09/01".into(), updated_at: "2026/09/14 09:12".into(), status: "同期済み".into(), vectorizer: "Multimodal Embedding v1".into(), store: "SQLite Vector（ローカル）".into(), chunks: "4,281".into(),
-            sources: vec![
-                FileSource { name: "チーム文書".into(), source_type: "Amazon S3".into(), path: "s3://example-documents/knowledge-base".into(), files: 248, last_sync: "今日 09:12".into() },
-                FileSource { name: "ローカルノート".into(), source_type: "Filesystem".into(), path: "~/Documents/notes".into(), files: 84, last_sync: "今日 09:10".into() },
+            id: "idx_01".into(), name: "社内ナレッジ".into(), description: "チーム文書、議事録、設計資料を横断検索".into(), created_at: "2026/09/01".into(), updated_at: "2026/09/14 09:12".into(), status: "同期済み".into(), vectorizer: "Multimodal Embedding v1".into(),
+            indexer: vec![
+                mock_indexer("チーム文書", "s3://example-documents/knowledge-base", "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", Some(utc_datetime(2026, 9, 14, 0, 12)), Some(utc_datetime(2026, 9, 14, 0, 12)), Some(248)),
+                mock_indexer("ローカルノート", "fs:///Users/example/Documents/notes", "FREQ=DAILY;INTERVAL=1", Some(utc_datetime(2026, 9, 14, 0, 10)), Some(utc_datetime(2026, 9, 14, 0, 10)), Some(84)),
             ],
         },
         Index {
-            id: "idx_02".into(), name: "プロダクト資料".into(), description: "仕様書、リリースノート、UI 資産".into(), created_at: "2026/08/22".into(), updated_at: "2026/09/13 18:30".into(), status: "同期中".into(), vectorizer: "Text Embedding v3".into(), store: "SQLite Vector（ローカル）".into(), chunks: "1,926".into(),
-            sources: vec![FileSource { name: "プロダクトリポジトリ".into(), source_type: "Filesystem".into(), path: "~/work/product/docs".into(), files: 127, last_sync: "同期中".into() }],
+            id: "idx_02".into(), name: "プロダクト資料".into(), description: "仕様書、リリースノート、UI 資産".into(), created_at: "2026/08/22".into(), updated_at: "2026/09/13 18:30".into(), status: "同期中".into(), vectorizer: "Text Embedding v3".into(),
+            indexer: vec![mock_indexer("プロダクトリポジトリ", "fs:///Users/example/work/product/docs", "FREQ=DAILY;INTERVAL=1", Some(utc_datetime(2026, 9, 14, 0, 15)), Some(utc_datetime(2026, 9, 13, 9, 30)), Some(127))],
         },
         Index {
-            id: "idx_03".into(), name: "デザインアセット".into(), description: "ブランド画像とデザインガイドライン".into(), created_at: "2026/09/05".into(), updated_at: "2026/09/12 16:04".into(), status: "エラー".into(), vectorizer: "Vision Embedding v2".into(), store: "SQLite Vector（ローカル）".into(), chunks: "3,740".into(),
-            sources: vec![FileSource { name: "画像アーカイブ".into(), source_type: "Amazon S3".into(), path: "s3://example-assets/design".into(), files: 312, last_sync: "09/12 16:04".into() }],
+            id: "idx_03".into(), name: "デザインアセット".into(), description: "ブランド画像とデザインガイドライン".into(), created_at: "2026/09/05".into(), updated_at: "2026/09/12 16:04".into(), status: "エラー".into(), vectorizer: "Vision Embedding v2".into(),
+            indexer: vec![mock_indexer("画像アーカイブ", "s3://example-assets/design", "FREQ=WEEKLY;BYDAY=FR", Some(utc_datetime(2026, 9, 12, 7, 4)), None, None)],
         },
     ]
 }
 
 #[tauri::command]
 #[specta::specta]
-fn list_indexes() -> Vec<Index> { mock_indexes() }
+async fn list_indexes() -> Vec<Index> { 
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    mock_indexes()
+}
 
 #[tauri::command]
 #[specta::specta]

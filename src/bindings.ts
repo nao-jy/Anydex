@@ -12,10 +12,8 @@ export const commands = {
 /* Types */
 export type FileSource = {
 	name: string,
-	sourceType: string,
-	path: string,
-	files: number,
-	lastSync: string,
+	uri: string,
+	extras: { [key in string]: string },
 };
 
 export type Index = {
@@ -26,9 +24,22 @@ export type Index = {
 	updatedAt: string,
 	status: string,
 	vectorizer: string,
-	store: string,
-	chunks: string,
-	sources: FileSource[],
+	indexer: Indexer[],
+};
+
+export type Indexer = {
+	fileSource: FileSource,
+	schedule: Schedule,
+	lastStart: string | null,
+	lastSuccess: string | null,
+	lastProcessedFiles: number | null,
+};
+
+export type Schedule = {
+	timezone: string,
+	dtstart: string,
+	rule: string,
+	misfirePolicy: string,
 };
 
 /**  A semantic-search hit returned to the UI. */
