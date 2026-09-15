@@ -50,6 +50,11 @@ export const Mcp = () => {
     onSuccess: () =>
       void queryClient.invalidateQueries({ queryKey: ["mcpServers"] }),
   });
+  const setServerRunning = useMutation({
+    mutationFn: (running: boolean) => commands.setMcpServerRunning(running),
+    onSuccess: () =>
+      void queryClient.invalidateQueries({ queryKey: ["mcpServers"] }),
+  });
 
   const server = servers[0];
   useEffect(() => {
@@ -97,8 +102,11 @@ export const Mcp = () => {
                   <Box>
                     <Group gap="sm">
                       <Text fw={700}>{server.name}</Text>
-                      <Badge color="teal" variant="light">
-                        稼働中
+                      <Badge
+                        color={server.status === "running" ? "teal" : "gray"}
+                        variant="light"
+                      >
+                        {server.status === "running" ? "稼働中" : "停止中"}
                       </Badge>
                     </Group>
                     <Text size="sm" c="dimmed" mt={4}>
@@ -117,8 +125,23 @@ export const Mcp = () => {
                   value={`${server.enabledIndexCount} 件`}
                 />
                 <Metric label="接続先" value={server.host} />
-                <Metric label="ステータス" value="稼働中" />
+                <Metric
+                  label="ステータス"
+                  value={server.status === "running" ? "稼働中" : "停止中"}
+                />
               </SimpleGrid>
+              <Group justify="flex-end" mt="lg">
+                <Button
+                  color={server.status === "running" ? "red" : "teal"}
+                  variant={server.status === "running" ? "light" : "filled"}
+                  onClick={() =>
+                    setServerRunning.mutate(server.status !== "running")
+                  }
+                  loading={setServerRunning.isPending}
+                >
+                  {server.status === "running" ? "サーバーを停止" : "サーバーを起動"}
+                </Button>
+              </Group>
             </Card>
 
             <Card withBorder radius="md" padding="lg">

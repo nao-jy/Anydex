@@ -19,6 +19,7 @@ use dto::models::{
 struct MockState {
     mcp_index_overrides: Mutex<HashMap<i32, bool>>,
     mcp_port: Mutex<u16>,
+    mcp_server_started_at: Mutex<Option<chrono::DateTime<Utc>>>,
 }
 
 impl Default for MockState {
@@ -26,6 +27,7 @@ impl Default for MockState {
         Self {
             mcp_index_overrides: Mutex::new(HashMap::new()),
             mcp_port: Mutex::new(3001),
+            mcp_server_started_at: Mutex::new(Some(utc_datetime(2026, 9, 15, 9, 30))),
         }
     }
 }
@@ -272,13 +274,18 @@ fn list_mcp_servers(state: State<'_, MockState>) -> Vec<McpServer> {
         .mcp_port
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let started_at = *state
+        .mcp_server_started_at
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let is_running = started_at.is_some();
 
     vec![McpServer {
         name: "Anydex MCP Server".into(),
         host: "127.0.0.1".into(),
         port,
-        status: "running".into(),
-        started_at: Some(utc_datetime(2026, 9, 15, 9, 30)),
+        status: if is_running { "running" } else { "stopped" }.into(),
+        started_at,
         enabled_index_count,
     }]
 }
@@ -292,6 +299,18 @@ fn set_mcp_server_port(port: u16, state: State<'_, MockState>) {
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner()) = port;
     tracing::info!(port, "mock MCP server port updated");
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(state))]
+fn set_mcp_server_running(running: bool, state: State<'_, MockState>) {
+    *state
+        .mcp_server_started_at
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) =
+        if running { Some(Utc::now()) } else { None };
+    tracing::info!(running, "mock MCP server state updated");
 }
 
 #[tauri::command]
@@ -392,6 +411,7 @@ pub fn run() {
             set_index_mcp_server,
             list_mcp_servers,
             set_mcp_server_port,
+            set_mcp_server_running,
             list_active_tasks,
             get_application_settings,
             reload_plugins,
@@ -428,6 +448,7 @@ pub fn run() {
             set_index_mcp_server,
             list_mcp_servers,
             set_mcp_server_port,
+            set_mcp_server_running,
             list_active_tasks,
             get_application_settings,
             reload_plugins,
@@ -451,6 +472,7 @@ mod tests {
                 set_index_mcp_server,
                 list_mcp_servers,
                 set_mcp_server_port,
+                set_mcp_server_running,
                 list_active_tasks,
                 get_application_settings,
                 reload_plugins,

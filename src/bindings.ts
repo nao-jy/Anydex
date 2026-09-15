@@ -9,6 +9,7 @@ export const commands = {
 	setIndexMcpServer: (indexId: number, enabled: boolean) => __TAURI_INVOKE<void>("set_index_mcp_server", { indexId, enabled }),
 	listMcpServers: () => __TAURI_INVOKE<McpServer[]>("list_mcp_servers"),
 	setMcpServerPort: (port: number) => __TAURI_INVOKE<void>("set_mcp_server_port", { port }),
+	setMcpServerRunning: (running: boolean) => __TAURI_INVOKE<void>("set_mcp_server_running", { running }),
 	listActiveTasks: () => __TAURI_INVOKE<Task[]>("list_active_tasks"),
 	getApplicationSettings: () => __TAURI_INVOKE<ApplicationSettings>("get_application_settings"),
 	reloadPlugins: () => __TAURI_INVOKE<PluginReloadResult>("reload_plugins"),
