@@ -1,17 +1,58 @@
-import { ActionIcon, AppShell, Box, Button, Group, Text, ThemeIcon, useMantineColorScheme } from "@mantine/core";
+import {
+  ActionIcon,
+  AppShell,
+  Button,
+  Group,
+  Text,
+  useMantineColorScheme,
+} from "@mantine/core";
 import { Link, Outlet, useLocation } from "react-router";
 
 export const Layout = () => {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const location = useLocation();
-  const navButton = (to: string, label: string) => <Button component={Link} to={to} variant={location.pathname === to ? "light" : "subtle"} color="gray" size="compact-sm">{label}</Button>;
-  return <AppShell header={{ height: 60 }} padding={0}>
+  const navButton = (to: string, label: string) => (
+    <Button
+      component={Link}
+      to={to}
+      variant={location.pathname === to ? "light" : "subtle"}
+      color="gray"
+      size="compact-sm"
+    >
+      {label}
+    </Button>
+  );
+  return (
+    <AppShell header={{ height: 60 }} padding={0}>
       <AppShell.Header>
         <Group h="100%" px="xl" justify="space-between">
-          <Group gap="xl"><Group gap="sm"><ThemeIcon variant="filled" radius="md" size={32}>A</ThemeIcon><Box><Text fw={700} size="lg" lh={1.1}>Anydex</Text><Text size="xs" c="dimmed">Multimodal knowledge search</Text></Box></Group><Group gap={4}>{navButton("/index", "インデックス")}{navButton("/search", "検索")}</Group></Group>
-          <Group gap="sm"><Text size="sm" c="dimmed" visibleFrom="sm">ローカルサービス稼働中</Text><ActionIcon variant="default" size="lg" aria-label="ダークモードを切り替え" onClick={() => toggleColorScheme()}>{colorScheme === "dark" ? "☀" : "◐"}</ActionIcon></Group>
+          <Group gap="xl">
+            <Group gap={4}>
+              {navButton("/index", "インデックス")}
+              {navButton("/search", "検索")}
+              {navButton("/mcp", "MCPサーバー")}
+              {navButton("/tasks", "タスク")}
+              {navButton("/settings", "設定")}
+            </Group>
+          </Group>
+          <Group gap="sm">
+            <Text size="sm" c="dimmed" visibleFrom="sm">
+              ローカルサービス稼働中
+            </Text>
+            <ActionIcon
+              variant="default"
+              size="lg"
+              aria-label="ダークモードを切り替え"
+              onClick={() => toggleColorScheme()}
+            >
+              {colorScheme === "dark" ? "☀" : "◐"}
+            </ActionIcon>
+          </Group>
         </Group>
       </AppShell.Header>
-      <AppShell.Main><Outlet /></AppShell.Main>
-    </AppShell>;
+      <AppShell.Main>
+        <Outlet />
+      </AppShell.Main>
+    </AppShell>
+  );
 };

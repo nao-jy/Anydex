@@ -119,7 +119,7 @@ pub mod oauth_authentication {
         #[sea_orm(belongs_to, from = "file_source_id", to = "id")]
         pub file_source: BelongsTo<super::file_source::Entity>,
         #[sea_orm(belongs_to, from = "oauth_id", to = "id")]
-        pub oauth: BelongsTo<super::oauth::Entity>,
+        pub oauth_client: BelongsTo<super::oauth_client::Entity>,
     }
 
     impl ActiveModelBehavior for ActiveModel {}
@@ -148,6 +148,8 @@ pub mod indexer {
         pub schedule: HasOne<super::schedule::Entity>,
         #[sea_orm(belongs_to, from = "index_id", to = "id")]
         pub index: BelongsTo<super::index::Entity>,
+        #[sea_orm(has_many)]
+        pub tasks: HasMany<super::task::Entity>,
     }
 
     impl ActiveModelBehavior for ActiveModel {}
@@ -196,7 +198,7 @@ pub mod file {
         #[sea_orm(unique_key = "file_source_uri")]
         pub uri: String,
         pub content_type: String,
-        pub size: i64,
+        pub size: u64,
         pub updated_at: DateTimeUtc,
         #[sea_orm(belongs_to, from = "file_source_id", to = "id")]
         pub file_source: BelongsTo<super::file_source::Entity>,
@@ -214,17 +216,20 @@ pub mod task {
     pub struct Model {
         #[sea_orm(primary_key)]
         pub id: i32,
+        pub indexer_id: i32,
         pub task_type: String,
         pub status: String,
         pub started_at: Option<DateTimeUtc>,
         pub completed_at: Option<DateTimeUtc>,
         pub state: Json,
+        #[sea_orm(belongs_to, from = "indexer_id", to = "id")]
+        pub indexer: BelongsTo<super::indexer::Entity>,
     }
 
     impl ActiveModelBehavior for ActiveModel {}
 }
 
-pub mod oauth {
+pub mod oauth_client {
     use sea_orm::entity::prelude::*;
 
     #[sea_orm::model]

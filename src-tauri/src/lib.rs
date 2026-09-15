@@ -1,10 +1,12 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-use specta_typescript::Typescript;
-use tauri_specta::{collect_commands, collect_events, Builder};
-use std::time::Duration;
 use chrono::{TimeZone, Utc};
+use specta_typescript::Typescript;
+use std::time::Duration;
+use tauri_specta::{collect_commands, collect_events, Builder};
 
+pub mod dto;
 pub mod repository;
+use dto::models::{Embedder, FileSource, Index, Indexer, Schedule, SearchResult, VectorStore};
 
 fn utc_datetime(year: i32, month: u32, day: u32, hour: u32, minute: u32) -> chrono::DateTime<Utc> {
     Utc.with_ymd_and_hms(year, month, day, hour, minute, 0)
@@ -13,6 +15,8 @@ fn utc_datetime(year: i32, month: u32, day: u32, hour: u32, minute: u32) -> chro
 }
 
 fn mock_indexer(
+    id: i32,
+    index_id: i32,
     name: &str,
     uri: &str,
     rule: &str,
@@ -21,46 +25,149 @@ fn mock_indexer(
     last_processed_files: Option<i32>,
 ) -> Indexer {
     Indexer {
+        id,
+        index_id,
+        extractor_name: "opendal".into(),
+        params: serde_json::json!({}),
         file_source: FileSource {
+            id,
+            indexer_id: id,
             name: name.into(),
-            uri: uri.into(),
-            extras: Default::default(),
+            params: serde_json::json!({ "root_uri": uri }),
+            files: vec![],
+            oauth_client: None,
         },
         schedule: Schedule {
+            id,
+            indexer_id: id,
             timezone: "Asia/Tokyo".into(),
             dtstart: utc_datetime(2026, 9, 14, 0, 0),
-            rule: rule.into(),
+            rfc5545_rule: rule.into(),
             misfire_policy: "catchup".into(),
         },
         last_start,
         last_success,
         last_processed_files,
+        tasks: vec![],
     }
 }
 
 fn mock_indexes() -> Vec<Index> {
     vec![
         Index {
-            id: 1, name: "社内ナレッジ".into(), description: "チーム文書、議事録、設計資料を横断検索".into(), created_at: utc_datetime(2026, 9, 1, 0, 0), updated_at: utc_datetime(2026, 9, 14, 9, 12), status: "同期済み".into(), vectorizer: Vectorizer { name: "Text Embedding v3".into(), endpoints: Default::default(), dimensions: 768 },
-            indexer: vec![
-                mock_indexer("チーム文書", "s3://example-documents/knowledge-base", "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", Some(utc_datetime(2026, 9, 14, 0, 12)), Some(utc_datetime(2026, 9, 14, 0, 12)), Some(248)),
-                mock_indexer("ローカルノート", "fs:///Users/example/Documents/notes", "FREQ=DAILY;INTERVAL=1", Some(utc_datetime(2026, 9, 14, 0, 10)), Some(utc_datetime(2026, 9, 14, 0, 10)), Some(84)),
+            id: 1,
+            name: "社内ナレッジ".into(),
+            description: "チーム文書、議事録、設計資料を横断検索".into(),
+            created_at: utc_datetime(2026, 9, 1, 0, 0),
+            updated_at: utc_datetime(2026, 9, 14, 9, 12),
+            use_mcp_server: false,
+            embedder: Embedder {
+                id: 1,
+                index_id: 1,
+                name: "Text Embedding v3".into(),
+                dimensions: 768,
+                params: serde_json::json!({}),
+            },
+            vector_store: VectorStore {
+                id: 1,
+                index_id: 1,
+                name: "sqlite-vec".into(),
+                dimensions: 768,
+                params: serde_json::json!({}),
+            },
+            indexers: vec![
+                mock_indexer(
+                    1,
+                    1,
+                    "チーム文書",
+                    "s3://example-documents/knowledge-base",
+                    "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
+                    Some(utc_datetime(2026, 9, 14, 0, 12)),
+                    Some(utc_datetime(2026, 9, 14, 0, 12)),
+                    Some(248),
+                ),
+                mock_indexer(
+                    2,
+                    1,
+                    "ローカルノート",
+                    "fs:///Users/example/Documents/notes",
+                    "FREQ=DAILY;INTERVAL=1",
+                    Some(utc_datetime(2026, 9, 14, 0, 10)),
+                    Some(utc_datetime(2026, 9, 14, 0, 10)),
+                    Some(84),
+                ),
             ],
         },
         Index {
-            id: 2, name: "プロダクト資料".into(), description: "仕様書、リリースノート、UI 資産".into(), created_at: utc_datetime(2026, 8, 22, 0, 0), updated_at: utc_datetime(2026, 9, 13, 18, 30), status: "同期中".into(), vectorizer: Vectorizer { name: "Text Embedding v3".into(), endpoints: Default::default(), dimensions: 768 },
-            indexer: vec![mock_indexer("プロダクトリポジトリ", "fs:///Users/example/work/product/docs", "FREQ=DAILY;INTERVAL=1", Some(utc_datetime(2026, 9, 14, 0, 15)), Some(utc_datetime(2026, 9, 13, 9, 30)), Some(127))],
+            id: 2,
+            name: "プロダクト資料".into(),
+            description: "仕様書、リリースノート、UI 資産".into(),
+            created_at: utc_datetime(2026, 8, 22, 0, 0),
+            updated_at: utc_datetime(2026, 9, 13, 18, 30),
+            use_mcp_server: false,
+            embedder: Embedder {
+                id: 2,
+                index_id: 2,
+                name: "Text Embedding v3".into(),
+                dimensions: 768,
+                params: serde_json::json!({}),
+            },
+            vector_store: VectorStore {
+                id: 2,
+                index_id: 2,
+                name: "sqlite-vec".into(),
+                dimensions: 768,
+                params: serde_json::json!({}),
+            },
+            indexers: vec![mock_indexer(
+                3,
+                2,
+                "プロダクトリポジトリ",
+                "fs:///Users/example/work/product/docs",
+                "FREQ=DAILY;INTERVAL=1",
+                Some(utc_datetime(2026, 9, 14, 0, 15)),
+                Some(utc_datetime(2026, 9, 13, 9, 30)),
+                Some(127),
+            )],
         },
         Index {
-            id: 3, name: "デザインアセット".into(), description: "ブランド画像とデザインガイドライン".into(), created_at: utc_datetime(2026, 9, 5, 0, 0), updated_at: utc_datetime(2026, 9, 12, 16, 4), status: "エラー".into(), vectorizer: Vectorizer { name: "Text Embedding v3".into(), endpoints: Default::default(), dimensions: 768 },
-            indexer: vec![mock_indexer("画像アーカイブ", "s3://example-assets/design", "FREQ=WEEKLY;BYDAY=FR", Some(utc_datetime(2026, 9, 12, 7, 4)), None, None)],
+            id: 3,
+            name: "デザインアセット".into(),
+            description: "ブランド画像とデザインガイドライン".into(),
+            created_at: utc_datetime(2026, 9, 5, 0, 0),
+            updated_at: utc_datetime(2026, 9, 12, 16, 4),
+            use_mcp_server: true,
+            embedder: Embedder {
+                id: 3,
+                index_id: 3,
+                name: "Text Embedding v3".into(),
+                dimensions: 768,
+                params: serde_json::json!({}),
+            },
+            vector_store: VectorStore {
+                id: 3,
+                index_id: 3,
+                name: "sqlite-vec".into(),
+                dimensions: 768,
+                params: serde_json::json!({}),
+            },
+            indexers: vec![mock_indexer(
+                4,
+                3,
+                "画像アーカイブ",
+                "s3://example-assets/design",
+                "FREQ=WEEKLY;BYDAY=FR",
+                Some(utc_datetime(2026, 9, 12, 7, 4)),
+                None,
+                None,
+            )],
         },
     ]
 }
 
 #[tauri::command]
 #[specta::specta]
-async fn list_indexes() -> Vec<Index> { 
+async fn list_indexes() -> Vec<Index> {
     tokio::time::sleep(Duration::from_secs(1)).await;
     mock_indexes()
 }
@@ -99,4 +206,23 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![greet, list_indexes, search_mock])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exports_typescript_bindings() {
+        let output = std::env::temp_dir().join("anydex-bindings-export-test.ts");
+        let builder: Builder<tauri::Wry> = Builder::new()
+            .commands(collect_commands![greet, list_indexes, search_mock])
+            .events(collect_events![]);
+
+        builder
+            .export(Typescript::default(), &output)
+            .expect("DTOs must export to TypeScript");
+
+        std::fs::remove_file(output).expect("test binding file must be removable");
+    }
 }

@@ -10,44 +10,93 @@ export const commands = {
 };
 
 /* Types */
-export type APISchema = {
-	endpoint: string,
-	request_schema: string,
+export type Embedder = {
+	id: number,
+	indexId: number,
+	name: string,
+	dimensions: number,
+	params: any,
 };
 
-export type FileSource = {
+export type File = {
+	id: number,
+	fileSourceId: number,
 	name: string,
 	uri: string,
-	extras: { [key in string]: string },
+	contentType: string,
+	/**
+	 *  Byte count serialized as a decimal string to avoid JavaScript integer
+	 *  precision loss. Convert from the repository model with `to_string()`.
+	 */
+	size: string,
+	updatedAt: string,
 };
 
+/**  OpenDAL file-source configuration and the files discovered from it. */
+export type FileSource = {
+	id: number,
+	indexerId: number,
+	name: string,
+	params: any,
+	files: File[],
+	oauthClient: OAuthClient | null,
+};
+
+/**
+ *  Index configuration returned to the UI.
+ * 
+ *  This mirrors the aggregate rooted at `repository::models::index`. Related
+ *  entities are loaded explicitly by the repository before constructing it.
+ */
 export type Index = {
 	id: number,
 	name: string,
 	description: string,
 	createdAt: string,
 	updatedAt: string,
-	status: string,
-	vectorizer: Vectorizer,
-	indexer: Indexer[],
+	useMcpServer: boolean,
+	embedder: Embedder,
+	vectorStore: VectorStore,
+	indexers: Indexer[],
 };
 
 export type Indexer = {
-	fileSource: FileSource,
-	schedule: Schedule,
+	id: number,
+	indexId: number,
+	extractorName: string,
+	params: any,
 	lastStart: string | null,
 	lastSuccess: string | null,
 	lastProcessedFiles: number | null,
+	fileSource: FileSource,
+	schedule: Schedule,
+	tasks: Task[],
+};
+
+/**
+ *  OAuth client configuration for management screens. PKCE has no client
+ *  secret, but token values are never included here.
+ */
+export type OAuthClient = {
+	id: number,
+	name: string,
+	clientId: string,
+	authorizationEndpoint: string,
+	tokenEndpoint: string,
+	refreshEndpoint: string | null,
+	scopes: any,
 };
 
 export type Schedule = {
+	id: number,
+	indexerId: number,
 	timezone: string,
 	dtstart: string,
-	rule: string,
+	rfc5545Rule: string,
 	misfirePolicy: string,
 };
 
-/**  A semantic-search hit returned to the UI. */
+/**  A semantic-search hit returned to the UI. This is not a persistence entity. */
 export type SearchResult = {
 	title: string,
 	source: string,
@@ -57,9 +106,21 @@ export type SearchResult = {
 	updatedAt: string,
 };
 
-export type Vectorizer = {
+export type Task = {
+	id: number,
+	indexerId: number,
+	taskType: string,
+	status: string,
+	startedAt: string | null,
+	completedAt: string | null,
+	state: any,
+};
+
+export type VectorStore = {
+	id: number,
+	indexId: number,
 	name: string,
-	endpoints: { [key in string]: APISchema },
 	dimensions: number,
+	params: any,
 };
 
