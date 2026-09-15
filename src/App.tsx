@@ -5,7 +5,10 @@ import { BrowserRouter, Routes, Route } from "react-router";
 import "@mantine/core/styles.css";
 import { Layout } from "./components/Layout";
 import { Index } from "./components/Index";
+import { Mcp } from "./components/Mcp";
 import { Search } from "./components/Search";
+import { Settings } from "./components/Settings";
+import { Tasks } from "./components/Tasks";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +36,9 @@ function AppInner() {
           <Route index element={<Index />} />
           <Route path="index" element={<Index />} />
           <Route path="search" element={<Search />} />
+          <Route path="mcp" element={<Mcp />} />
+          <Route path="tasks" element={<Tasks />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </BrowserRouter>

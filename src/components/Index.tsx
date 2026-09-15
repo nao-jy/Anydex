@@ -264,15 +264,6 @@ function Setting({
   );
 }
 
-const sourceTypeLabels: Record<string, string> = {
-  fs: "Filesystem",
-  s3: "Amazon S3",
-  gcs: "Google Cloud Storage",
-  azblob: "Azure Blob Storage",
-  webdav: "WebDAV",
-  http: "HTTP",
-  https: "HTTPS",
-};
 const weekdays: Record<string, string> = {
   MO: "月",
   TU: "火",
@@ -282,11 +273,6 @@ const weekdays: Record<string, string> = {
   SA: "土",
   SU: "日",
 };
-
-function formatSourceType(uri: string) {
-  const scheme = uri.match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase();
-  return scheme ? (sourceTypeLabels[scheme] ?? scheme) : "Unknown";
-}
 
 function formatSchedule(rule: string) {
   const fields = Object.fromEntries(

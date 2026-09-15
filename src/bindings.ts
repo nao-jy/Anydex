@@ -6,10 +6,23 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 export const commands = {
 	greet: (name: string) => __TAURI_INVOKE<string>("greet", { name }),
 	listIndexes: () => __TAURI_INVOKE<Index[]>("list_indexes"),
+	setIndexMcpServer: (indexId: number, enabled: boolean) => __TAURI_INVOKE<void>("set_index_mcp_server", { indexId, enabled }),
+	listMcpServers: () => __TAURI_INVOKE<McpServer[]>("list_mcp_servers"),
+	setMcpServerPort: (port: number) => __TAURI_INVOKE<void>("set_mcp_server_port", { port }),
+	listActiveTasks: () => __TAURI_INVOKE<Task[]>("list_active_tasks"),
+	getApplicationSettings: () => __TAURI_INVOKE<ApplicationSettings>("get_application_settings"),
+	reloadPlugins: () => __TAURI_INVOKE<PluginReloadResult>("reload_plugins"),
 	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),
 };
 
 /* Types */
+/**  Locations and plugin discovery settings displayed by the settings screen. */
+export type ApplicationSettings = {
+	databasePath: string,
+	logDirectory: string,
+	pluginDirectories: PluginDirectory[],
+};
+
 export type Embedder = {
 	id: number,
 	indexId: number,
@@ -73,6 +86,17 @@ export type Indexer = {
 	tasks: Task[],
 };
 
+/**  Status of the local MCP server exposed by the application. */
+export type McpServer = {
+	name: string,
+	host: string,
+	port: number,
+	status: string,
+	startedAt: string | null,
+	connectedClients: number,
+	enabledIndexCount: number,
+};
+
 /**
  *  OAuth client configuration for management screens. PKCE has no client
  *  secret, but token values are never included here.
@@ -85,6 +109,18 @@ export type OAuthClient = {
 	tokenEndpoint: string,
 	refreshEndpoint: string | null,
 	scopes: any,
+};
+
+export type PluginDirectory = {
+	name: string,
+	path: string,
+	pluginCount: number,
+};
+
+/**  Result returned after the mock plugin registry has been refreshed. */
+export type PluginReloadResult = {
+	reloadedAt: string,
+	discoveredPlugins: number,
 };
 
 export type Schedule = {

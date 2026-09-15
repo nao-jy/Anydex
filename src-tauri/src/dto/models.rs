@@ -135,3 +135,41 @@ pub struct SearchResult {
     pub excerpt: String,
     pub updated_at: String,
 }
+
+/// Status of the local MCP server exposed by the application.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct McpServer {
+    pub name: String,
+    pub host: String,
+    pub port: u16,
+    pub status: String,
+    pub started_at: Option<DateTime<Utc>>,
+    pub connected_clients: i32,
+    pub enabled_index_count: i32,
+}
+
+/// Locations and plugin discovery settings displayed by the settings screen.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ApplicationSettings {
+    pub database_path: String,
+    pub log_directory: String,
+    pub plugin_directories: Vec<PluginDirectory>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginDirectory {
+    pub name: String,
+    pub path: String,
+    pub plugin_count: i32,
+}
+
+/// Result returned after the mock plugin registry has been refreshed.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginReloadResult {
+    pub reloaded_at: DateTime<Utc>,
+    pub discovered_plugins: i32,
+}

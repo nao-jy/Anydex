@@ -1,14 +1,34 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use chrono::{TimeZone, Utc};
 use specta_typescript::Typescript;
-use std::time::Duration;
-use tauri::Manager;
+use std::{collections::HashMap, path::PathBuf, sync::Mutex, time::Duration};
+use tauri::{Manager, State};
 use tauri_specta::{collect_commands, collect_events, Builder};
 
 pub mod dto;
 pub mod logging;
 pub mod repository;
-use dto::models::{Embedder, FileSource, Index, Indexer, Schedule, SearchResult, VectorStore};
+use dto::models::{
+    ApplicationSettings, Embedder, FileSource, Index, Indexer, McpServer, PluginDirectory,
+    PluginReloadResult, Schedule, SearchResult, Task, VectorStore,
+};
+
+/// Mutable process-local state used by the management-screen mocks until the
+/// corresponding settings are persisted in the application database.
+#[derive(Debug)]
+struct MockState {
+    mcp_index_overrides: Mutex<HashMap<i32, bool>>,
+    mcp_port: Mutex<u16>,
+}
+
+impl Default for MockState {
+    fn default() -> Self {
+        Self {
+            mcp_index_overrides: Mutex::new(HashMap::new()),
+            mcp_port: Mutex::new(3001),
+        }
+    }
+}
 
 fn utc_datetime(year: i32, month: u32, day: u32, hour: u32, minute: u32) -> chrono::DateTime<Utc> {
     Utc.with_ymd_and_hms(year, month, day, hour, minute, 0)
@@ -50,7 +70,37 @@ fn mock_indexer(
         last_start,
         last_success,
         last_processed_files,
-        tasks: vec![],
+        tasks: match id {
+            1 => vec![Task {
+                id: 101,
+                indexer_id: id,
+                task_type: "同期".into(),
+                status: "running".into(),
+                started_at: Some(utc_datetime(2026, 9, 15, 9, 42)),
+                completed_at: None,
+                state: serde_json::json!({
+                    "phase": "embedding",
+                    "progress": 68,
+                    "processedFiles": 170,
+                    "totalFiles": 248,
+                }),
+            }],
+            3 => vec![Task {
+                id: 102,
+                indexer_id: id,
+                task_type: "同期".into(),
+                status: "running".into(),
+                started_at: Some(utc_datetime(2026, 9, 15, 10, 5)),
+                completed_at: None,
+                state: serde_json::json!({
+                    "phase": "scanning",
+                    "progress": 24,
+                    "processedFiles": 31,
+                    "totalFiles": 127,
+                }),
+            }],
+            _ => vec![],
+        },
     }
 }
 
@@ -169,13 +219,145 @@ fn mock_indexes() -> Vec<Index> {
 
 #[tauri::command]
 #[specta::specta]
-#[tracing::instrument]
-async fn list_indexes() -> Vec<Index> {
+#[tracing::instrument(skip(state))]
+fn list_indexes(state: State<'_, MockState>) -> Vec<Index> {
     tracing::info!("listing indexes");
-    tokio::time::sleep(Duration::from_secs(1)).await;
-    let indexes = mock_indexes();
+    let overrides = state
+        .mcp_index_overrides
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let indexes = mock_indexes()
+        .into_iter()
+        .map(|mut index| {
+            if let Some(enabled) = overrides.get(&index.id) {
+                index.use_mcp_server = *enabled;
+            }
+            index
+        })
+        .collect::<Vec<_>>();
     tracing::info!(count = indexes.len(), "indexes listed");
     indexes
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(state))]
+fn set_index_mcp_server(index_id: i32, enabled: bool, state: State<'_, MockState>) {
+    state
+        .mcp_index_overrides
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(index_id, enabled);
+    tracing::info!(index_id, enabled, "mock MCP index setting updated");
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(state))]
+fn list_mcp_servers(state: State<'_, MockState>) -> Vec<McpServer> {
+    let overrides = state
+        .mcp_index_overrides
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let enabled_index_count = mock_indexes()
+        .iter()
+        .filter(|index| {
+            overrides
+                .get(&index.id)
+                .copied()
+                .unwrap_or(index.use_mcp_server)
+        })
+        .count() as i32;
+    let port = *state
+        .mcp_port
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    vec![McpServer {
+        name: "Anydex MCP Server".into(),
+        host: "127.0.0.1".into(),
+        port,
+        status: "running".into(),
+        started_at: Some(utc_datetime(2026, 9, 15, 9, 30)),
+        connected_clients: 2,
+        enabled_index_count,
+    }]
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(state))]
+fn set_mcp_server_port(port: u16, state: State<'_, MockState>) {
+    *state
+        .mcp_port
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = port;
+    tracing::info!(port, "mock MCP server port updated");
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument]
+async fn list_active_tasks() -> Vec<Task> {
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    mock_indexes()
+        .into_iter()
+        .flat_map(|index| index.indexers)
+        .flat_map(|indexer| indexer.tasks)
+        .filter(|task| task.status == "running")
+        .collect()
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(app))]
+fn get_application_settings(app: tauri::AppHandle) -> ApplicationSettings {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
+    let log_directory = app
+        .path()
+        .app_log_dir()
+        .unwrap_or_else(|_| app_data_dir.join("logs"));
+
+    ApplicationSettings {
+        database_path: app_data_dir.join("anydex.sqlite3").display().to_string(),
+        log_directory: log_directory.display().to_string(),
+        plugin_directories: vec![
+            PluginDirectory {
+                name: "抽出器".into(),
+                path: app_data_dir
+                    .join("plugins/extractors")
+                    .display()
+                    .to_string(),
+                plugin_count: 2,
+            },
+            PluginDirectory {
+                name: "ベクトルストア".into(),
+                path: app_data_dir
+                    .join("plugins/vector-stores")
+                    .display()
+                    .to_string(),
+                plugin_count: 1,
+            },
+            PluginDirectory {
+                name: "ベクトル化".into(),
+                path: app_data_dir.join("plugins/embedders").display().to_string(),
+                plugin_count: 1,
+            },
+        ],
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument]
+fn reload_plugins() -> PluginReloadResult {
+    PluginReloadResult {
+        reloaded_at: Utc::now(),
+        discovered_plugins: 4,
+    }
 }
 
 #[tauri::command]
@@ -205,7 +387,17 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder: Builder<tauri::Wry> = Builder::new()
-        .commands(collect_commands![greet, list_indexes, search_mock])
+        .commands(collect_commands![
+            greet,
+            list_indexes,
+            set_index_mcp_server,
+            list_mcp_servers,
+            set_mcp_server_port,
+            list_active_tasks,
+            get_application_settings,
+            reload_plugins,
+            search_mock
+        ])
         .events(collect_events![]);
 
     #[cfg(debug_assertions)]
@@ -215,14 +407,33 @@ pub fn run() {
 
     tauri::Builder::default()
         .setup(|app| {
+            app.manage(MockState::default());
             let (log_guard, log_dir) = logging::init(app)?;
             app.manage(log_guard);
             tracing::info!(path = %log_dir.display(), "file logging initialized");
+
+            let app_data_dir = app.path().app_data_dir()?;
+            std::fs::create_dir_all(&app_data_dir)?;
+            let database_path = app_data_dir.join("anydex.sqlite3");
+            let database_url = repository::sqlite_database_url(&database_path)?;
+            let database = tauri::async_runtime::block_on(repository::initialize(&database_url))?;
+            app.manage(database);
+            tracing::info!(path = %database_path.display(), "application database initialized");
             Ok(())
         })
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, list_indexes, search_mock])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            list_indexes,
+            set_index_mcp_server,
+            list_mcp_servers,
+            set_mcp_server_port,
+            list_active_tasks,
+            get_application_settings,
+            reload_plugins,
+            search_mock
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -233,15 +444,23 @@ mod tests {
 
     #[test]
     fn exports_typescript_bindings() {
-        let output = std::env::temp_dir().join("anydex-bindings-export-test.ts");
+        let output = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/bindings.ts");
         let builder: Builder<tauri::Wry> = Builder::new()
-            .commands(collect_commands![greet, list_indexes, search_mock])
+            .commands(collect_commands![
+                greet,
+                list_indexes,
+                set_index_mcp_server,
+                list_mcp_servers,
+                set_mcp_server_port,
+                list_active_tasks,
+                get_application_settings,
+                reload_plugins,
+                search_mock
+            ])
             .events(collect_events![]);
 
         builder
             .export(Typescript::default(), &output)
             .expect("DTOs must export to TypeScript");
-
-        std::fs::remove_file(output).expect("test binding file must be removable");
     }
 }
