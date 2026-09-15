@@ -47,7 +47,8 @@ export const Mcp = () => {
   });
   const setPort = useMutation({
     mutationFn: (port: number) => commands.setMcpServerPort(port),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["mcpServers"] }),
+    onSuccess: () =>
+      void queryClient.invalidateQueries({ queryKey: ["mcpServers"] }),
   });
 
   const server = servers[0];
@@ -73,15 +74,24 @@ export const Mcp = () => {
           </Text>
         </Box>
 
-        {isLoading && <LoadingMessage text="MCP サーバーの状態を読み込んでいます…" />}
-        {isError && <ErrorMessage text="MCP サーバーの情報を取得できませんでした。" />}
+        {isLoading && (
+          <LoadingMessage text="MCP サーバーの状態を読み込んでいます…" />
+        )}
+        {isError && (
+          <ErrorMessage text="MCP サーバーの情報を取得できませんでした。" />
+        )}
 
         {!isLoading && !isError && server && (
           <Stack gap="lg">
             <Card withBorder radius="md" padding="lg">
               <Group justify="space-between" align="flex-start">
                 <Group gap="sm">
-                  <ThemeIcon size="lg" radius="md" variant="light" color="indigo">
+                  <ThemeIcon
+                    size="lg"
+                    radius="md"
+                    variant="light"
+                    color="indigo"
+                  >
                     ↔
                   </ThemeIcon>
                   <Box>
@@ -92,16 +102,20 @@ export const Mcp = () => {
                       </Badge>
                     </Group>
                     <Text size="sm" c="dimmed" mt={4}>
-                      {server.host}:{server.port} ・ {server.connectedClients} クライアント接続中
+                      {server.host}:{server.port}
                     </Text>
                   </Box>
                 </Group>
                 <Text size="sm" c="dimmed">
-                  起動: {server.startedAt ? formatDateTime(server.startedAt) : "-"}
+                  起動:{" "}
+                  {server.startedAt ? formatDateTime(server.startedAt) : "-"}
                 </Text>
               </Group>
               <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg">
-                <Metric label="公開中のインデックス" value={`${server.enabledIndexCount} 件`} />
+                <Metric
+                  label="公開中のインデックス"
+                  value={`${server.enabledIndexCount} 件`}
+                />
                 <Metric label="接続先" value={server.host} />
                 <Metric label="ステータス" value="稼働中" />
               </SimpleGrid>
@@ -121,9 +135,13 @@ export const Mcp = () => {
                   w={180}
                 />
                 <Button
-                  onClick={() => selectedPort && setPort.mutate(Number(selectedPort))}
+                  onClick={() =>
+                    selectedPort && setPort.mutate(Number(selectedPort))
+                  }
                   loading={setPort.isPending}
-                  disabled={!selectedPort || selectedPort === server.port.toString()}
+                  disabled={
+                    !selectedPort || selectedPort === server.port.toString()
+                  }
                 >
                   ポートを保存
                 </Button>
@@ -185,11 +203,19 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 function LoadingMessage({ text }: { text: string }) {
-  return <Text c="dimmed" ta="center" py="xl">{text}</Text>;
+  return (
+    <Text c="dimmed" ta="center" py="xl">
+      {text}
+    </Text>
+  );
 }
 
 function ErrorMessage({ text }: { text: string }) {
-  return <Text c="red" ta="center" py="xl">{text}</Text>;
+  return (
+    <Text c="red" ta="center" py="xl">
+      {text}
+    </Text>
+  );
 }
 
 function formatDateTime(value: string) {

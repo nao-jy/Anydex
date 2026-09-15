@@ -279,7 +279,6 @@ fn list_mcp_servers(state: State<'_, MockState>) -> Vec<McpServer> {
         port,
         status: "running".into(),
         started_at: Some(utc_datetime(2026, 9, 15, 9, 30)),
-        connected_clients: 2,
         enabled_index_count,
     }]
 }

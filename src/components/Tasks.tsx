@@ -21,7 +21,10 @@ export const Tasks = () => {
     queryFn: commands.listActiveTasks,
     refetchInterval: 5_000,
   });
-  const indexesQuery = useQuery({ queryKey: ["indexes"], queryFn: commands.listIndexes });
+  const indexesQuery = useQuery({
+    queryKey: ["indexes"],
+    queryFn: commands.listIndexes,
+  });
   const indexers = useMemo(
     () => buildIndexerLabels(indexesQuery.data ?? []),
     [indexesQuery.data],
@@ -52,7 +55,9 @@ export const Tasks = () => {
         </Group>
 
         {isLoading && <Message text="実行中のタスクを読み込んでいます…" />}
-        {isError && <Message text="タスクを取得できませんでした。" color="red" />}
+        {isError && (
+          <Message text="タスクを取得できませんでした。" color="red" />
+        )}
         {!isLoading && !isError && tasks.length === 0 && (
           <Card withBorder radius="md" p="xl">
             <Text ta="center" c="dimmed">
@@ -70,13 +75,20 @@ export const Tasks = () => {
                 <Card key={task.id} withBorder radius="md" padding="lg">
                   <Group justify="space-between" align="flex-start">
                     <Group align="flex-start" gap="sm">
-                      <ThemeIcon variant="light" color="indigo" size="lg" radius="md">
+                      <ThemeIcon
+                        variant="light"
+                        color="indigo"
+                        size="lg"
+                        radius="md"
+                      >
                         ↻
                       </ThemeIcon>
                       <Box>
                         <Group gap="sm">
                           <Text fw={700}>{task.taskType}</Text>
-                          <Badge color="blue" variant="light">実行中</Badge>
+                          <Badge color="blue" variant="light">
+                            実行中
+                          </Badge>
                         </Group>
                         <Text size="sm" c="dimmed" mt={4}>
                           {labels?.indexName ?? `Indexer #${task.indexerId}`}
@@ -85,10 +97,16 @@ export const Tasks = () => {
                       </Box>
                     </Group>
                     <Text size="sm" c="dimmed">
-                      開始: {task.startedAt ? formatDateTime(task.startedAt) : "-"}
+                      開始:{" "}
+                      {task.startedAt ? formatDateTime(task.startedAt) : "-"}
                     </Text>
                   </Group>
-                  <Paper p="md" mt="lg" radius="md" bg="var(--mantine-color-default-hover)">
+                  <Paper
+                    p="md"
+                    mt="lg"
+                    radius="md"
+                    bg="var(--mantine-color-default-hover)"
+                  >
                     <Group justify="space-between">
                       <Text size="sm" fw={600}>
                         {stringValue(state.phase) ?? "処理中"}
@@ -115,10 +133,13 @@ export const Tasks = () => {
 function buildIndexerLabels(indexes: Index[]) {
   return new Map(
     indexes.flatMap((index) =>
-      index.indexers.map((indexer) => [
-        indexer.id,
-        { indexName: index.name, sourceName: indexer.fileSource.name },
-      ] as const),
+      index.indexers.map(
+        (indexer) =>
+          [
+            indexer.id,
+            { indexName: index.name, sourceName: indexer.fileSource.name },
+          ] as const,
+      ),
     ),
   );
 }
@@ -146,7 +167,11 @@ function formatFileProgress(state: Record<string, unknown>) {
 }
 
 function Message({ text, color = "dimmed" }: { text: string; color?: string }) {
-  return <Text c={color} ta="center" py="xl">{text}</Text>;
+  return (
+    <Text c={color} ta="center" py="xl">
+      {text}
+    </Text>
+  );
 }
 
 function formatDateTime(value: string) {

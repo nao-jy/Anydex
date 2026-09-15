@@ -145,7 +145,6 @@ pub struct McpServer {
     pub port: u16,
     pub status: String,
     pub started_at: Option<DateTime<Utc>>,
-    pub connected_clients: i32,
     pub enabled_index_count: i32,
 }
 

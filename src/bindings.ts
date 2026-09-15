@@ -93,7 +93,6 @@ export type McpServer = {
 	port: number,
 	status: string,
 	startedAt: string | null,
-	connectedClients: number,
 	enabledIndexCount: number,
 };
 

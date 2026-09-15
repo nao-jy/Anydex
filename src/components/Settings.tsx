@@ -23,7 +23,8 @@ export const Settings = () => {
   });
   const reloadPlugins = useMutation({
     mutationFn: commands.reloadPlugins,
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["applicationSettings"] }),
+    onSuccess: () =>
+      void queryClient.invalidateQueries({ queryKey: ["applicationSettings"] }),
   });
   const settings = settingsQuery.data;
 
@@ -43,14 +44,22 @@ export const Settings = () => {
         </Box>
 
         {settingsQuery.isLoading && <Message text="設定を読み込んでいます…" />}
-        {settingsQuery.isError && <Message text="設定を取得できませんでした。" color="red" />}
+        {settingsQuery.isError && (
+          <Message text="設定を取得できませんでした。" color="red" />
+        )}
         {settings && (
           <Stack gap="lg">
             <Card withBorder radius="md" padding="lg">
               <Text fw={700}>ローカルデータ</Text>
               <Stack gap="md" mt="md">
-                <PathRow label="SQLite データベース" path={settings.databasePath} />
-                <PathRow label="ログディレクトリ" path={settings.logDirectory} />
+                <PathRow
+                  label="SQLite データベース"
+                  path={settings.databasePath}
+                />
+                <PathRow
+                  label="ログディレクトリ"
+                  path={settings.logDirectory}
+                />
               </Stack>
             </Card>
 
@@ -79,12 +88,20 @@ export const Settings = () => {
               <Stack gap="xs" mt="lg">
                 {settings.pluginDirectories.map((directory) => (
                   <Paper key={directory.name} withBorder p="md" radius="md">
-                    <Group justify="space-between" align="flex-start" wrap="nowrap">
+                    <Group
+                      justify="space-between"
+                      align="flex-start"
+                      wrap="nowrap"
+                    >
                       <Group align="flex-start" gap="sm">
-                        <ThemeIcon variant="light" color="indigo">⌘</ThemeIcon>
+                        <ThemeIcon variant="light" color="indigo">
+                          ⌘
+                        </ThemeIcon>
                         <Box>
                           <Text fw={600}>{directory.name}</Text>
-                          <Code block mt={6}>{directory.path}</Code>
+                          <Code block mt={6}>
+                            {directory.path}
+                          </Code>
                         </Box>
                       </Group>
                       <Badge variant="light" color="gray">
@@ -105,14 +122,22 @@ export const Settings = () => {
 function PathRow({ label, path }: { label: string; path: string }) {
   return (
     <Paper p="md" radius="md" bg="var(--mantine-color-default-hover)">
-      <Text size="sm" fw={600}>{label}</Text>
-      <Code block mt={6}>{path}</Code>
+      <Text size="sm" fw={600}>
+        {label}
+      </Text>
+      <Code block mt={6}>
+        {path}
+      </Code>
     </Paper>
   );
 }
 
 function Message({ text, color = "dimmed" }: { text: string; color?: string }) {
-  return <Text c={color} ta="center" py="xl">{text}</Text>;
+  return (
+    <Text c={color} ta="center" py="xl">
+      {text}
+    </Text>
+  );
 }
 
 function formatDateTime(value: string) {
