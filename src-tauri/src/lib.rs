@@ -13,6 +13,7 @@ pub mod dto;
 pub mod logging;
 pub mod plugin;
 pub mod repository;
+pub mod server;
 use dto::models::{
     ApplicationSettings, McpServer, PluginDirectory, PluginReloadResult, SearchResult, Task,
 };
