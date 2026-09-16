@@ -1,7 +1,11 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use chrono::{TimeZone, Utc};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
+    PaginatorTrait, QueryFilter, Set,
+};
 use specta_typescript::Typescript;
-use std::{collections::HashMap, path::PathBuf, sync::Mutex, time::Duration};
+use std::{path::PathBuf, sync::Mutex, time::Duration};
 use tauri::{Manager, State};
 use tauri_specta::{collect_commands, collect_events, Builder};
 
@@ -9,15 +13,12 @@ pub mod dto;
 pub mod logging;
 pub mod repository;
 use dto::models::{
-    ApplicationSettings, Embedder, FileSource, Index, Indexer, McpServer, PluginDirectory,
-    PluginReloadResult, Schedule, SearchResult, Task, VectorStore,
+    ApplicationSettings, McpServer, PluginDirectory, PluginReloadResult, SearchResult, Task,
 };
 
-/// Mutable process-local state used by the management-screen mocks until the
-/// corresponding settings are persisted in the application database.
+/// Mutable process-local state used by the MCP server controls.
 #[derive(Debug)]
 struct MockState {
-    mcp_index_overrides: Mutex<HashMap<i32, bool>>,
     mcp_port: Mutex<u16>,
     mcp_server_started_at: Mutex<Option<chrono::DateTime<Utc>>>,
 }
@@ -25,7 +26,6 @@ struct MockState {
 impl Default for MockState {
     fn default() -> Self {
         Self {
-            mcp_index_overrides: Mutex::new(HashMap::new()),
             mcp_port: Mutex::new(3001),
             mcp_server_started_at: Mutex::new(Some(utc_datetime(2026, 9, 15, 9, 30))),
         }
@@ -38,238 +38,84 @@ fn utc_datetime(year: i32, month: u32, day: u32, hour: u32, minute: u32) -> chro
         .expect("mock date must be valid")
 }
 
-fn mock_indexer(
-    id: i32,
-    index_id: i32,
-    name: &str,
-    uri: &str,
-    rule: &str,
-    last_start: Option<chrono::DateTime<Utc>>,
-    last_success: Option<chrono::DateTime<Utc>>,
-    last_processed_files: Option<i32>,
-) -> Indexer {
-    Indexer {
-        id,
-        index_id,
-        extractor_name: "opendal".into(),
-        params: serde_json::json!({}),
-        file_source: FileSource {
-            id,
-            indexer_id: id,
-            name: name.into(),
-            params: serde_json::json!({ "root_uri": uri }),
-            files: vec![],
-            oauth_client: None,
-        },
-        schedule: Schedule {
-            id,
-            indexer_id: id,
-            timezone: "Asia/Tokyo".into(),
-            dtstart: utc_datetime(2026, 9, 14, 0, 0),
-            rfc5545_rule: rule.into(),
-            misfire_policy: "catchup".into(),
-        },
-        last_start,
-        last_success,
-        last_processed_files,
-        tasks: match id {
-            1 => vec![Task {
-                id: 101,
-                indexer_id: id,
-                task_type: "同期".into(),
-                status: "running".into(),
-                started_at: Some(utc_datetime(2026, 9, 15, 9, 42)),
-                completed_at: None,
-                state: serde_json::json!({
-                    "phase": "embedding",
-                    "progress": 68,
-                    "processedFiles": 170,
-                    "totalFiles": 248,
-                }),
-            }],
-            3 => vec![Task {
-                id: 102,
-                indexer_id: id,
-                task_type: "同期".into(),
-                status: "running".into(),
-                started_at: Some(utc_datetime(2026, 9, 15, 10, 5)),
-                completed_at: None,
-                state: serde_json::json!({
-                    "phase": "scanning",
-                    "progress": 24,
-                    "processedFiles": 31,
-                    "totalFiles": 127,
-                }),
-            }],
-            _ => vec![],
-        },
-    }
-}
-
-fn mock_indexes() -> Vec<Index> {
-    vec![
-        Index {
-            id: 1,
-            name: "社内ナレッジ".into(),
-            description: "チーム文書、議事録、設計資料を横断検索".into(),
-            created_at: utc_datetime(2026, 9, 1, 0, 0),
-            updated_at: utc_datetime(2026, 9, 14, 9, 12),
-            use_mcp_server: false,
-            embedder: Embedder {
-                id: 1,
-                index_id: 1,
-                name: "Text Embedding v3".into(),
-                dimensions: 768,
-                params: serde_json::json!({}),
-            },
-            vector_store: VectorStore {
-                id: 1,
-                index_id: 1,
-                name: "sqlite-vec".into(),
-                dimensions: 768,
-                params: serde_json::json!({}),
-            },
-            indexers: vec![
-                mock_indexer(
-                    1,
-                    1,
-                    "チーム文書",
-                    "s3://example-documents/knowledge-base",
-                    "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
-                    Some(utc_datetime(2026, 9, 14, 0, 12)),
-                    Some(utc_datetime(2026, 9, 14, 0, 12)),
-                    Some(248),
-                ),
-                mock_indexer(
-                    2,
-                    1,
-                    "ローカルノート",
-                    "fs:///Users/example/Documents/notes",
-                    "FREQ=DAILY;INTERVAL=1",
-                    Some(utc_datetime(2026, 9, 14, 0, 10)),
-                    Some(utc_datetime(2026, 9, 14, 0, 10)),
-                    Some(84),
-                ),
-            ],
-        },
-        Index {
-            id: 2,
-            name: "プロダクト資料".into(),
-            description: "仕様書、リリースノート、UI 資産".into(),
-            created_at: utc_datetime(2026, 8, 22, 0, 0),
-            updated_at: utc_datetime(2026, 9, 13, 18, 30),
-            use_mcp_server: false,
-            embedder: Embedder {
-                id: 2,
-                index_id: 2,
-                name: "Text Embedding v3".into(),
-                dimensions: 768,
-                params: serde_json::json!({}),
-            },
-            vector_store: VectorStore {
-                id: 2,
-                index_id: 2,
-                name: "sqlite-vec".into(),
-                dimensions: 768,
-                params: serde_json::json!({}),
-            },
-            indexers: vec![mock_indexer(
-                3,
-                2,
-                "プロダクトリポジトリ",
-                "fs:///Users/example/work/product/docs",
-                "FREQ=DAILY;INTERVAL=1",
-                Some(utc_datetime(2026, 9, 14, 0, 15)),
-                Some(utc_datetime(2026, 9, 13, 9, 30)),
-                Some(127),
-            )],
-        },
-        Index {
-            id: 3,
-            name: "デザインアセット".into(),
-            description: "ブランド画像とデザインガイドライン".into(),
-            created_at: utc_datetime(2026, 9, 5, 0, 0),
-            updated_at: utc_datetime(2026, 9, 12, 16, 4),
-            use_mcp_server: true,
-            embedder: Embedder {
-                id: 3,
-                index_id: 3,
-                name: "Text Embedding v3".into(),
-                dimensions: 768,
-                params: serde_json::json!({}),
-            },
-            vector_store: VectorStore {
-                id: 3,
-                index_id: 3,
-                name: "sqlite-vec".into(),
-                dimensions: 768,
-                params: serde_json::json!({}),
-            },
-            indexers: vec![mock_indexer(
-                4,
-                3,
-                "画像アーカイブ",
-                "s3://example-assets/design",
-                "FREQ=WEEKLY;BYDAY=FR",
-                Some(utc_datetime(2026, 9, 12, 7, 4)),
-                None,
-                None,
-            )],
-        },
-    ]
-}
-
 #[tauri::command]
 #[specta::specta]
-#[tracing::instrument(skip(state))]
-fn list_indexes(state: State<'_, MockState>) -> Vec<Index> {
+#[tracing::instrument(skip(database))]
+async fn list_indexes(
+    database: State<'_, DatabaseConnection>,
+) -> Result<Vec<dto::models::Index>, String> {
     tracing::info!("listing indexes");
-    let overrides = state
-        .mcp_index_overrides
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let indexes = mock_indexes()
-        .into_iter()
-        .map(|mut index| {
-            if let Some(enabled) = overrides.get(&index.id) {
-                index.use_mcp_server = *enabled;
-            }
-            index
-        })
-        .collect::<Vec<_>>();
+    let indexes = repository::indexes::list_indexes(database.inner())
+        .await
+        .map_err(|error| error.to_string())?;
     tracing::info!(count = indexes.len(), "indexes listed");
-    indexes
+    Ok(indexes)
 }
 
 #[tauri::command]
 #[specta::specta]
-#[tracing::instrument(skip(state))]
-fn set_index_mcp_server(index_id: i32, enabled: bool, state: State<'_, MockState>) {
-    state
-        .mcp_index_overrides
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .insert(index_id, enabled);
-    tracing::info!(index_id, enabled, "mock MCP index setting updated");
+#[tracing::instrument(skip(database))]
+async fn create_empty_index(
+    database: State<'_, DatabaseConnection>,
+) -> Result<dto::models::Index, String> {
+    let index = repository::indexes::create_empty_index(database.inner())
+        .await
+        .map_err(|error| error.to_string())?;
+    tracing::info!(index_id = index.id, "empty index created");
+    Ok(index)
 }
 
 #[tauri::command]
 #[specta::specta]
-#[tracing::instrument(skip(state))]
-fn list_mcp_servers(state: State<'_, MockState>) -> Vec<McpServer> {
-    let overrides = state
-        .mcp_index_overrides
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let enabled_index_count = mock_indexes()
-        .iter()
-        .filter(|index| {
-            overrides
-                .get(&index.id)
-                .copied()
-                .unwrap_or(index.use_mcp_server)
-        })
-        .count() as i32;
+#[tracing::instrument(skip(database, name))]
+async fn rename_index(
+    index_id: i32,
+    name: String,
+    database: State<'_, DatabaseConnection>,
+) -> Result<dto::models::Index, String> {
+    let index = repository::indexes::rename_index(database.inner(), index_id, name)
+        .await
+        .map_err(|error| error.to_string())?;
+    tracing::info!(index_id = index.id, "index renamed");
+    Ok(index)
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(database))]
+async fn set_index_mcp_server(
+    index_id: i32,
+    enabled: bool,
+    database: State<'_, DatabaseConnection>,
+) -> Result<(), String> {
+    let model = repository::models::index::Entity::find_by_id(index_id)
+        .one(database.inner())
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("index {index_id} was not found"))?;
+    let mut active_model = model.into_active_model();
+    active_model.use_mcp_server = Set(enabled);
+    active_model.updated_at = Set(Utc::now());
+    active_model
+        .update(database.inner())
+        .await
+        .map_err(|error| error.to_string())?;
+    tracing::info!(index_id, enabled, "MCP index setting updated");
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(state, database))]
+async fn list_mcp_servers(
+    state: State<'_, MockState>,
+    database: State<'_, DatabaseConnection>,
+) -> Result<Vec<McpServer>, String> {
+    let enabled_index_count = repository::models::index::Entity::find()
+        .filter(repository::models::index::Column::UseMcpServer.eq(true))
+        .count(database.inner())
+        .await
+        .map_err(|error| error.to_string())? as i32;
     let port = *state
         .mcp_port
         .lock()
@@ -280,14 +126,14 @@ fn list_mcp_servers(state: State<'_, MockState>) -> Vec<McpServer> {
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let is_running = started_at.is_some();
 
-    vec![McpServer {
+    Ok(vec![McpServer {
         name: "Anydex MCP Server".into(),
         host: "127.0.0.1".into(),
         port,
         status: if is_running { "running" } else { "stopped" }.into(),
         started_at,
         enabled_index_count,
-    }]
+    }])
 }
 
 #[tauri::command]
@@ -316,14 +162,24 @@ fn set_mcp_server_running(running: bool, state: State<'_, MockState>) {
 #[tauri::command]
 #[specta::specta]
 #[tracing::instrument]
-async fn list_active_tasks() -> Vec<Task> {
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    mock_indexes()
+async fn list_active_tasks(database: State<'_, DatabaseConnection>) -> Result<Vec<Task>, String> {
+    let tasks = repository::models::task::Entity::find()
+        .filter(repository::models::task::Column::Status.eq("running"))
+        .all(database.inner())
+        .await
+        .map_err(|error| error.to_string())?
         .into_iter()
-        .flat_map(|index| index.indexers)
-        .flat_map(|indexer| indexer.tasks)
-        .filter(|task| task.status == "running")
-        .collect()
+        .map(|task| Task {
+            id: task.id,
+            indexer_id: task.indexer_id,
+            task_type: task.task_type,
+            status: task.status,
+            started_at: task.started_at,
+            completed_at: task.completed_at,
+            state: task.state,
+        })
+        .collect();
+    Ok(tasks)
 }
 
 #[tauri::command]
@@ -343,6 +199,14 @@ fn get_application_settings(app: tauri::AppHandle) -> ApplicationSettings {
         database_path: app_data_dir.join("anydex.sqlite3").display().to_string(),
         log_directory: log_directory.display().to_string(),
         plugin_directories: vec![
+            PluginDirectory {
+                name: "ファイルソース".into(),
+                path: app_data_dir
+                    .join("plugins/file-sources")
+                    .display()
+                    .to_string(),
+                plugin_count: 1,
+            },
             PluginDirectory {
                 name: "抽出器".into(),
                 path: app_data_dir
@@ -408,6 +272,8 @@ pub fn run() {
         .commands(collect_commands![
             greet,
             list_indexes,
+            create_empty_index,
+            rename_index,
             set_index_mcp_server,
             list_mcp_servers,
             set_mcp_server_port,
@@ -445,6 +311,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             list_indexes,
+            create_empty_index,
+            rename_index,
             set_index_mcp_server,
             list_mcp_servers,
             set_mcp_server_port,
@@ -469,6 +337,8 @@ mod tests {
             .commands(collect_commands![
                 greet,
                 list_indexes,
+                create_empty_index,
+                rename_index,
                 set_index_mcp_server,
                 list_mcp_servers,
                 set_mcp_server_port,

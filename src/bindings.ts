@@ -5,12 +5,14 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 /** Commands */
 export const commands = {
 	greet: (name: string) => __TAURI_INVOKE<string>("greet", { name }),
-	listIndexes: () => __TAURI_INVOKE<Index[]>("list_indexes"),
-	setIndexMcpServer: (indexId: number, enabled: boolean) => __TAURI_INVOKE<void>("set_index_mcp_server", { indexId, enabled }),
-	listMcpServers: () => __TAURI_INVOKE<McpServer[]>("list_mcp_servers"),
+	listIndexes: () => typedError<Index[], string>(__TAURI_INVOKE("list_indexes")),
+	createEmptyIndex: () => typedError<Index, string>(__TAURI_INVOKE("create_empty_index")),
+	renameIndex: (indexId: number, name: string) => typedError<Index, string>(__TAURI_INVOKE("rename_index", { indexId, name })),
+	setIndexMcpServer: (indexId: number, enabled: boolean) => typedError<null, string>(__TAURI_INVOKE("set_index_mcp_server", { indexId, enabled })),
+	listMcpServers: () => typedError<McpServer[], string>(__TAURI_INVOKE("list_mcp_servers")),
 	setMcpServerPort: (port: number) => __TAURI_INVOKE<void>("set_mcp_server_port", { port }),
 	setMcpServerRunning: (running: boolean) => __TAURI_INVOKE<void>("set_mcp_server_running", { running }),
-	listActiveTasks: () => __TAURI_INVOKE<Task[]>("list_active_tasks"),
+	listActiveTasks: () => typedError<Task[], string>(__TAURI_INVOKE("list_active_tasks")),
 	getApplicationSettings: () => __TAURI_INVOKE<ApplicationSettings>("get_application_settings"),
 	reloadPlugins: () => __TAURI_INVOKE<PluginReloadResult>("reload_plugins"),
 	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),
@@ -69,8 +71,10 @@ export type Index = {
 	createdAt: string,
 	updatedAt: string,
 	useMcpServer: boolean,
-	embedder: Embedder,
-	vectorStore: VectorStore,
+	/**  Absent until vectorization is configured for this index. */
+	embedder: Embedder | null,
+	/**  Absent until a vector store is configured for this index. */
+	vectorStore: VectorStore | null,
 	indexers: Indexer[],
 };
 
@@ -159,4 +163,14 @@ export type VectorStore = {
 	dimensions: number,
 	params: any,
 };
+
+/* Tauri Specta runtime */
+async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {
+    try {
+        return { status: "ok", data: await result };
+    } catch (e) {
+        if (e instanceof Error) throw e;
+        return { status: "error", error: e as any };
+    }
+}
 

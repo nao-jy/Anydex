@@ -8,6 +8,7 @@ use sea_orm::{
 };
 use url::Url;
 
+pub mod indexes;
 pub mod models;
 
 /// Builds a SQLite URL for a database file, escaping paths such as those that

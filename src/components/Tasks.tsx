@@ -14,16 +14,17 @@ import {
   Title,
 } from "@mantine/core";
 import { commands, type Index } from "../bindings";
+import { unwrapCommandResult } from "../tauri";
 
 export const Tasks = () => {
   const tasksQuery = useQuery({
     queryKey: ["activeTasks"],
-    queryFn: commands.listActiveTasks,
+    queryFn: () => unwrapCommandResult(commands.listActiveTasks()),
     refetchInterval: 5_000,
   });
   const indexesQuery = useQuery({
     queryKey: ["indexes"],
-    queryFn: commands.listIndexes,
+    queryFn: () => unwrapCommandResult(commands.listIndexes()),
   });
   const indexers = useMemo(
     () => buildIndexerLabels(indexesQuery.data ?? []),

@@ -1,34 +1,50 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Accordion,
   Box,
   Button,
   Card,
   Container,
-  Divider,
   Group,
   Paper,
-  SimpleGrid,
   Stack,
   Text,
-  ThemeIcon,
+  TextInput,
   Title,
 } from "@mantine/core";
 import { commands } from "../bindings";
+import { unwrapCommandResult } from "../tauri";
 
 type SortKey = "name" | "createdAt" | "updatedAt";
 type Direction = "asc" | "desc";
 
 export const Index = () => {
+  const queryClient = useQueryClient();
   const [sortKey, setSortKey] = useState<SortKey>("updatedAt");
   const [direction, setDirection] = useState<Direction>("desc");
   const [open, setOpen] = useState<string[]>([]);
+  const [editingIndexId, setEditingIndexId] = useState<number | null>(null);
   const {
     data: indexes = [],
     isLoading,
     isError,
-  } = useQuery({ queryKey: ["indexes"], queryFn: commands.listIndexes });
+  } = useQuery({
+    queryKey: ["indexes"],
+    queryFn: () => unwrapCommandResult(commands.listIndexes()),
+  });
+  const createIndex = useMutation({
+    mutationFn: () => unwrapCommandResult(commands.createEmptyIndex()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["indexes"] }),
+  });
+  const renameIndex = useMutation({
+    mutationFn: ({ indexId, name }: { indexId: number; name: string }) =>
+      unwrapCommandResult(commands.renameIndex(indexId, name)),
+    onSuccess: () => {
+      setEditingIndexId(null);
+      void queryClient.invalidateQueries({ queryKey: ["indexes"] });
+    },
+  });
   const sortedIndexes = useMemo(
     () =>
       [...indexes].sort((a, b) => {
@@ -44,6 +60,14 @@ export const Index = () => {
       setSortKey(key);
       setDirection(key === "name" ? "asc" : "desc");
     }
+  };
+  const openNameEditor = (indexId: number) => {
+    const itemValue = indexId.toString();
+    setOpen((current) =>
+      current.includes(itemValue) ? current : [...current, itemValue],
+    );
+    renameIndex.reset();
+    setEditingIndexId(indexId);
   };
 
   return (
@@ -61,7 +85,13 @@ export const Index = () => {
               ファイルソースと検索設定を管理します
             </Text>
           </Box>
-          <Button size="md">＋ 新しいインデックス</Button>
+          <Button
+            size="md"
+            onClick={() => createIndex.mutate()}
+            loading={createIndex.isPending}
+          >
+            ＋ 新しいインデックス
+          </Button>
         </Group>
         <Card withBorder radius="md" padding="sm" mb="md">
           <Group justify="space-between">
@@ -111,106 +141,96 @@ export const Index = () => {
             variant="separated"
             radius="md"
           >
-            {sortedIndexes.map((index) => (
-              <Accordion.Item value={index.id.toString()} key={index.id}>
-                <Accordion.Control>
-                  <Group justify="space-between" wrap="nowrap" pr="md">
-                    <Box>
-                      <Group gap="sm">
-                        <Text fw={700} size="lg">
-                          {index.name}
-                        </Text>
-                      </Group>
-                      <Text size="sm" c="dimmed" mt={3}>
-                        {index.description}
-                      </Text>
-                    </Box>
-                    <Group gap="xl" visibleFrom="sm">
-                      <DateInfo label="作成日" value={index.createdAt} />
-                      <DateInfo label="最終更新日" value={index.updatedAt} />
-                    </Group>
-                  </Group>
-                </Accordion.Control>
-                <Accordion.Panel>
-                  <Stack gap="lg" pb="sm">
-                    <SimpleGrid cols={{ base: 1, sm: 3 }}>
-                      <Metric
-                        label="Indexer"
-                        value={`${index.indexers.length} 件`}
-                      />
-                      <Metric
-                        label="前回の処理ファイル数"
-                        value={`${index.indexers.reduce((total, item) => total + (item.lastProcessedFiles ?? 0), 0)} 件`}
-                      />
-                      <Metric label="ベクトル化" value={index.embedder.name} />
-                    </SimpleGrid>
-                    <Divider />
-                    <Group justify="space-between">
-                      <Text fw={700}>Indexer</Text>
-                      <Button variant="subtle" size="compact-sm">
-                        ＋ 追加
-                      </Button>
-                    </Group>
-                    <Stack gap="sm">
-                      {index.indexers.map((indexer, position) => (
-                        <Paper
-                          withBorder
-                          p="md"
-                          radius="md"
-                          key={`${indexer.fileSource.name}-${position}`}
-                        >
-                          <Group justify="space-between" align="flex-start">
-                            <Group align="flex-start" gap="sm">
-                              <ThemeIcon variant="light" color="indigo">
-                                ↗
-                              </ThemeIcon>
-                              <Box>
-                                <Text fw={600}>{indexer.fileSource.name}</Text>
-                                <Text size="xs" c="dimmed" mt={4}>
-                                  同期:{" "}
-                                  {formatSchedule(indexer.schedule.rfc5545Rule)}
-                                  （
-                                  {formatDateTime(
-                                    indexer.schedule.dtstart,
-                                    indexer.schedule.timezone,
-                                  )}{" "}
-                                  起点）
-                                </Text>
-                              </Box>
-                            </Group>
-                            <Box ta="right">
-                              <Text size="sm">
-                                {indexer.lastProcessedFiles == null
-                                  ? "未実行"
-                                  : `${indexer.lastProcessedFiles} ファイル`}
-                              </Text>
-                              <Text size="xs" c="dimmed">
-                                最終成功:{" "}
-                                {indexer.lastSuccess
-                                  ? formatDateTime(
-                                      indexer.lastSuccess,
-                                      indexer.schedule.timezone,
-                                    )
-                                  : "なし"}
-                              </Text>
-                            </Box>
+            {sortedIndexes.map((index) => {
+              return (
+                <Accordion.Item value={index.id.toString()} key={index.id}>
+                  <Group gap={0} wrap="nowrap" align="stretch">
+                    <Accordion.Control style={{ flex: 1 }}>
+                      <Group justify="space-between" wrap="nowrap" pr="md">
+                        <Box>
+                          <Group gap="sm">
+                            <Text fw={700} size="lg">
+                              {index.name}
+                            </Text>
                           </Group>
-                        </Paper>
-                      ))}
+                          <Text size="sm" c="dimmed" mt={3}>
+                            {index.description ||
+                              "説明はまだ設定されていません"}
+                          </Text>
+                        </Box>
+                        <Group gap="xl" visibleFrom="sm">
+                          <DateInfo label="作成日" value={index.createdAt} />
+                          <DateInfo
+                            label="最終更新日"
+                            value={index.updatedAt}
+                          />
+                        </Group>
+                      </Group>
+                    </Accordion.Control>
+                  </Group>
+                  <Accordion.Panel>
+                    <Stack gap="lg" pb="sm">
+                      <Paper withBorder p="md" radius="md">
+                        <Group justify="space-between" mb="md">
+                          <Box>
+                            <Text fw={700}>基本情報</Text>
+                            <Text size="sm" c="dimmed">
+                              このインデックスを識別する名前です
+                            </Text>
+                          </Box>
+                        </Group>
+                        {editingIndexId === index.id ? (
+                          <IndexNameEditor
+                            name={index.name}
+                            saving={renameIndex.isPending}
+                            error={renameIndex.isError}
+                            onSave={(name) =>
+                              renameIndex.mutate({ indexId: index.id, name })
+                            }
+                            onCancel={() => {
+                              renameIndex.reset();
+                              setEditingIndexId(null);
+                            }}
+                          />
+                        ) : (
+                          <Group justify="space-between">
+                            <Text fw={600}>{index.name}</Text>
+                            <Button
+                              variant="subtle"
+                              size="compact-sm"
+                              onClick={() => openNameEditor(index.id)}
+                            >
+                              名前を変更
+                            </Button>
+                          </Group>
+                        )}
+                      </Paper>
+                      <Setting
+                        label="インデクサ"
+                        value={`${index.indexers.length} 件`}
+                        detail="ファイルソースからデータを抽出します"
+                        setting_label="インデクサを追加"
+                        on_click_setting={() => {}}
+                      />
+                      <Setting
+                        label="ベクトル化"
+                        value={index.embedder?.name ?? "未設定"}
+                        detail="検索クエリとファイルをベクトルに変換します"
+                        setting_label="設定"
+                        on_click_setting={() => {}}
+                      />
+                      <Setting
+                        label="ベクトルストア"
+                        value={index.vectorStore?.name ?? "未設定"}
+                        detail="生成したベクトルを保存し、検索に使います"
+                        setting_label="設定"
+                        on_click_setting={() => {}}
+                      />
                     </Stack>
-                    <Setting
-                      label="ベクトル化"
-                      value={index.embedder.name}
-                      detail="OpenAPI エンドポイント"
-                    />
-                    <Group justify="flex-end">
-                      <Button variant="default">設定を編集</Button>
-                      <Button>今すぐ同期</Button>
-                    </Group>
-                  </Stack>
-                </Accordion.Panel>
-              </Accordion.Item>
-            ))}
+                  </Accordion.Panel>
+                </Accordion.Item>
+              );
+            })}
           </Accordion>
         )}
       </Container>
@@ -218,48 +238,102 @@ export const Index = () => {
   );
 };
 
+function IndexNameEditor({
+  name,
+  saving,
+  error,
+  onSave,
+  onCancel,
+}: {
+  name: string;
+  saving: boolean;
+  error: boolean;
+  onSave: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(name);
+
+  useEffect(() => setValue(name), [name]);
+
+  const save = () => {
+    const nextName = value.trim();
+    if (!nextName) {
+      setValue(name);
+      return;
+    }
+    if (nextName !== name) onSave(nextName);
+  };
+
+  return (
+    <Group align="flex-start" wrap="nowrap">
+      <TextInput
+        label="インデックス名"
+        value={value}
+        onChange={(event) => setValue(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") save();
+          if (event.key === "Escape") onCancel();
+        }}
+        disabled={saving}
+        error={
+          error &&
+          "名前を保存できませんでした。重複していないか確認してください。"
+        }
+        style={{ flex: 1 }}
+      />
+      <Group gap="xs" mt={24} wrap="nowrap">
+        <Button variant="default" onClick={onCancel} disabled={saving}>
+          キャンセル
+        </Button>
+        <Button onClick={save} loading={saving}>
+          保存
+        </Button>
+      </Group>
+    </Group>
+  );
+}
+
 function DateInfo({ label, value }: { label: string; value: string }) {
+  const date = new Date(value);
+  const localValue = Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleString();
+
   return (
     <Box>
       <Text size="xs" c="dimmed">
         {label}
       </Text>
-      <Text size="sm">{value}</Text>
+      <Text size="sm">{localValue}</Text>
     </Box>
-  );
-}
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <Paper p="md" radius="md">
-      <Text size="xs" c="dimmed">
-        {label}
-      </Text>
-      <Text fw={700} size="lg" mt={3}>
-        {value}
-      </Text>
-    </Paper>
   );
 }
 function Setting({
   label,
   value,
   detail,
+  setting_label,
+  on_click_setting,
 }: {
   label: string;
   value: string;
   detail: string;
+  setting_label: string;
+  on_click_setting: () => void;
 }) {
   return (
     <Paper withBorder p="md" radius="md">
       <Text size="xs" c="dimmed">
-        {label}
+        {`${label}：${detail}`}
       </Text>
-      <Text fw={600} mt={3}>
-        {value}
-      </Text>
-      <Text size="xs" c="dimmed" mt={4}>
-        {detail}
-      </Text>
+      <Group justify="space-between">
+        <Text fw={600} mt={3}>
+          {value}
+        </Text>
+        <Button variant="subtle" size="compact-sm" onClick={on_click_setting}>
+          {setting_label}
+        </Button>
+      </Group>
     </Paper>
   );
 }

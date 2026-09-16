@@ -17,6 +17,7 @@ import {
   Title,
 } from "@mantine/core";
 import { commands } from "../bindings";
+import { unwrapCommandResult } from "../tauri";
 
 const portOptions = ["3001", "3100", "8080", "8888"].map((port) => ({
   value: port,
@@ -30,16 +31,22 @@ export const Mcp = () => {
     data: servers = [],
     isLoading: isLoadingServers,
     isError: isServerError,
-  } = useQuery({ queryKey: ["mcpServers"], queryFn: commands.listMcpServers });
+  } = useQuery({
+    queryKey: ["mcpServers"],
+    queryFn: () => unwrapCommandResult(commands.listMcpServers()),
+  });
   const {
     data: indexes = [],
     isLoading: isLoadingIndexes,
     isError: isIndexError,
-  } = useQuery({ queryKey: ["indexes"], queryFn: commands.listIndexes });
+  } = useQuery({
+    queryKey: ["indexes"],
+    queryFn: () => unwrapCommandResult(commands.listIndexes()),
+  });
 
   const setIndexEnabled = useMutation({
     mutationFn: ({ indexId, enabled }: { indexId: number; enabled: boolean }) =>
-      commands.setIndexMcpServer(indexId, enabled),
+      unwrapCommandResult(commands.setIndexMcpServer(indexId, enabled)),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["indexes"] });
       void queryClient.invalidateQueries({ queryKey: ["mcpServers"] });

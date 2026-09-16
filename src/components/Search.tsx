@@ -18,6 +18,7 @@ import {
   Title,
 } from "@mantine/core";
 import { commands } from "../bindings";
+import { unwrapCommandResult } from "../tauri";
 
 export const Search = () => {
   const [query, setQuery] = useState("");
@@ -26,7 +27,7 @@ export const Search = () => {
   const [searchRequest, setSearchRequest] = useState(0);
   const { data: indexes = [] } = useQuery({
     queryKey: ["indexes"],
-    queryFn: commands.listIndexes,
+    queryFn: () => unwrapCommandResult(commands.listIndexes()),
   });
   const {
     data: results = [],

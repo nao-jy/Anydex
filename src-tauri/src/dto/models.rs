@@ -15,8 +15,10 @@ pub struct Index {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub use_mcp_server: bool,
-    pub embedder: Embedder,
-    pub vector_store: VectorStore,
+    /// Absent until vectorization is configured for this index.
+    pub embedder: Option<Embedder>,
+    /// Absent until a vector store is configured for this index.
+    pub vector_store: Option<VectorStore>,
     pub indexers: Vec<Indexer>,
 }
 
