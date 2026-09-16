@@ -1,19 +1,19 @@
 use std::{collections::HashMap, fs, path::Path};
 
-pub trait Manager<T: LibraryLoader> {
+pub trait Manager<T> {
     fn init(&mut self, plugin_dir: &Path) -> Result<(), String>;
     fn get_plugin_names(&self) -> Vec<String>;
     fn get_plugin(&mut self, name: &str) -> Option<&mut T>;
 }
 
-pub struct Plugin<T: LibraryLoader> {
+pub struct Plugin<T> {
     // Fields are dropped in declaration order, so the instance is dropped
     // before the library it may call into from its destructor.
     pub instance: Box<T>,
     pub library: libloading::Library,
 }
 
-pub struct PluginManager<T: LibraryLoader> {
+pub struct PluginManager<T> {
     plugins: HashMap<String, Plugin<T>>,
 }
 
