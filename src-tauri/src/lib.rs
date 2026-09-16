@@ -11,6 +11,7 @@ use tauri_specta::{collect_commands, collect_events, Builder};
 
 pub mod dto;
 pub mod logging;
+pub mod plugin;
 pub mod repository;
 use dto::models::{
     ApplicationSettings, McpServer, PluginDirectory, PluginReloadResult, SearchResult, Task,

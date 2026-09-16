@@ -12,6 +12,7 @@ import {
   Text,
   TextInput,
   Title,
+  Badge,
 } from "@mantine/core";
 import { commands } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
@@ -327,10 +328,10 @@ function Setting({
         {`${label}：${detail}`}
       </Text>
       <Group justify="space-between">
-        <Text fw={600} mt={3}>
-          {value}
-        </Text>
-        <Button variant="subtle" size="compact-sm" onClick={on_click_setting}>
+        <Group gap="xs" mt={3}>
+          未設定
+        </Group>
+        <Button variant={"subtle"} size="compact-sm" onClick={on_click_setting}>
           {setting_label}
         </Button>
       </Group>
