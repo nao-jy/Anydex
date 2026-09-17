@@ -50,5 +50,5 @@ pub trait VectorStore {
 
     fn delete_chunk(&self, handler: Handler, fild_id: FileId);
     fn insert_chunk(&self, handler: Handler, chunk: &Chunk);
-    fn query(&self, search_request: &SearchRequest) -> Vec<SearchHit>;
+    fn query(&self, handler: Handler, search_request: &SearchRequest) -> Vec<SearchHit>;
 }

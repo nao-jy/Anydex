@@ -11,9 +11,8 @@ type Handler = u64;
 type FileId = i32;
 
 pub struct FileInfo {
-    pub id: FileId,
+    pub uri: String, // id
     pub name: String,
-    pub uri: String,
     pub content_type: String,
     pub size: u64,
     pub updated_at: DateTime<Utc>,
@@ -31,11 +30,11 @@ pub trait FileSource {
     fn get_handler(
         &self,
         param: &serde_json::Value,
-        last_indexed_files: &Vec<FileInfo>,
+        last_indexed_files: [FileInfo],
         download_dir: &str,
     ) -> Handler;
     fn free_handler(&self, handler: Handler);
 
-    fn next_added_or_changed(&self, handler: Handler) -> Result<FileInfoPath, Error>;
-    fn next_deleted(&self, handler: Handler) -> Result<FileId, Error>;
+    fn next_added_or_changed(&self, handler: Handler) -> Result<Option<FileInfoPath>, Error>;
+    fn next_deleted(&self, handler: Handler) -> Result<Option<FileId>, Error>;
 }
