@@ -62,10 +62,8 @@ pub mod schedule {
         /// One schedule belongs to exactly one indexer.
         #[sea_orm(unique)]
         pub indexer_id: i32,
-        pub timezone: String,
-        pub dtstart: DateTimeUtc,
-        pub rfc5545_rule: String,
-        pub misfire_policy: String,
+        pub rfc5545_rrule: String,
+        pub catchup_when_missed: bool,
         #[sea_orm(belongs_to, from = "indexer_id", to = "id")]
         pub indexer: BelongsTo<super::indexer::Entity>,
     }

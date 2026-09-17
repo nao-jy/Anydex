@@ -228,10 +228,8 @@ async fn load_indexer(
         schedule: Schedule {
             id: schedule.id,
             indexer_id: schedule.indexer_id,
-            timezone: schedule.timezone,
-            dtstart: schedule.dtstart,
-            rfc5545_rule: schedule.rfc5545_rule,
-            misfire_policy: schedule.misfire_policy,
+            rfc5545_rrule: schedule.rfc5545_rrule,
+            catchup_when_missed: schedule.catchup_when_missed,
         },
         tasks,
     })

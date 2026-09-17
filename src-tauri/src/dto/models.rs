@@ -65,10 +65,8 @@ pub struct Indexer {
 pub struct Schedule {
     pub id: i32,
     pub indexer_id: i32,
-    pub timezone: String,
-    pub dtstart: DateTime<Utc>,
-    pub rfc5545_rule: String,
-    pub misfire_policy: String,
+    pub rfc5545_rrule: String,
+    pub catchup_when_missed: bool,
 }
 
 /// OpenDAL file-source configuration and the files discovered from it.

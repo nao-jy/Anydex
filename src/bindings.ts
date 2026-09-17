@@ -130,10 +130,8 @@ export type PluginReloadResult = {
 export type Schedule = {
 	id: number,
 	indexerId: number,
-	timezone: string,
-	dtstart: string,
-	rfc5545Rule: string,
-	misfirePolicy: string,
+	rfc5545Rrule: string,
+	catchupWhenMissed: boolean,
 };
 
 /**  A semantic-search hit returned to the UI. This is not a persistence entity. */
