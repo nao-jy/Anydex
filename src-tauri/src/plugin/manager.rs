@@ -1,11 +1,5 @@
 use std::{collections::HashMap, fs, path::Path};
 
-pub trait Manager<T> {
-    fn init(&mut self, plugin_dir: &Path) -> Result<(), String>;
-    fn get_plugin_names(&self) -> Vec<String>;
-    fn get_plugin(&mut self, name: &str) -> Option<&mut T>;
-}
-
 pub struct Plugin<T> {
     // Fields are dropped in declaration order, so the instance is dropped
     // before the library it may call into from its destructor.
@@ -21,8 +15,8 @@ pub trait LibraryLoader: Sized {
     fn load_library(library: &libloading::Library) -> Result<Self, String>;
 }
 
-impl<T: LibraryLoader> Manager<T> for PluginManager<T> {
-    fn init(&mut self, plugin_dir: &Path) -> Result<(), String> {
+impl<T: LibraryLoader> PluginManager<T> {
+    pub fn init(&mut self, plugin_dir: &Path) -> Result<(), String> {
         let entries = fs::read_dir(plugin_dir).map_err(|error| {
             format!(
                 "failed to read plugin directory '{}': {error}",
@@ -65,11 +59,11 @@ impl<T: LibraryLoader> Manager<T> for PluginManager<T> {
         Ok(())
     }
 
-    fn get_plugin_names(&self) -> Vec<String> {
+    pub fn get_plugin_names(&self) -> Vec<String> {
         self.plugins.keys().cloned().collect()
     }
 
-    fn get_plugin(&mut self, name: &str) -> Option<&mut T> {
+    pub fn get_plugin(&mut self, name: &str) -> Option<&mut T> {
         self.plugins
             .get_mut(name)
             .map(|plugin| plugin.instance.as_mut())
