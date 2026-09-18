@@ -1,11 +1,5 @@
-use axum::Error;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-use std::ffi::{c_char, CStr, CString};
-
-use libloading::Library;
-
-use crate::plugin::manager::LibraryLoader;
 
 type Handler = u64;
 type FileId = i32;
@@ -35,6 +29,6 @@ pub trait FileSource {
     ) -> Handler;
     fn free_handler(&self, handler: Handler);
 
-    fn next_added_or_changed(&self, handler: Handler) -> Result<Option<FileInfoPath>, Error>;
-    fn next_deleted(&self, handler: Handler) -> Result<Option<FileId>, Error>;
+    fn next_added_or_changed(&self, handler: Handler) -> Result<Option<FileInfoPath>, String>;
+    fn next_deleted(&self, handler: Handler) -> Result<Option<FileId>, String>;
 }

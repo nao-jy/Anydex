@@ -1,10 +1,3 @@
-use std::ffi::{c_char, CStr, CString};
-
-use axum::Error;
-use libloading::Library;
-
-use crate::plugin::manager::LibraryLoader;
-
 type Handler = u64;
 type ExtractedFilePath = String;
 
@@ -14,5 +7,5 @@ pub trait FileExtractor {
     fn get_handler(&self, param: &serde_json::Value, base_dir: &str) -> Handler;
     fn free_handler(&self, handler: Handler);
 
-    fn extract(&self, handler: Handler, file_path: &str) -> Result<Vec<ExtractedFilePath>, Error>;
+    fn extract(&self, handler: Handler, file_path: &str) -> Result<Vec<ExtractedFilePath>, String>;
 }

@@ -1,10 +1,5 @@
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-use std::ffi::{c_char, CStr, CString};
-
-use libloading::Library;
-
-use crate::plugin::manager::LibraryLoader;
 
 type Handler = u64;
 type IndexId = i32;
