@@ -1,10 +1,16 @@
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{c_char, c_void, CStr, CString};
 
 use libloading::Library;
 
-use crate::plugin::manager::LibraryLoader;
+use crate::plugin::{
+    interface::{get_plugin, DynamicPluginHeader},
+    manager::LibraryLoader,
+};
 
 type Handler = u64;
+
+/// ABI version implemented by this host.
+pub const DYNAMIC_EMBEDDER_ABI_VERSION_V1: i32 = 1;
 
 pub trait Embedder {
     // Return JSON Schema
@@ -15,58 +21,85 @@ pub trait Embedder {
     fn embed(&self, handler: Handler, file_path: &str) -> Vec<f32>;
 }
 
-/// Host-side adapter for an embedder supplied by a dynamic library.
+/// ABI table returned by an embedder dynamic library's `get_plugin` entrypoint.
 ///
-/// A library must export these C ABI symbols:
-/// `anydex_embedder_get_param_schema`,
-/// `anydex_embedder_get_handler`, `anydex_embedder_free_handler`,
-/// `anydex_embedder_embed`, `anydex_embedder_free_string`, and
-/// `anydex_embedder_free_embedding`.
-pub struct DynamicEmbedder {
-    get_param_schema: GetParamSchema,
-    get_handler: GetHandler,
-    free_handler: FreeHandler,
-    embed: Embed,
-    free_string: FreeString,
-    free_embedding: FreeEmbedding,
+/// The first two fields are a stable header. Future ABI revisions may only append
+/// fields; they must not reorder or remove existing fields. Every pointer returned
+/// by `get_plugin` must point to at least `struct_size` bytes and remain valid for
+/// as long as the dynamic library is loaded.
+#[repr(C)]
+pub struct DynamicEmbedderApi {
+    /// Must equal [`DYNAMIC_EMBEDDER_ABI_VERSION_V1`].
+    pub abi_version: i32,
+    /// Size in bytes of the ABI table allocated by the plugin.
+    pub struct_size: usize,
+    pub get_param_schema: Option<unsafe extern "C" fn() -> *mut c_char>,
+    pub get_handler: Option<unsafe extern "C" fn(params: *const c_char) -> Handler>,
+    pub free_handler: Option<unsafe extern "C" fn(handler: Handler)>,
+    pub embed: Option<
+        unsafe extern "C" fn(
+            handler: Handler,
+            file_path: *const c_char,
+            length: *mut usize,
+        ) -> *mut f32,
+    >,
+    /// Releases allocations returned by this plugin's ABI functions.
+    pub free: Option<unsafe extern "C" fn(value: *mut c_void)>,
 }
 
-type GetParamSchema = unsafe extern "C" fn() -> *mut c_char;
-type GetHandler = unsafe extern "C" fn(params: *const c_char) -> Handler;
-type FreeHandler = unsafe extern "C" fn(handler: Handler);
-type Embed = unsafe extern "C" fn(
-    handler: Handler,
-    file_path: *const c_char,
-    length: *mut usize,
-) -> *mut f32;
-type FreeString = unsafe extern "C" fn(value: *mut c_char);
-type FreeEmbedding = unsafe extern "C" fn(values: *mut f32, length: usize);
+/// Validated host-side adapter for an embedder supplied by a dynamic library.
+pub struct DynamicEmbedder {
+    get_param_schema: unsafe extern "C" fn() -> *mut c_char,
+    get_handler: unsafe extern "C" fn(params: *const c_char) -> Handler,
+    free_handler: unsafe extern "C" fn(handler: Handler),
+    embed: unsafe extern "C" fn(
+        handler: Handler,
+        file_path: *const c_char,
+        length: *mut usize,
+    ) -> *mut f32,
+    free: unsafe extern "C" fn(value: *mut c_void),
+}
 
 impl LibraryLoader for DynamicEmbedder {
     fn load_library(library: &Library) -> Result<Self, String> {
-        // Function pointers are copied out of `Symbol`. `Plugin` owns `library`,
-        // so those pointers remain valid for as long as this adapter is alive.
-        unsafe {
+        let plugin: *const DynamicEmbedderApi = get_plugin(library)?;
+        let header = unsafe { std::ptr::read(plugin.cast::<DynamicPluginHeader>()) };
+
+        if header.abi_version != DYNAMIC_EMBEDDER_ABI_VERSION_V1 {
+            return Err(format!(
+                "unsupported embedder plugin version {}; host supports {}",
+                header.abi_version, DYNAMIC_EMBEDDER_ABI_VERSION_V1
+            ));
+        }
+        let required_size = std::mem::size_of::<DynamicEmbedderApi>();
+        if header.struct_size < required_size {
+            return Err(format!(
+                "embedder API table is too small: got {}, need at least {}",
+                header.struct_size, required_size
+            ));
+        }
+
+        let api = unsafe { std::ptr::read(plugin) };
+
+        if api.abi_version == DYNAMIC_EMBEDDER_ABI_VERSION_V1 {
             Ok(Self {
-                get_param_schema: *library.get(b"anydex_embedder_get_param_schema\0").map_err(
-                    |error| format!("missing anydex_embedder_get_param_schema: {error}"),
-                )?,
-                get_handler: *library
-                    .get(b"anydex_embedder_get_handler\0")
-                    .map_err(|error| format!("missing anydex_embedder_get_handler: {error}"))?,
-                free_handler: *library
-                    .get(b"anydex_embedder_free_handler\0")
-                    .map_err(|error| format!("missing anydex_embedder_free_handler: {error}"))?,
-                embed: *library
-                    .get(b"anydex_embedder_embed\0")
-                    .map_err(|error| format!("missing anydex_embedder_embed: {error}"))?,
-                free_string: *library
-                    .get(b"anydex_embedder_free_string\0")
-                    .map_err(|error| format!("missing anydex_embedder_free_string: {error}"))?,
-                free_embedding: *library
-                    .get(b"anydex_embedder_free_embedding\0")
-                    .map_err(|error| format!("missing anydex_embedder_free_embedding: {error}"))?,
+                get_param_schema: api
+                    .get_param_schema
+                    .ok_or("embedder API has a null get_param_schema pointer")?,
+                get_handler: api
+                    .get_handler
+                    .ok_or("embedder API has a null get_handler pointer")?,
+                free_handler: api
+                    .free_handler
+                    .ok_or("embedder API has a null free_handler pointer")?,
+                embed: api.embed.ok_or("embedder API has a null embed pointer")?,
+                free: api.free.ok_or("embedder API has a null free pointer")?,
             })
+        } else {
+            return Err(format!(
+                "unsupported embedder plugin version {}",
+                api.abi_version
+            ));
         }
     }
 }
@@ -79,7 +112,7 @@ impl Embedder for DynamicEmbedder {
         }
 
         let schema = unsafe { CStr::from_ptr(raw_schema).to_string_lossy().into_owned() };
-        unsafe { (self.free_string)(raw_schema) };
+        unsafe { (self.free)(raw_schema as *mut c_void) };
         serde_json::from_str(&schema).expect("embedder parameter schema must be valid JSON")
     }
 
@@ -110,7 +143,7 @@ impl Embedder for DynamicEmbedder {
         }
 
         let embedding = unsafe { std::slice::from_raw_parts(raw_embedding, length).to_vec() };
-        unsafe { (self.free_embedding)(raw_embedding, length) };
+        unsafe { (self.free)(raw_embedding as *mut c_void) };
         embedding
     }
 }
