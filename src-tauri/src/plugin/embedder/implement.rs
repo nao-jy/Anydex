@@ -18,16 +18,16 @@ pub struct DynamicEmbedderV1 {
     pub abi_version: i32,
     /// Size in bytes of the ABI table allocated by the plugin.
     pub struct_size: usize,
-    pub get_param_schema: unsafe extern "C" fn() -> *mut c_char,
+    pub get_param_schema: unsafe extern "C" fn() -> *const c_char,
     pub get_handler: unsafe extern "C" fn(params: *const c_char) -> Handler,
     pub free_handler: unsafe extern "C" fn(handler: Handler),
     pub embed: unsafe extern "C" fn(
         handler: Handler,
         file_path: *const c_char,
         length: *mut usize,
-    ) -> *mut f32,
+    ) -> *const f32,
     /// Releases allocations returned by this plugin's ABI functions.
-    pub free: unsafe extern "C" fn(value: *mut c_void),
+    pub free: unsafe extern "C" fn(value: *const c_void),
 }
 
 pub enum DynamicEmbedder {
