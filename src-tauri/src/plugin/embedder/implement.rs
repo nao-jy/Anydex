@@ -40,7 +40,7 @@ impl LibraryLoader for DynamicEmbedder {
         let plugin_header = unsafe { std::ptr::read(plugin_header_ptr) };
 
         match plugin_header.abi_version {
-            1 => {
+            DYNAMIC_EMBEDDER_ABI_VERSION_V1 => {
                 let required_size = std::mem::size_of::<DynamicEmbedderV1>();
                 if plugin_header.struct_size != required_size {
                     return Err(format!(
