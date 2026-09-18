@@ -3,6 +3,7 @@ use std::ffi::{c_char, c_void, CStr, CString};
 use libloading::Library;
 
 use crate::plugin::{
+    common::CSlice,
     embedder::interface::{Embedder, Handler},
     interface::{get_plugin, DynamicPluginHeader},
     manager::LibraryLoader,
@@ -21,11 +22,8 @@ pub struct DynamicEmbedderV1 {
     pub get_param_schema: unsafe extern "C" fn() -> *const c_char,
     pub get_handler: unsafe extern "C" fn(params: *const c_char) -> Handler,
     pub free_handler: unsafe extern "C" fn(handler: Handler),
-    pub embed: unsafe extern "C" fn(
-        handler: Handler,
-        file_path: *const c_char,
-        length: *mut usize,
-    ) -> *const f32,
+    pub embed:
+        unsafe extern "C" fn(handler: Handler, file_path: *const c_char) -> *const CSlice<f32>,
     /// Releases allocations returned by this plugin's ABI functions.
     pub free: unsafe extern "C" fn(value: *const c_void),
 }
@@ -58,61 +56,53 @@ impl LibraryLoader for DynamicEmbedder {
 }
 
 impl Embedder for DynamicEmbedder {
-    fn get_param_schema(&self) -> serde_json::Value {
+    fn get_param_schema(&self) -> Result<serde_json::Value, String> {
         match self {
-            DynamicEmbedder::V1(embedder_v1) => {
-                let raw_schema = unsafe { (embedder_v1.get_param_schema)() };
+            DynamicEmbedder::V1(plugin_v1) => {
+                let raw_schema = unsafe { (plugin_v1.get_param_schema)() };
                 if raw_schema.is_null() {
-                    return serde_json::Value::Null;
+                    return Err("get_param_schema returns null".into());
                 }
 
                 let schema = unsafe { CStr::from_ptr(raw_schema).to_string_lossy().into_owned() };
-                unsafe { (embedder_v1.free)(raw_schema as *mut c_void) };
-                serde_json::from_str(&schema).expect("embedder parameter schema must be valid JSON")
+                unsafe { (plugin_v1.free)(raw_schema as *mut c_void) };
+                serde_json::from_str(&schema).map_err(|err| err.to_string())
             }
         }
     }
 
-    fn get_handler(&self, param: &serde_json::Value) -> Handler {
+    fn get_handler(&self, param: &serde_json::Value) -> Result<Handler, String> {
         match self {
-            DynamicEmbedder::V1(embedder_v1) => {
-                let params = CString::new(
-                    serde_json::to_string(param)
-                        .expect("embedder parameters must be serializable JSON"),
-                )
-                .expect("embedder parameters must not contain NUL bytes");
-                unsafe { (embedder_v1.get_handler)(params.as_ptr()) }
+            DynamicEmbedder::V1(plugin_v1) => {
+                let params =
+                    CString::new(serde_json::to_string(param).map_err(|err| err.to_string())?)
+                        .map_err(|err| err.to_string())?;
+                Ok(unsafe { (plugin_v1.get_handler)(params.as_ptr()) })
             }
         }
     }
 
-    fn free_handler(&self, handler: Handler) {
+    fn free_handler(&self, handler: Handler) -> Result<(), String> {
         match self {
-            DynamicEmbedder::V1(embedder_v1) => unsafe { (embedder_v1.free_handler)(handler) },
+            DynamicEmbedder::V1(plugin_v1) => Ok(unsafe { (plugin_v1.free_handler)(handler) }),
         }
     }
 
-    fn embed(&self, handler: Handler, file_path: &str) -> Vec<f32> {
+    fn embed(&self, handler: Handler, file_path: &str) -> Result<Vec<f32>, String> {
         match self {
-            DynamicEmbedder::V1(embedder_v1) => {
-                let file_path = CString::new(file_path)
-                    .expect("embedder file paths must not contain NUL bytes");
-                let mut length = 0;
-                let raw_embedding =
-                    unsafe { (embedder_v1.embed)(handler, file_path.as_ptr(), &mut length) };
+            DynamicEmbedder::V1(plugin_v1) => {
+                let file_path = CString::new(file_path).map_err(|err| err.to_string())?;
+                let raw_embedding = unsafe { (plugin_v1.embed)(handler, file_path.as_ptr()) };
+                let embedding = unsafe { raw_embedding.read() };
 
-                if raw_embedding.is_null() {
-                    assert_eq!(
-                        length, 0,
-                        "embedder returned a null embedding with non-zero length"
-                    );
-                    return Vec::new();
+                if embedding.ptr.is_null() {
+                    return Err("embed returned a null".into());
                 }
 
                 let embedding =
-                    unsafe { std::slice::from_raw_parts(raw_embedding, length).to_vec() };
-                unsafe { (embedder_v1.free)(raw_embedding as *mut c_void) };
-                embedding
+                    unsafe { std::slice::from_raw_parts(embedding.ptr, embedding.length).to_vec() };
+                unsafe { (plugin_v1.free)(raw_embedding as *const c_void) };
+                Ok(embedding)
             }
         }
     }
