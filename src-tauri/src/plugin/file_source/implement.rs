@@ -50,8 +50,8 @@ pub struct DynamicFileSourceV1 {
     pub free_handler: unsafe extern "C" fn(handler: Handler),
 
     pub next_added_or_changed:
-        unsafe extern "C" fn(handler: Handler) -> CResult<*const COutputFileInfo>,
-    pub next_deleted: unsafe extern "C" fn(handler: Handler) -> CResult<CFileId>,
+        unsafe extern "C" fn(handler: Handler) -> *const CResult<*const COutputFileInfo>,
+    pub next_deleted: unsafe extern "C" fn(handler: Handler) -> *const CResult<CFileId>,
 
     /// Releases allocations returned by this plugin's ABI functions.
     pub free: unsafe extern "C" fn(value: *const c_void),
@@ -151,7 +151,8 @@ impl FileSource for DynamicFileSource {
     fn next_added_or_changed(&self, handler: Handler) -> Result<Option<OutputFileInfo>, String> {
         match self {
             DynamicFileSource::V1(plugin_v1) => {
-                let result = unsafe { (plugin_v1.next_added_or_changed)(handler) };
+                let result_ptr = unsafe { (plugin_v1.next_added_or_changed)(handler) };
+                let result = unsafe { result_ptr.read() };
                 if !result.success {
                     return Err("next_added_or_changed failed".into());
                 } else if result.data.is_null() {
@@ -185,7 +186,7 @@ impl FileSource for DynamicFileSource {
                         .unwrap_or(Utc::now()),
                     metadata: metadata,
                 };
-                unsafe { (plugin_v1.free)(result.data as *mut c_void) };
+                unsafe { (plugin_v1.free)(result_ptr as *mut c_void) };
                 Ok(Some(ret))
             }
         }
@@ -194,14 +195,16 @@ impl FileSource for DynamicFileSource {
     fn next_deleted(&self, handler: Handler) -> Result<Option<FileId>, String> {
         match self {
             DynamicFileSource::V1(plugin_v1) => {
-                let result = unsafe { (plugin_v1.next_deleted)(handler) };
+                let result_ptr = unsafe { (plugin_v1.next_deleted)(handler) };
+                let result = unsafe { result_ptr.read() };
                 if !result.success {
                     return Err("next_added_or_changed failed".into());
                 } else if result.data.is_null() {
                     return Ok(None);
                 }
-                unsafe { (plugin_v1.free)(result.data as *mut c_void) };
-                Ok(Some(to_string(result.data)))
+                let ret = to_string(result.data);
+                unsafe { (plugin_v1.free)(result_ptr as *mut c_void) };
+                Ok(Some(ret))
             }
         }
     }
