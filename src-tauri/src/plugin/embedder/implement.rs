@@ -1,13 +1,11 @@
-use std::ffi::{c_char, c_void, CStr, CString};
-
-use libloading::Library;
-
 use crate::plugin::{
-    common::CSlice,
+    common::{to_string, CSlice},
     embedder::interface::{Embedder, Handler},
     interface::{get_plugin, DynamicPluginHeader},
     manager::LibraryLoader,
 };
+use libloading::Library;
+use std::ffi::{c_char, c_void, CString};
 
 /// ABI version implemented by this host.
 pub const DYNAMIC_EMBEDDER_ABI_VERSION_V1: i32 = 1;
@@ -64,7 +62,7 @@ impl Embedder for DynamicEmbedder {
                     return Err("get_param_schema returns null".into());
                 }
 
-                let schema = unsafe { CStr::from_ptr(raw_schema).to_string_lossy().into_owned() };
+                let schema = to_string(raw_schema);
                 unsafe { (plugin_v1.free)(raw_schema as *mut c_void) };
                 serde_json::from_str(&schema).map_err(|err| err.to_string())
             }
@@ -99,8 +97,7 @@ impl Embedder for DynamicEmbedder {
                     return Err("embed returned a null".into());
                 }
 
-                let embedding =
-                    unsafe { std::slice::from_raw_parts(embedding.ptr, embedding.length).to_vec() };
+                let embedding = embedding.into();
                 unsafe { (plugin_v1.free)(raw_embedding as *const c_void) };
                 Ok(embedding)
             }

@@ -1,34 +1,36 @@
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
-type Handler = u64;
-type FileId = i32;
+pub type Handler = u64;
+pub type FileId = String;
 
-pub struct FileInfo {
-    pub uri: String, // id
+pub struct InputFileInfo {
+    pub file_id: FileId,
+    pub size: usize,
+    pub updated_at: DateTime<Utc>,
+}
+
+pub struct OutputFileInfo {
+    pub file_id: FileId,
     pub name: String,
+    pub file_path: String,
     pub content_type: String,
-    pub size: u64,
+    pub size: usize,
     pub updated_at: DateTime<Utc>,
     pub metadata: HashMap<String, String>,
 }
 
-pub struct FileInfoPath {
-    pub info: FileInfo,
-    pub file_path: String,
-}
-
 pub trait FileSource {
     // Return JSON Schema
-    fn get_param_schema(&self) -> serde_json::Value;
+    fn get_param_schema(&self) -> Result<serde_json::Value, String>;
     fn get_handler(
         &self,
         param: &serde_json::Value,
-        last_indexed_files: [FileInfo],
+        last_indexed_files: &[InputFileInfo],
         download_dir: &str,
-    ) -> Handler;
-    fn free_handler(&self, handler: Handler);
+    ) -> Result<Handler, String>;
+    fn free_handler(&self, handler: Handler) -> Result<(), String>;
 
-    fn next_added_or_changed(&self, handler: Handler) -> Result<Option<FileInfoPath>, String>;
+    fn next_added_or_changed(&self, handler: Handler) -> Result<Option<OutputFileInfo>, String>;
     fn next_deleted(&self, handler: Handler) -> Result<Option<FileId>, String>;
 }
