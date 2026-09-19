@@ -7,8 +7,8 @@ import {
   Card,
   Container,
   Group,
+  NumberInput,
   Paper,
-  Select,
   SimpleGrid,
   Stack,
   Switch,
@@ -19,14 +19,9 @@ import {
 import { commands } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
 
-const portOptions = ["3001", "3100", "8080", "8888"].map((port) => ({
-  value: port,
-  label: port,
-}));
-
 export const Mcp = () => {
   const queryClient = useQueryClient();
-  const [selectedPort, setSelectedPort] = useState<string | null>(null);
+  const [selectedPort, setSelectedPort] = useState<string>("8080");
   const {
     data: servers = [],
     isLoading: isLoadingServers,
@@ -146,7 +141,9 @@ export const Mcp = () => {
                   }
                   loading={setServerRunning.isPending}
                 >
-                  {server.status === "running" ? "サーバーを停止" : "サーバーを起動"}
+                  {server.status === "running"
+                    ? "サーバーを停止"
+                    : "サーバーを起動"}
                 </Button>
               </Group>
             </Card>
@@ -157,11 +154,13 @@ export const Mcp = () => {
                 MCP クライアントが接続するローカルポートを選択します。
               </Text>
               <Group mt="md" align="flex-end">
-                <Select
+                <NumberInput
                   label="ポート"
-                  data={portOptions}
                   value={selectedPort}
-                  onChange={setSelectedPort}
+                  onChange={(v) => {
+                    setSelectedPort(v.toString());
+                  }}
+                  disabled={server.status === "running"}
                   w={180}
                 />
                 <Button
