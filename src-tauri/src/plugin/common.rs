@@ -34,7 +34,7 @@ pub fn to_string(cchar: *const c_char) -> String {
     unsafe { CStr::from_ptr(cchar).to_string_lossy().into_owned() }
 }
 
-#[repr(u32)]
+#[repr(usize)]
 pub enum LogLevel {
     Error = 1,
     Warn = 2,
