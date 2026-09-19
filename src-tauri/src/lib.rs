@@ -24,7 +24,7 @@ macro_rules! app_commands {
             ipc::mcp::set_mcp_server_running,
             ipc::tasks::list_active_tasks,
             ipc::settings::get_application_settings,
-            ipc::settings::reload_plugins,
+            ipc::plugins::get_plugin_info,
             ipc::search::search_mock
         ]
     };

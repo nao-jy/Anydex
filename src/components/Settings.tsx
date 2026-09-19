@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
+  ActionIcon,
   Badge,
   Box,
   Button,
@@ -14,17 +15,16 @@ import {
   Title,
 } from "@mantine/core";
 import { commands } from "../bindings";
+import { openPath } from "@tauri-apps/plugin-opener";
 
 export const Settings = () => {
-  const queryClient = useQueryClient();
   const settingsQuery = useQuery({
     queryKey: ["applicationSettings"],
     queryFn: commands.getApplicationSettings,
   });
-  const reloadPlugins = useMutation({
-    mutationFn: commands.reloadPlugins,
-    onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ["applicationSettings"] }),
+  const getPluginInfo = useQuery({
+    queryKey: ["getPluginInfo"],
+    queryFn: commands.getPluginInfo,
   });
   const settings = settingsQuery.data;
 
@@ -73,21 +73,15 @@ export const Settings = () => {
                 </Box>
                 <Button
                   variant="light"
-                  onClick={() => reloadPlugins.mutate()}
-                  loading={reloadPlugins.isPending}
+                  onClick={() => getPluginInfo.refetch()}
+                  loading={getPluginInfo.isPending}
                 >
                   プラグインを再読み込み
                 </Button>
               </Group>
-              {reloadPlugins.data && (
-                <Text size="sm" c="teal" mt="md">
-                  {reloadPlugins.data.discoveredPlugins} 件を検出しました（
-                  {formatDateTime(reloadPlugins.data.reloadedAt)}）。
-                </Text>
-              )}
               <Stack gap="xs" mt="lg">
-                {settings.pluginDirectories.map((directory) => (
-                  <Paper key={directory.name} withBorder p="md" radius="md">
+                {getPluginInfo.data?.map((info) => (
+                  <Paper key={info.pluginType} withBorder p="md" radius="md">
                     <Group
                       justify="space-between"
                       align="flex-start"
@@ -97,17 +91,28 @@ export const Settings = () => {
                         <ThemeIcon variant="light" color="indigo">
                           ⌘
                         </ThemeIcon>
-                        <Box>
-                          <Text fw={600}>{directory.name}</Text>
-                          <Code block mt={6}>
-                            {directory.path}
-                          </Code>
-                        </Box>
+                        <Text fw={600}>{info.pluginType}</Text>
                       </Group>
                       <Badge variant="light" color="gray">
-                        {directory.pluginCount} 件
+                        {info.plugins.length} 件
                       </Badge>
                     </Group>
+                    <Group>
+                      <ActionIcon
+                        onClick={async () => {
+                          await openPath(info.path);
+                        }}
+                        variant="subtle"
+                      >
+                        📂
+                      </ActionIcon>
+                      <Code block mt={6}>
+                        {info.path}
+                      </Code>
+                    </Group>
+                    {info.plugins.map((v) => (
+                      <Badge key={v}>{v}</Badge>
+                    ))}
                   </Paper>
                 ))}
               </Stack>
@@ -138,12 +143,4 @@ function Message({ text, color = "dimmed" }: { text: string; color?: string }) {
       {text}
     </Text>
   );
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("ja-JP", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "Asia/Tokyo",
-  }).format(new Date(value));
 }

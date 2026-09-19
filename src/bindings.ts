@@ -14,7 +14,7 @@ export const commands = {
 	setMcpServerRunning: (running: boolean) => __TAURI_INVOKE<void>("set_mcp_server_running", { running }),
 	listActiveTasks: () => typedError<Task[], string>(__TAURI_INVOKE("list_active_tasks")),
 	getApplicationSettings: () => __TAURI_INVOKE<ApplicationSettings>("get_application_settings"),
-	reloadPlugins: () => __TAURI_INVOKE<PluginReloadResult>("reload_plugins"),
+	getPluginInfo: () => __TAURI_INVOKE<PluginInfo[]>("get_plugin_info"),
 	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),
 };
 
@@ -23,7 +23,6 @@ export const commands = {
 export type ApplicationSettings = {
 	databasePath: string,
 	logDirectory: string,
-	pluginDirectories: PluginDirectory[],
 };
 
 export type Embedder = {
@@ -115,16 +114,10 @@ export type OAuthClient = {
 	scopes: any,
 };
 
-export type PluginDirectory = {
-	name: string,
+export type PluginInfo = {
+	pluginType: string,
 	path: string,
-	pluginCount: number,
-};
-
-/**  Result returned after the mock plugin registry has been refreshed. */
-export type PluginReloadResult = {
-	reloadedAt: string,
-	discoveredPlugins: number,
+	plugins: string[],
 };
 
 export type Schedule = {

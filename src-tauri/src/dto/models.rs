@@ -154,21 +154,12 @@ pub struct McpServer {
 pub struct ApplicationSettings {
     pub database_path: String,
     pub log_directory: String,
-    pub plugin_directories: Vec<PluginDirectory>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct PluginDirectory {
-    pub name: String,
+pub struct PluginInfo {
+    pub plugin_type: String,
     pub path: String,
-    pub plugin_count: i32,
-}
-
-/// Result returned after the mock plugin registry has been refreshed.
-#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct PluginReloadResult {
-    pub reloaded_at: DateTime<Utc>,
-    pub discovered_plugins: i32,
+    pub plugins: Vec<String>,
 }
