@@ -14,7 +14,7 @@ export const commands = {
 	setMcpServerRunning: (running: boolean) => __TAURI_INVOKE<void>("set_mcp_server_running", { running }),
 	listActiveTasks: () => typedError<Task[], string>(__TAURI_INVOKE("list_active_tasks")),
 	getApplicationSettings: () => __TAURI_INVOKE<ApplicationSettings>("get_application_settings"),
-	getPluginInfo: () => __TAURI_INVOKE<PluginInfo[]>("get_plugin_info"),
+	getPluginInfo: () => typedError<PluginInfo[], string>(__TAURI_INVOKE("get_plugin_info")),
 	upsertEmbedder: (indexId: number, embedderName: string, dimensions: number, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_embedder", { indexId, embedderName, dimensions, paramsJson })),
 	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),
 };

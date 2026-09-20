@@ -35,7 +35,7 @@ export const Index = () => {
   });
   const { data: plugins = [] } = useQuery({
     queryKey: ["plugins"],
-    queryFn: async () => await commands.getPluginInfo(),
+    queryFn: async () => await unwrapCommandResult(commands.getPluginInfo()),
   });
   const createIndex = useMutation({
     mutationFn: () => unwrapCommandResult(commands.createEmptyIndex()),

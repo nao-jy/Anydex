@@ -16,6 +16,7 @@ import {
 } from "@mantine/core";
 import { commands } from "../bindings";
 import { openPath } from "@tauri-apps/plugin-opener";
+import { unwrapCommandResult } from "../tauri";
 
 export const Settings = () => {
   const settingsQuery = useQuery({
@@ -24,7 +25,7 @@ export const Settings = () => {
   });
   const getPluginInfo = useQuery({
     queryKey: ["getPluginInfo"],
-    queryFn: commands.getPluginInfo,
+    queryFn: async () => await unwrapCommandResult(commands.getPluginInfo()),
   });
   const settings = settingsQuery.data;
 
