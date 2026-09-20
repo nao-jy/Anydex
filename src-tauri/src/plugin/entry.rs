@@ -85,7 +85,7 @@ impl PluginType {
 
         // create dir
         for plugin_type in all::<Self>() {
-            std::fs::create_dir_all(&plugin_type.get_dir());
+            std::fs::create_dir_all(&plugin_type.get_dir()).map_err(|err| err.to_string())?;
         }
 
         Ok(())

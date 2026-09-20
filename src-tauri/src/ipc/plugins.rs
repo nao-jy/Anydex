@@ -10,22 +10,22 @@ pub fn get_plugin_info() -> Result<Vec<PluginInfo>, String> {
     let ret = vec![
         PluginInfo {
             plugin_type: PluginType::FileSource.into(),
-            path: PluginType::FileSource.get_dir()?,
+            path: PluginType::FileSource.get_dir(),
             plugins: PluginType::FileSource.list_names(),
         },
         PluginInfo {
             plugin_type: PluginType::FileExtractor.into(),
-            path: PluginType::FileExtractor.get_dir()?,
+            path: PluginType::FileExtractor.get_dir(),
             plugins: PluginType::FileExtractor.list_names(),
         },
         PluginInfo {
             plugin_type: PluginType::Embedder.into(),
-            path: PluginType::Embedder.get_dir()?,
+            path: PluginType::Embedder.get_dir(),
             plugins: PluginType::Embedder.list_names(),
         },
         PluginInfo {
             plugin_type: PluginType::VectorStore.into(),
-            path: PluginType::VectorStore.get_dir()?,
+            path: PluginType::VectorStore.get_dir(),
             plugins: PluginType::VectorStore.list_names(),
         },
     ];
