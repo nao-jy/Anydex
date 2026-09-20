@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use tauri::Manager;
 
-use crate::dto::models::PluginInfo;
+use crate::{dto::models::PluginInfo, plugin::def::PluginType};
 
 #[tauri::command]
 #[specta::specta]
@@ -14,40 +14,24 @@ pub fn get_plugin_info(app: tauri::AppHandle) -> Vec<PluginInfo> {
 
     vec![
         PluginInfo {
-            plugin_type: "file-sources".into(),
-            path: app_data_dir
-                .join("plugins")
-                .join("file-sources")
-                .display()
-                .to_string(),
-            plugins: vec!["OpenDAL".into()],
+            plugin_type: PluginType::FileSource.into(),
+            path: PluginType::FileSource.get_dir(&app_data_dir),
+            plugins: PluginType::FileSource.list_names(&app_data_dir),
         },
         PluginInfo {
-            plugin_type: "extractors".into(),
-            path: app_data_dir
-                .join("plugins")
-                .join("extractors")
-                .display()
-                .to_string(),
-            plugins: vec!["Default".into()],
+            plugin_type: PluginType::FileExtractor.into(),
+            path: PluginType::FileExtractor.get_dir(&app_data_dir),
+            plugins: PluginType::FileExtractor.list_names(&app_data_dir),
         },
         PluginInfo {
-            plugin_type: "vector-stores".into(),
-            path: app_data_dir
-                .join("plugins")
-                .join("vector-stores")
-                .display()
-                .to_string(),
-            plugins: vec!["sqlite-vector".into()],
+            plugin_type: PluginType::Embedder.into(),
+            path: PluginType::Embedder.get_dir(&app_data_dir),
+            plugins: PluginType::Embedder.list_names(&app_data_dir),
         },
         PluginInfo {
-            plugin_type: "embedders".into(),
-            path: app_data_dir
-                .join("plugins")
-                .join("embedders")
-                .display()
-                .to_string(),
-            plugins: vec!["JSON Web API".into()],
+            plugin_type: PluginType::VectorStore.into(),
+            path: PluginType::VectorStore.get_dir(&app_data_dir),
+            plugins: PluginType::VectorStore.list_names(&app_data_dir),
         },
     ]
 }

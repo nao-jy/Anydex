@@ -81,6 +81,41 @@ pub async fn list_indexes(database: &DatabaseConnection) -> Result<Vec<Index>, D
     Ok(indexes)
 }
 
+pub async fn upsert_embedder(
+    database: &DatabaseConnection,
+    index_id: i32,
+    embedder_name: String,
+    dimensions: i32,
+    params: serde_json::Value,
+) -> Result<(), DbErr> {
+    let transaction = database.begin().await?;
+
+    let emb_model = models::embedder::Entity::find_by_index_id(index_id);
+    let emb = emb_model.one(&transaction).await?;
+
+    if let Some(emb_ent) = emb {
+        let mut active_model = emb_ent.into_active_model();
+        active_model.name = Set(embedder_name);
+        active_model.dimensions = Set(dimensions);
+        active_model.params = Set(params);
+
+        active_model.update(&transaction).await?;
+    } else {
+        models::embedder::ActiveModel {
+            name: Set(embedder_name),
+            index_id: Set(index_id),
+            dimensions: Set(dimensions),
+            params: Set(params),
+            ..Default::default()
+        }
+        .insert(&transaction)
+        .await?;
+    }
+
+    transaction.commit().await?;
+    Ok(())
+}
+
 async fn next_empty_index_name(transaction: &DatabaseTransaction) -> Result<String, DbErr> {
     let names = models::index::Entity::find()
         .all(transaction)

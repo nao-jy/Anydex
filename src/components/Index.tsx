@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Accordion,
@@ -8,13 +8,13 @@ import {
   Container,
   Group,
   Paper,
+  Select,
   Stack,
   Text,
   TextInput,
   Title,
-  Badge,
 } from "@mantine/core";
-import { commands } from "../bindings";
+import { commands, Index as IndexInfo, PluginInfo } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
 
 type SortKey = "name" | "createdAt" | "updatedAt";
@@ -25,7 +25,6 @@ export const Index = () => {
   const [sortKey, setSortKey] = useState<SortKey>("updatedAt");
   const [direction, setDirection] = useState<Direction>("desc");
   const [open, setOpen] = useState<string[]>([]);
-  const [editingIndexId, setEditingIndexId] = useState<number | null>(null);
   const {
     data: indexes = [],
     isLoading,
@@ -33,6 +32,10 @@ export const Index = () => {
   } = useQuery({
     queryKey: ["indexes"],
     queryFn: () => unwrapCommandResult(commands.listIndexes()),
+  });
+  const { data: plugins = [] } = useQuery({
+    queryKey: ["plugins"],
+    queryFn: async () => await commands.getPluginInfo(),
   });
   const createIndex = useMutation({
     mutationFn: () => unwrapCommandResult(commands.createEmptyIndex()),
@@ -42,7 +45,6 @@ export const Index = () => {
     mutationFn: ({ indexId, name }: { indexId: number; name: string }) =>
       unwrapCommandResult(commands.renameIndex(indexId, name)),
     onSuccess: () => {
-      setEditingIndexId(null);
       void queryClient.invalidateQueries({ queryKey: ["indexes"] });
     },
   });
@@ -62,15 +64,6 @@ export const Index = () => {
       setDirection(key === "name" ? "asc" : "desc");
     }
   };
-  const openNameEditor = (indexId: number) => {
-    const itemValue = indexId.toString();
-    setOpen((current) =>
-      current.includes(itemValue) ? current : [...current, itemValue],
-    );
-    renameIndex.reset();
-    setEditingIndexId(indexId);
-  };
-
   return (
     <Box bg="var(--mantine-color-body)" mih="calc(100vh - 60px)" py={40}>
       <Container size="lg">
@@ -180,31 +173,14 @@ export const Index = () => {
                             </Text>
                           </Box>
                         </Group>
-                        {editingIndexId === index.id ? (
-                          <IndexNameEditor
-                            name={index.name}
-                            saving={renameIndex.isPending}
-                            error={renameIndex.isError}
-                            onSave={(name) =>
-                              renameIndex.mutate({ indexId: index.id, name })
-                            }
-                            onCancel={() => {
-                              renameIndex.reset();
-                              setEditingIndexId(null);
-                            }}
-                          />
-                        ) : (
-                          <Group justify="space-between">
-                            <Text fw={600}>{index.name}</Text>
-                            <Button
-                              variant="subtle"
-                              size="compact-sm"
-                              onClick={() => openNameEditor(index.id)}
-                            >
-                              名前を変更
-                            </Button>
-                          </Group>
-                        )}
+                        <IndexName
+                          saving={renameIndex.isPending}
+                          error={renameIndex.isError}
+                          onSave={(indexId, newName) =>
+                            renameIndex.mutate({ indexId, name: newName })
+                          }
+                          index={index}
+                        />
                       </Paper>
                       <Setting
                         label="インデクサ"
@@ -213,19 +189,23 @@ export const Index = () => {
                         setting_label="インデクサを追加"
                         on_click_setting={() => {}}
                       />
-                      <Setting
-                        label="ベクトル化"
-                        value={index.embedder?.name ?? "未設定"}
-                        detail="検索クエリとファイルをベクトルに変換します"
-                        setting_label="設定"
-                        on_click_setting={() => {}}
+                      <PluginSelector
+                        label="ベクトル化：ファイルを検索可能に変換します"
+                        saving={false}
+                        error={false}
+                        info={plugins.find((v) => v.pluginType === "embedder")!}
+                        selected={null}
+                        onSave={(plugin_type: string, name: string) => {}}
                       />
-                      <Setting
-                        label="ベクトルストア"
-                        value={index.vectorStore?.name ?? "未設定"}
-                        detail="生成したベクトルを保存し、検索に使います"
-                        setting_label="設定"
-                        on_click_setting={() => {}}
+                      <PluginSelector
+                        label="ベクトルストア：生成したベクトルを保存し、検索に使います"
+                        saving={false}
+                        error={false}
+                        info={
+                          plugins.find((v) => v.pluginType === "vector-store")!
+                        }
+                        selected={null}
+                        onSave={(plugin_type: string, name: string) => {}}
                       />
                     </Stack>
                   </Accordion.Panel>
@@ -239,58 +219,116 @@ export const Index = () => {
   );
 };
 
-function IndexNameEditor({
-  name,
-  saving,
-  error,
-  onSave,
-  onCancel,
-}: {
-  name: string;
+const IndexName = (props: {
   saving: boolean;
   error: boolean;
-  onSave: (name: string) => void;
-  onCancel: () => void;
-}) {
-  const [value, setValue] = useState(name);
-
-  useEffect(() => setValue(name), [name]);
+  index: IndexInfo;
+  onSave: (indexId: number, newName: string) => void;
+}) => {
+  const { index, onSave, saving, error } = props;
+  const [isEditting, setIsEditting] = useState(false);
+  const [newName, setNewName] = useState(index.name);
 
   const save = () => {
-    const nextName = value.trim();
+    const nextName = newName.trim();
     if (!nextName) {
-      setValue(name);
       return;
     }
-    if (nextName !== name) onSave(nextName);
+    onSave(index.id, nextName);
+    setIsEditting(false);
+  };
+
+  const onCancel = () => {
+    setIsEditting(false);
+  };
+
+  if (isEditting) {
+    return (
+      <Group align="flex-start" wrap="nowrap">
+        <TextInput
+          label="インデックス名"
+          value={newName}
+          onChange={(event) => setNewName(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") save();
+            if (event.key === "Escape") onCancel();
+          }}
+          disabled={saving}
+          error={error && "保存できませんでした。"}
+          style={{ flex: 1 }}
+        />
+        <Group gap="xs" mt={24} wrap="nowrap">
+          <Button variant="default" onClick={onCancel} disabled={saving}>
+            キャンセル
+          </Button>
+          <Button onClick={save} loading={saving}>
+            保存
+          </Button>
+        </Group>
+      </Group>
+    );
+  }
+
+  return (
+    <Group justify="space-between">
+      <Text fw={600}>{index.name}</Text>
+      <Button
+        variant="subtle"
+        size="compact-sm"
+        onClick={() => setIsEditting(true)}
+      >
+        名前を変更
+      </Button>
+    </Group>
+  );
+};
+
+function PluginSelector(props: {
+  label: string;
+  saving: boolean;
+  error: boolean;
+  info: PluginInfo;
+  selected: string | null;
+  onSave: (plugin_type: string, name: string) => void;
+}) {
+  const { label, info, selected, onSave, saving, error } = props;
+  const [selecting, setSelecting] = useState(selected);
+  const save = () => {
+    const nextName = selecting?.trim();
+    if (!nextName) {
+      return;
+    }
+    onSave(info.pluginType, nextName);
+  };
+  const onCancel = () => {
+    setSelecting(selected);
   };
 
   return (
-    <Group align="flex-start" wrap="nowrap">
-      <TextInput
-        label="インデックス名"
-        value={value}
-        onChange={(event) => setValue(event.currentTarget.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") save();
-          if (event.key === "Escape") onCancel();
-        }}
-        disabled={saving}
-        error={
-          error &&
-          "名前を保存できませんでした。重複していないか確認してください。"
-        }
-        style={{ flex: 1 }}
-      />
-      <Group gap="xs" mt={24} wrap="nowrap">
-        <Button variant="default" onClick={onCancel} disabled={saving}>
-          キャンセル
-        </Button>
-        <Button onClick={save} loading={saving}>
-          保存
-        </Button>
+    <Paper withBorder p="md" radius="md">
+      <Text size="xs" c="dimmed">
+        {label}
+      </Text>
+      <Group align="flex-start" wrap="nowrap">
+        <Select
+          label={info.pluginType}
+          value={selecting}
+          data={info.plugins}
+          onChange={(_value, option) => setSelecting(option.value)}
+          disabled={saving}
+          error={error && "保存できませんでした。"}
+          style={{ flex: 1 }}
+        />
+        <Group gap="xs" mt={24} wrap="nowrap">
+          <Button variant="default" onClick={onCancel} disabled={saving}>
+            キャンセル
+          </Button>
+          <Button onClick={save} loading={saving}>
+            保存
+          </Button>
+        </Group>
       </Group>
-    </Group>
+    </Paper>
   );
 }
 
@@ -311,7 +349,6 @@ function DateInfo({ label, value }: { label: string; value: string }) {
 }
 function Setting({
   label,
-  value,
   detail,
   setting_label,
   on_click_setting,

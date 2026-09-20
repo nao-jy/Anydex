@@ -1,4 +1,5 @@
 pub mod common;
+pub mod def;
 pub mod embedder;
 pub mod file_extractor;
 pub mod file_source;
