@@ -50,42 +50,43 @@ pub static VECTOR_STORE_MGR: Mutex<Option<PluginManager<DynamicVectorStore>>> = 
 impl PluginType {
     pub fn init(base_dir: &str) -> Result<(), String> {
         // init base_dir
-        let mut base_dir_mtx = BASE_DIR.lock().unwrap();
-        *base_dir_mtx = Some(String::from(base_dir));
-
-        // init plugin manager
         {
-            let mut mgr = FILE_SOURCE_MGR.lock().unwrap();
-            let mut mgr_init =
-                PluginManager::<DynamicFileSource>::init(&Self::FileSource.get_dir());
-            mgr_init.load_plugins()?;
-            *mgr = Some(mgr_init)
-        }
-        {
-            let mut mgr = FILE_EXTRACTOR_MGR.lock().unwrap();
-            let mut mgr_init =
-                PluginManager::<DynamicFileExtractor>::init(&Self::FileExtractor.get_dir());
-            mgr_init.load_plugins()?;
-            *mgr = Some(mgr_init)
-        }
-        {
-            let mut mgr: std::sync::MutexGuard<'_, Option<PluginManager<DynamicEmbedder>>> =
-                EMBEDDER_MGR.lock().unwrap();
-            let mut mgr_init = PluginManager::<DynamicEmbedder>::init(&Self::Embedder.get_dir());
-            mgr_init.load_plugins()?;
-            *mgr = Some(mgr_init)
-        }
-        {
-            let mut mgr = VECTOR_STORE_MGR.lock().unwrap();
-            let mut mgr_init =
-                PluginManager::<DynamicVectorStore>::init(&Self::VectorStore.get_dir());
-            mgr_init.load_plugins()?;
-            *mgr = Some(mgr_init)
+            let mut base_dir_mtx = BASE_DIR.lock().unwrap();
+            *base_dir_mtx = Some(String::from(base_dir));
         }
 
         // create dir
         for plugin_type in all::<Self>() {
             std::fs::create_dir_all(&plugin_type.get_dir()).map_err(|err| err.to_string())?;
+        }
+
+        // init plugin manager
+        {
+            let mut mgr_init =
+                PluginManager::<DynamicFileSource>::init(&Self::FileSource.get_dir());
+            mgr_init.load_plugins()?;
+            let mut mgr = FILE_SOURCE_MGR.lock().unwrap();
+            *mgr = Some(mgr_init)
+        }
+        {
+            let mut mgr_init =
+                PluginManager::<DynamicFileExtractor>::init(&Self::FileExtractor.get_dir());
+            mgr_init.load_plugins()?;
+            let mut mgr = FILE_EXTRACTOR_MGR.lock().unwrap();
+            *mgr = Some(mgr_init)
+        }
+        {
+            let mut mgr_init = PluginManager::<DynamicEmbedder>::init(&Self::Embedder.get_dir());
+            mgr_init.load_plugins()?;
+            let mut mgr = EMBEDDER_MGR.lock().unwrap();
+            *mgr = Some(mgr_init)
+        }
+        {
+            let mut mgr_init =
+                PluginManager::<DynamicVectorStore>::init(&Self::VectorStore.get_dir());
+            mgr_init.load_plugins()?;
+            let mut mgr = VECTOR_STORE_MGR.lock().unwrap();
+            *mgr = Some(mgr_init)
         }
 
         Ok(())
