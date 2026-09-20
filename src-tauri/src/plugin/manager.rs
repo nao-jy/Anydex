@@ -9,6 +9,7 @@ pub struct Plugin<T> {
 
 pub struct PluginManager<T> {
     plugins: HashMap<String, Plugin<T>>,
+    plugin_dir: String,
 }
 
 pub trait LibraryLoader: Sized {
@@ -16,11 +17,18 @@ pub trait LibraryLoader: Sized {
 }
 
 impl<T: LibraryLoader> PluginManager<T> {
-    pub fn init(&mut self, plugin_dir: &Path) -> Result<(), String> {
-        let entries = fs::read_dir(plugin_dir).map_err(|error| {
+    pub fn init(plugin_dir: &str) -> Self {
+        let ret = PluginManager::<T> {
+            plugins: HashMap::<String, Plugin<T>>::new(),
+            plugin_dir: String::from(plugin_dir),
+        };
+        return ret;
+    }
+    pub fn load_plugins(&mut self) -> Result<(), String> {
+        let entries = fs::read_dir(&self.plugin_dir).map_err(|error| {
             format!(
                 "failed to read plugin directory '{}': {error}",
-                plugin_dir.display()
+                self.plugin_dir
             )
         })?;
         let mut plugins = HashMap::new();
@@ -29,7 +37,7 @@ impl<T: LibraryLoader> PluginManager<T> {
             let entry = entry.map_err(|error| {
                 format!(
                     "failed to read an entry in plugin directory '{}': {error}",
-                    plugin_dir.display()
+                    self.plugin_dir
                 )
             })?;
             let path = entry.path();

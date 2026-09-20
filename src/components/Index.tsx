@@ -195,7 +195,7 @@ export const Index = () => {
                         error={false}
                         info={plugins.find((v) => v.pluginType === "embedder")!}
                         selected={null}
-                        onSave={(plugin_type: string, name: string) => {}}
+                        onSave={(name: string) => {}}
                       />
                       <PluginSelector
                         label="ベクトルストア：生成したベクトルを保存し、検索に使います"
@@ -205,7 +205,7 @@ export const Index = () => {
                           plugins.find((v) => v.pluginType === "vector-store")!
                         }
                         selected={null}
-                        onSave={(plugin_type: string, name: string) => {}}
+                        onSave={(name: string) => {}}
                       />
                     </Stack>
                   </Accordion.Panel>
@@ -289,7 +289,7 @@ function PluginSelector(props: {
   error: boolean;
   info: PluginInfo;
   selected: string | null;
-  onSave: (plugin_type: string, name: string) => void;
+  onSave: (name: string) => void;
 }) {
   const { label, info, selected, onSave, saving, error } = props;
   const [selecting, setSelecting] = useState(selected);
@@ -298,7 +298,7 @@ function PluginSelector(props: {
     if (!nextName) {
       return;
     }
-    onSave(info.pluginType, nextName);
+    onSave(nextName);
   };
   const onCancel = () => {
     setSelecting(selected);
