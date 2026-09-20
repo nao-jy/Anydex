@@ -1,3 +1,4 @@
+use enum_iterator::{all, Sequence};
 use std::{path::PathBuf, sync::Mutex};
 
 use crate::plugin::{
@@ -6,7 +7,7 @@ use crate::plugin::{
     vector_store::implement::DynamicVectorStore,
 };
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Sequence)]
 pub enum PluginType {
     FileSource,
     FileExtractor,
@@ -56,49 +57,49 @@ impl PluginType {
         {
             let mut mgr = FILE_SOURCE_MGR.lock().unwrap();
             let mut mgr_init =
-                PluginManager::<DynamicFileSource>::init(&Self::FileSource.get_dir().unwrap());
+                PluginManager::<DynamicFileSource>::init(&Self::FileSource.get_dir());
             mgr_init.load_plugins()?;
             *mgr = Some(mgr_init)
         }
         {
             let mut mgr = FILE_EXTRACTOR_MGR.lock().unwrap();
-            let mut mgr_init = PluginManager::<DynamicFileExtractor>::init(
-                &Self::FileExtractor.get_dir().unwrap(),
-            );
+            let mut mgr_init =
+                PluginManager::<DynamicFileExtractor>::init(&Self::FileExtractor.get_dir());
             mgr_init.load_plugins()?;
             *mgr = Some(mgr_init)
         }
         {
             let mut mgr: std::sync::MutexGuard<'_, Option<PluginManager<DynamicEmbedder>>> =
                 EMBEDDER_MGR.lock().unwrap();
-            let mut mgr_init =
-                PluginManager::<DynamicEmbedder>::init(&Self::Embedder.get_dir().unwrap());
+            let mut mgr_init = PluginManager::<DynamicEmbedder>::init(&Self::Embedder.get_dir());
             mgr_init.load_plugins()?;
             *mgr = Some(mgr_init)
         }
         {
             let mut mgr = VECTOR_STORE_MGR.lock().unwrap();
             let mut mgr_init =
-                PluginManager::<DynamicVectorStore>::init(&Self::VectorStore.get_dir().unwrap());
+                PluginManager::<DynamicVectorStore>::init(&Self::VectorStore.get_dir());
             mgr_init.load_plugins()?;
             *mgr = Some(mgr_init)
         }
+
+        // create dir
+        for plugin_type in all::<Self>() {
+            std::fs::create_dir_all(&plugin_type.get_dir());
+        }
+
         Ok(())
     }
 
-    pub fn get_dir(self) -> Result<String, String> {
+    pub fn get_dir(self) -> String {
         let base_dir_opt_mtx = BASE_DIR.lock().unwrap();
         let plugin_name: String = self.into();
         let base_dir_opt = base_dir_opt_mtx.clone();
-        if let Some(base_dir) = base_dir_opt {
-            Ok(PathBuf::from(base_dir)
-                .join("plugins")
-                .join(plugin_name)
-                .display()
-                .to_string())
-        } else {
-            Err("PluginType not initialized".into())
-        }
+        PathBuf::from(base_dir_opt.unwrap())
+            .join("plugins")
+            .join(plugin_name)
+            .display()
+            .to_string()
     }
 
     pub fn list_names(self) -> Vec<String> {
