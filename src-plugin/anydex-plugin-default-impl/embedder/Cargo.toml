@@ -14,3 +14,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 reqwest = "0.13.5"
+anydex-plugin-api.workspace = true

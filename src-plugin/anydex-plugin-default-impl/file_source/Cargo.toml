@@ -14,3 +14,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 opendal = "0.59.2"
+anydex-plugin-api.workspace = true

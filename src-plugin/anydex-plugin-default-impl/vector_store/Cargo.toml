@@ -14,3 +14,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 rusqlite = "0.40.2"
+anydex-plugin-api.workspace = true

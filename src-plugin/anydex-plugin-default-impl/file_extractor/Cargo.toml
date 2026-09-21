@@ -14,3 +14,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 xberg = "1.2.6"
+anydex-plugin-api.workspace = true
