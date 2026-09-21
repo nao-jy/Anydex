@@ -81,6 +81,15 @@ impl VectorStore for DynamicVectorStore {
             }
         }
     }
+
+    fn clear_chunk(&self, handler: Handler, index_id: IndexId) -> Result<(), String> {
+        match self {
+            DynamicVectorStore::V1(plugin_v1) => {
+                Ok(unsafe { (plugin_v1.clear_chunk)(handler, index_id) })
+            }
+        }
+    }
+
     fn insert_chunk(&self, handler: Handler, chunk: &Chunk) -> Result<(), String> {
         match self {
             DynamicVectorStore::V1(plugin_v1) => {

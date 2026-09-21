@@ -33,6 +33,7 @@ pub trait VectorStore {
     fn free_handler(&self, handler: Handler) -> Result<(), String>;
 
     fn delete_chunk(&self, handler: Handler, fild_id: FileId) -> Result<(), String>;
+    fn clear_chunk(&self, handler: Handler, fild_id: IndexId) -> Result<(), String>;
     fn insert_chunk(&self, handler: Handler, chunk: &Chunk) -> Result<(), String>;
     fn search(
         &self,

@@ -13,7 +13,7 @@ name = "anydex_plugin_default_impl_vector_store_lib"
 crate-type = ["cdylib"]
 
 [dependencies]
-rusqlite = "0.40.2"
+rusqlite = { version = "0.40.2", features = ["load_extension"] }
 anydex-plugin-api.workspace = true
 serde.workspace = true
 serde_json.workspace = true

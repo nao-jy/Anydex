@@ -51,6 +51,7 @@ pub struct DynamicVectorStoreV1 {
 
     pub delete_chunk: unsafe extern "C" fn(handler: Handler, fild_id: FileId),
     pub insert_chunk: unsafe extern "C" fn(handler: Handler, chunk: CChunk),
+    pub clear_chunk: unsafe extern "C" fn(handler: Handler, index_id: IndexId),
     pub search: unsafe extern "C" fn(
         handler: Handler,
         search_request: CSearchRequest,
