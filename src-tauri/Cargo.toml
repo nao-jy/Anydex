@@ -19,7 +19,6 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 anydex-plugin-api = { path = "../src-plugin/anydex-plugin-api" }
-anydex-plugin-default-impl = { path = "../src-plugin/anydex-plugin-default-impl" }
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }

@@ -1,4 +1,7 @@
+use std::env::consts::{ARCH, OS};
 use std::{collections::HashMap, fs, path::Path};
+
+use anydex_plugin_api_lib::common::{get_dylib_name, get_dylib_prefix};
 
 pub struct Plugin<T> {
     // Fields are dropped in declaration order, so the instance is dropped
@@ -42,25 +45,28 @@ impl<T: LibraryLoader> PluginManager<T> {
             })?;
             let path = entry.path();
 
-            if !path.is_file() || !is_dynamic_library(&path) {
+            if !path.is_file() || !is_dynamic_library(&path) || !is_valid_name(&path) {
                 continue;
             }
 
-            let name = entry.file_name().to_string_lossy().into_owned();
-            // Loading a dynamic library is unsafe because its initialization code runs in-process.
-            let library = unsafe { libloading::Library::new(&path) }
-                .map_err(|error| format!("failed to load plugin '{}': {error}", path.display()))?;
-            let instance = T::load_library(&library).map_err(|error| {
-                format!("failed to initialize plugin '{}': {error}", path.display())
-            })?;
+            let name_opt = get_dylib_name(entry.file_name().to_str().unwrap_or_default());
+            if let Some(name) = name_opt {
+                // Loading a dynamic library is unsafe because its initialization code runs in-process.
+                let library = unsafe { libloading::Library::new(&path) }.map_err(|error| {
+                    format!("failed to load plugin '{}': {error}", path.display())
+                })?;
+                let instance = T::load_library(&library).map_err(|error| {
+                    format!("failed to initialize plugin '{}': {error}", path.display())
+                })?;
 
-            plugins.insert(
-                name,
-                Plugin {
-                    instance: Box::new(instance),
-                    library,
-                },
-            );
+                plugins.insert(
+                    name,
+                    Plugin {
+                        instance: Box::new(instance),
+                        library,
+                    },
+                );
+            }
         }
 
         self.plugins = plugins;
@@ -84,4 +90,12 @@ fn is_dynamic_library(path: &Path) -> bool {
         .and_then(|name| name.to_str())
         .unwrap_or_default();
     file_name.ends_with(std::env::consts::DLL_SUFFIX)
+}
+
+fn is_valid_name(path: &Path) -> bool {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    file_name.starts_with(get_dylib_prefix())
 }

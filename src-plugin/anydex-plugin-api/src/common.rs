@@ -1,4 +1,6 @@
+use std::env::consts::{ARCH, OS};
 use std::ffi::{c_char, CStr};
+use std::path::Path;
 
 // common type
 #[repr(C)]
@@ -39,4 +41,27 @@ pub enum LogLevel {
     Info = 3,
     Debug = 4,
     Trace = 5,
+}
+
+pub fn get_dylib_prefix() -> String {
+    format!("{OS}-{ARCH}-")
+}
+
+pub fn get_dylib_name(filename: &str) -> Option<String> {
+    let file_stem = Path::new(filename)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap();
+    let prefix = get_dylib_prefix();
+    if !file_stem.starts_with(&prefix) {
+        None
+    } else {
+        let len = prefix.chars().count();
+        Some(file_stem.chars().skip(len).collect())
+    }
+}
+
+// https://doc.rust-lang.org/std/env/consts/index.html
+pub fn resolve_dylib_name(name: &str) -> String {
+    format!("{OS}-{ARCH}-{name}")
 }
