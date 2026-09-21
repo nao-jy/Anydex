@@ -10,6 +10,7 @@ pub struct DynamicPluginHeader {
 }
 
 #[repr(C)]
+#[derive(Debug, Clone, Copy)]
 pub struct PluginInit {
     pub abi_version: i32,
     pub struct_size: usize,

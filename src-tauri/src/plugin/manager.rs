@@ -1,4 +1,3 @@
-use std::env::consts::{ARCH, OS};
 use std::{collections::HashMap, fs, path::Path};
 
 use anydex_plugin_api_lib::common::{get_dylib_name, get_dylib_prefix};
@@ -97,5 +96,5 @@ fn is_valid_name(path: &Path) -> bool {
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or_default();
-    file_name.starts_with(get_dylib_prefix())
+    file_name.starts_with(&get_dylib_prefix())
 }

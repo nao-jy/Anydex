@@ -8,6 +8,7 @@ pub const DYNAMIC_FILE_EXTRACTOR_ABI_VERSION_V1: i32 = 1;
 
 /// ABI table returned by an embedder dynamic library's `get_plugin` entrypoint.
 #[repr(C)]
+#[derive(Debug, Clone, Copy)]
 pub struct DynamicFileExtractorV1 {
     /// Must equal [`DYNAMIC_FILE_EXTRACTOR_ABI_VERSION_V1`].
     pub abi_version: i32,

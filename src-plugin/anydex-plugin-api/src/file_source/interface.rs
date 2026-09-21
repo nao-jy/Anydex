@@ -5,6 +5,7 @@ pub type Handler = u64;
 pub type CFileId = *const c_char;
 
 #[repr(C)]
+#[derive(Debug, Clone, Copy)]
 pub struct CInputFileInfo {
     pub file_id: CFileId,
     pub size: usize,
@@ -12,6 +13,7 @@ pub struct CInputFileInfo {
 }
 
 #[repr(C)]
+#[derive(Debug, Clone, Copy)]
 pub struct COutputFileInfo {
     pub file_id: CFileId,
     pub name: *const c_char,
@@ -27,6 +29,7 @@ pub const DYNAMIC_FILE_SOURCE_ABI_VERSION_V1: i32 = 1;
 
 /// ABI table returned by an embedder dynamic library's `get_plugin` entrypoint.
 #[repr(C)]
+#[derive(Debug, Clone, Copy)]
 pub struct DynamicFileSourceV1 {
     /// Must equal [`DYNAMIC_FILE_SOURCE_ABI_VERSION_V1`].
     pub abi_version: i32,
