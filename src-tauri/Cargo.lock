@@ -77,6 +77,7 @@ dependencies = [
 name = "anydex"
 version = "0.1.0"
 dependencies = [
+ "anydex-plugin-api",
  "axum",
  "chrono",
  "enum-iterator",
@@ -97,6 +98,10 @@ dependencies = [
  "tracing-subscriber",
  "url",
 ]
+
+[[package]]
+name = "anydex-plugin-api"
+version = "0.1.0"
 
 [[package]]
 name = "anyhow"

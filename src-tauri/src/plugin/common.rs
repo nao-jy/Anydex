@@ -1,47 +1,12 @@
-use std::ffi::{c_char, CStr};
+use std::ffi::c_char;
 
+use anydex_plugin_api_lib::{
+    common::{to_string, LogLevel},
+    interface::{GetPlugin, PluginInit},
+};
+use libloading::{Library, Symbol};
 use tracing::{debug, error, info, trace, warn};
 
-// common type
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CSlice<T> {
-    pub ptr: *const T,
-    pub length: usize,
-}
-
-impl<T: Clone> Into<Vec<T>> for CSlice<T> {
-    fn into(self) -> Vec<T> {
-        unsafe { std::slice::from_raw_parts(self.ptr, self.length).to_vec() }
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CPair<T, U> {
-    pub key: T,
-    pub value: U,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CResult<T> {
-    pub success: bool,
-    pub data: T,
-}
-
-pub fn to_string(cchar: *const c_char) -> String {
-    unsafe { CStr::from_ptr(cchar).to_string_lossy().into_owned() }
-}
-
-#[repr(usize)]
-pub enum LogLevel {
-    Error = 1,
-    Warn = 2,
-    Info = 3,
-    Debug = 4,
-    Trace = 5,
-}
 pub unsafe extern "C" fn host_log(log_level: LogLevel, message: *const c_char) {
     let message = to_string(message);
     match log_level {
@@ -51,4 +16,23 @@ pub unsafe extern "C" fn host_log(log_level: LogLevel, message: *const c_char) {
         LogLevel::Debug => debug!("{}", message),
         LogLevel::Trace => trace!("{}", message),
     }
+}
+
+// Get plugin pointer
+pub fn get_plugin<T>(library: &Library) -> Result<*const T, String> {
+    let get_plugin: Symbol<GetPlugin<T>> = unsafe {
+        library
+            .get(b"get_plugin")
+            .map_err(|error| format!("missing get_plugin: {error}"))?
+    };
+    let init = PluginInit {
+        abi_version: 1,
+        struct_size: std::mem::size_of::<PluginInit>(),
+        log: host_log,
+    };
+    let plugin = unsafe { get_plugin(&init) };
+    if plugin.is_null() {
+        return Err("get_plugin returned a null pointer".to_string());
+    }
+    Ok(plugin)
 }

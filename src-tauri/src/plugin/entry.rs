@@ -1,11 +1,11 @@
+use anydex_plugin_api_lib::{
+    embedder::interface::DynamicEmbedder, file_extractor::interface::DynamicFileExtractor,
+    file_source::interface::DynamicFileSource, vector_store::interface::DynamicVectorStore,
+};
 use enum_iterator::{all, Sequence};
 use std::{path::PathBuf, sync::Mutex};
 
-use crate::plugin::{
-    embedder::implement::DynamicEmbedder, file_extractor::implement::DynamicFileExtractor,
-    file_source::implement::DynamicFileSource, manager::PluginManager,
-    vector_store::implement::DynamicVectorStore,
-};
+use crate::plugin::manager::PluginManager;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Sequence)]
 pub enum PluginType {

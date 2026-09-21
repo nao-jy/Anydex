@@ -1,4 +1,5 @@
-pub type Handler = u64;
+use anydex_plugin_api_lib::file_extractor::interface::Handler;
+
 pub type ExtractedFileRelativePath = String;
 
 pub trait FileExtractor {

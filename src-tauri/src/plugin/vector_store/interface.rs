@@ -1,10 +1,6 @@
+use anydex_plugin_api_lib::vector_store::interface::{FileId, Handler, IndexId, IndexerId};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-
-pub type Handler = u64;
-pub type IndexId = i32;
-pub type IndexerId = i32;
-pub type FileId = i32;
 
 pub struct Chunk {
     pub uuid: String,

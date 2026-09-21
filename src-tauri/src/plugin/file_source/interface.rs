@@ -1,7 +1,7 @@
+use anydex_plugin_api_lib::file_source::interface::Handler;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
-pub type Handler = u64;
 pub type FileId = String;
 
 pub struct InputFileInfo {

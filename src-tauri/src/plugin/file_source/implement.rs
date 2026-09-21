@@ -1,65 +1,23 @@
-use crate::plugin::{
-    common::{to_string, CPair, CResult, CSlice},
-    file_source::interface::{FileId, FileSource, Handler, InputFileInfo, OutputFileInfo},
-    interface::{get_plugin, DynamicPluginHeader},
-    manager::LibraryLoader,
+use anydex_plugin_api_lib::{
+    common::{to_string, CPair, CSlice},
+    file_source::interface::{
+        CInputFileInfo, DynamicFileSource, DynamicFileSourceV1, Handler,
+        DYNAMIC_FILE_SOURCE_ABI_VERSION_V1,
+    },
+    interface::DynamicPluginHeader,
 };
 use chrono::{DateTime, Utc};
 use libloading::Library;
 use std::{
     collections::HashMap,
-    ffi::{c_char, c_void, CStr, CString},
+    ffi::{c_void, CStr, CString},
 };
 
-pub type CFileId = *const c_char;
-
-#[repr(C)]
-pub struct CInputFileInfo {
-    pub file_id: CFileId,
-    pub size: usize,
-    pub updated_at_utc: i64,
-}
-
-#[repr(C)]
-pub struct COutputFileInfo {
-    pub file_id: CFileId,
-    pub name: *const c_char,
-    pub file_path: *const c_char,
-    pub content_type: *const c_char,
-    pub size: usize,
-    pub updated_at_utc: i64,
-    pub metadata: CSlice<CPair<*const c_char, *const c_char>>,
-}
-
-/// ABI version implemented by this host.
-pub const DYNAMIC_FILE_SOURCE_ABI_VERSION_V1: i32 = 1;
-
-/// ABI table returned by an embedder dynamic library's `get_plugin` entrypoint.
-#[repr(C)]
-pub struct DynamicFileSourceV1 {
-    /// Must equal [`DYNAMIC_FILE_SOURCE_ABI_VERSION_V1`].
-    pub abi_version: i32,
-    /// Size in bytes of the ABI table allocated by the plugin.
-    pub struct_size: usize,
-    pub get_param_schema: unsafe extern "C" fn() -> *const c_char,
-    pub get_handler: unsafe extern "C" fn(
-        params: *const c_char,
-        last_indexed_files: CSlice<CInputFileInfo>,
-        download_dir: *const c_char,
-    ) -> Handler,
-    pub free_handler: unsafe extern "C" fn(handler: Handler),
-
-    pub next_added_or_changed:
-        unsafe extern "C" fn(handler: Handler) -> *const CResult<*const COutputFileInfo>,
-    pub next_deleted: unsafe extern "C" fn(handler: Handler) -> *const CResult<CFileId>,
-
-    /// Releases allocations returned by this plugin's ABI functions.
-    pub free: unsafe extern "C" fn(value: *const c_void),
-}
-
-pub enum DynamicFileSource {
-    V1(DynamicFileSourceV1),
-}
+use crate::plugin::{
+    common::get_plugin,
+    file_source::interface::{FileId, FileSource, InputFileInfo, OutputFileInfo},
+    manager::LibraryLoader,
+};
 
 impl LibraryLoader for DynamicFileSource {
     fn load_library(library: &Library) -> Result<Self, String> {

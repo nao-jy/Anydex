@@ -1,0 +1,15 @@
+[package]
+name = "anydex-plugin-api"
+version = "0.1.0"
+description = "Anydex Plugin API"
+authors = ["you"]
+edition = "2021"
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "anydex_plugin_api_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]

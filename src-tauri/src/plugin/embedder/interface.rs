@@ -1,4 +1,4 @@
-pub type Handler = u64;
+use anydex_plugin_api_lib::embedder::interface::Handler;
 
 pub trait Embedder {
     // Return JSON Schema
