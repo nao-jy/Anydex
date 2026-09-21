@@ -1,6 +1,5 @@
 [workspace]
 members = ["embedder", "file_extractor", "file_source", "vector_store"]
-
 resolver = "3"
 
 [workspace.dependencies]
