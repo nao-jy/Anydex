@@ -18,6 +18,7 @@ pub struct CInputFileInfo {
 pub struct COutputFileInfo {
     pub file_id: CFileId,
     pub name: *const c_char,
+    // downloaded file path
     pub file_path: *const c_char,
     pub content_type: *const c_char,
     pub size: usize,

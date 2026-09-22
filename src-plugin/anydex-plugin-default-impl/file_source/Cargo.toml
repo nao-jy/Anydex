@@ -14,6 +14,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 opendal = "0.59.2"
+mime_guess = "2.0.5"
+uuid = { version = "1.26.1", features = ["v4", "v7", "serde"] }
 anydex-plugin-api.workspace = true
 serde.workspace = true
 serde_json.workspace = true

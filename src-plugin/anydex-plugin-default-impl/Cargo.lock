@@ -60,11 +60,13 @@ version = "0.1.0"
 dependencies = [
  "anydex-plugin-api",
  "chrono",
+ "mime_guess",
  "opendal",
  "schemars",
  "serde",
  "serde_json",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

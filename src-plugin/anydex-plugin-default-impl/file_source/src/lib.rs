@@ -1,6 +1,8 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     ffi::{c_char, c_void, CString},
+    fs,
+    path::Path,
     sync::{LazyLock, Mutex},
 };
 
@@ -12,10 +14,10 @@ use anydex_plugin_api_lib::{
     },
     interface::PluginInit,
 };
-use chrono::Utc;
 use opendal::{Entry, Operator};
 use schemars::schema_for;
 use tokio::runtime::Runtime;
+use uuid::Uuid;
 
 use crate::param::Param;
 
@@ -61,11 +63,11 @@ struct InputFileInfo {
     pub updated_at_utc: i64,
 }
 struct HandleInfo {
-    pub param: Param,
     pub last_indexed_files: HashMap<String, InputFileInfo>,
     pub download_dir: String,
     pub rt: Runtime,
     pub entries: VecDeque<Entry>,
+    pub delete_entries: HashSet<String>,
     pub operator: Operator,
 }
 
@@ -95,6 +97,18 @@ fn object_to_list(value: serde_json::Value) -> Vec<(String, String)> {
             .collect(),
         _ => Vec::new(),
     }
+}
+
+fn rename_to_uuid(filename: &str) -> String {
+    let path = Path::new(filename);
+
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| format!(".{}", e))
+        .unwrap_or_default();
+
+    format!("{}{}", Uuid::new_v4(), ext)
 }
 
 unsafe extern "C" fn get_handler(
@@ -138,7 +152,6 @@ unsafe extern "C" fn get_handler(
         }
 
         let info = HandleInfo {
-            param: param_unwrapped,
             last_indexed_files: files_vec
                 .iter()
                 .enumerate()
@@ -148,6 +161,7 @@ unsafe extern "C" fn get_handler(
             entries: lister.unwrap().into(),
             operator: operator,
             rt: rt,
+            delete_entries: files_vec.iter().map(|v| v.file_id.clone()).collect(),
         };
 
         HANDLERS.lock().unwrap().insert(handler, info);
@@ -164,7 +178,7 @@ unsafe extern "C" fn free_handler(handler: Handler) {
 
 struct NextRef {
     pub result: Box<CResult<CFileIterationInfo>>,
-    pub added_or_deleted: Option<Box<COutputFileInfo>>,
+    pub added_or_updated: Option<Box<COutputFileInfo>>,
     pub chars: Vec<Box<CString>>,
 }
 
@@ -185,22 +199,100 @@ unsafe extern "C" fn next(handler: Handler) -> *const CResult<CFileIterationInfo
                 deleted: std::ptr::null(),
             },
         }),
-        added_or_deleted: None,
+        added_or_updated: None,
         chars: Vec::new(),
     };
+
     if let Some(info) = info_opt {
         let last_indexed_files = &info.last_indexed_files;
+        let delete_entries = &mut info.delete_entries;
+        let dl_dir = &info.download_dir.clone();
+        let operator = &mut info.operator;
+        let rt = &info.rt;
 
+        if info.entries.is_empty() || delete_entries.is_empty() {
+            nex_ref.result.success = true;
+        }
         while let Some(entry) = info.entries.pop_front() {
-            let now = Utc::now().timestamp();
             let uri = entry.path();
             let last_modified = entry
                 .metadata()
                 .last_modified()
                 .map_or(-1, |value| value.into_inner().as_second());
-            let size = entry.metadata().content_length();
+            let size = entry.metadata().content_length() as usize;
+            let name = entry.name();
+            let content_type = entry.metadata().content_type().map_or(
+                mime_guess::from_path(&name)
+                    .first_or_octet_stream()
+                    .to_string(),
+                |f| f.to_string(),
+            );
+            let metadata = serde_json::Value::Null.to_string();
+            let dl_filename = rename_to_uuid(name);
+            let download_path = Path::new(dl_dir)
+                .join(dl_filename)
+                .to_string_lossy()
+                .to_string();
+
+            delete_entries.remove(uri);
+
+            let prev_entry = last_indexed_files.get(uri);
+
+            // added
+            let added_or_updated = if prev_entry.is_none() {
+                true
+            } else {
+                let prev_entry_unwrapped = prev_entry.unwrap();
+                prev_entry_unwrapped.size != size
+                    || (prev_entry_unwrapped.updated_at_utc < last_modified || last_modified < 0)
+            };
+            if added_or_updated {
+                let file_id = Box::new(CString::new(uri).unwrap());
+                let name = Box::new(CString::new(name).unwrap());
+                let contet_type = Box::new(CString::new(content_type).unwrap());
+                let metadata = Box::new(CString::new(metadata).unwrap());
+                let file_path = Box::new(CString::new(download_path.clone()).unwrap());
+
+                let added = Box::new(COutputFileInfo {
+                    file_id: file_id.as_ptr(),
+                    name: name.as_ptr(),
+                    file_path: file_path.as_ptr(),
+                    content_type: contet_type.as_ptr(),
+                    size: size,
+                    updated_at_utc: last_modified,
+                    metadata: metadata.as_ptr(),
+                });
+
+                let file_blob_res = rt.block_on(async { operator.read(&uri).await });
+                if file_blob_res.is_err() {
+                    log(LogLevel::Debug, &file_blob_res.unwrap_err().to_string());
+                    break;
+                }
+                let fs_result = fs::write(&download_path, file_blob_res.unwrap().to_vec());
+                if fs_result.is_err() {
+                    log(LogLevel::Debug, &fs_result.unwrap_err().to_string());
+                    break;
+                }
+
+                nex_ref.chars.push(file_id);
+                nex_ref.chars.push(name);
+                nex_ref.chars.push(contet_type);
+                nex_ref.chars.push(metadata);
+                nex_ref.chars.push(file_path);
+                nex_ref.result.data.added_or_updated = &*added;
+                nex_ref.added_or_updated = Some(added);
+                nex_ref.result.success = true;
+                break;
+            }
         }
-        nex_ref.result.success = true;
+        if nex_ref.added_or_updated.is_none() {
+            while let Some(entry) = info.delete_entries.iter().next() {
+                let file_id = Box::new(CString::new(entry.clone()).unwrap());
+                nex_ref.result.data.deleted = file_id.as_ptr();
+                nex_ref.chars.push(file_id);
+                nex_ref.result.success = true;
+            }
+        }
     }
 
     let ret_ptr: *const CResult<CFileIterationInfo> = &*nex_ref.result;
