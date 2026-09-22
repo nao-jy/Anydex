@@ -1,4 +1,4 @@
-use param::{HandleInfo, Param};
+use param::Param;
 use std::collections::HashMap;
 use std::ffi::{c_char, c_void, CString};
 use std::sync::{LazyLock, Mutex};
@@ -7,7 +7,7 @@ use anydex_plugin_api_lib::common::{resolve_dylib_name, to_string, CResult, CSli
 use anydex_plugin_api_lib::interface::PluginInit;
 use anydex_plugin_api_lib::vector_store::interface::{
     CChunk, CSearchHit, CSearchRequest, DynamicVectorStoreV1, FileId, Handler, IndexId,
-    DYNAMIC_VECTOR_STORE_ABI_VERSION_V1,
+    DYNAMIC_VECTOR_STORE_ABI_VERSION_V1, INVALID_HANDLE,
 };
 use schemars::schema_for;
 
@@ -55,6 +55,11 @@ pub unsafe extern "C" fn get_plugin(init: *const PluginInit) -> *const DynamicVe
     return &raw const *ret;
 }
 
+struct HandleInfo {
+    pub param: Param,
+    pub index_id: IndexId,
+}
+
 static STR_REF: LazyLock<Mutex<HashMap<usize, Box<CString>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
@@ -90,7 +95,7 @@ unsafe extern "C" fn get_handler(params: *const c_char, index_id: IndexId) -> Ha
         handler
     } else {
         log(LogLevel::Error, &schema.unwrap_err());
-        u64::MAX
+        INVALID_HANDLE
     }
 }
 

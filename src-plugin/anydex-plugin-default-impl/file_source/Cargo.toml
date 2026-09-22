@@ -15,3 +15,8 @@ crate-type = ["cdylib"]
 [dependencies]
 opendal = "0.59.2"
 anydex-plugin-api.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+tokio.workspace = true
+chrono.workspace = true

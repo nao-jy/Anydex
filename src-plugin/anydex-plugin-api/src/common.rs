@@ -18,13 +18,6 @@ impl<T: Clone> Into<Vec<T>> for CSlice<T> {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CPair<T, U> {
-    pub key: T,
-    pub value: U,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CResult<T> {
     pub success: bool,
     pub data: T,

@@ -20,6 +20,11 @@ pub struct OutputFileInfo {
     pub metadata: HashMap<String, String>,
 }
 
+pub enum FileIterationInfo {
+    AddedOrDeleted(OutputFileInfo),
+    Deleted(FileId),
+}
+
 pub trait FileSource {
     // Return JSON Schema
     fn get_param_schema(&self) -> Result<serde_json::Value, String>;
@@ -31,6 +36,5 @@ pub trait FileSource {
     ) -> Result<Handler, String>;
     fn free_handler(&self, handler: Handler) -> Result<(), String>;
 
-    fn next_added_or_changed(&self, handler: Handler) -> Result<Option<OutputFileInfo>, String>;
-    fn next_deleted(&self, handler: Handler) -> Result<Option<FileId>, String>;
+    fn next(&self, handler: Handler) -> Result<Option<FileIterationInfo>, String>;
 }

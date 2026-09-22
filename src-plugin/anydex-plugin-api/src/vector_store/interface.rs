@@ -1,6 +1,7 @@
 use crate::common::{CResult, CSlice};
 use std::ffi::{c_char, c_void};
 
+pub const INVALID_HANDLE: u64 = u64::MAX;
 pub type Handler = u64;
 pub type IndexId = i32;
 pub type IndexerId = i32;

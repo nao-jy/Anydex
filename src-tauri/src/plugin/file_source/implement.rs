@@ -1,5 +1,5 @@
 use anydex_plugin_api_lib::{
-    common::{to_string, CPair, CSlice},
+    common::{to_string, CSlice},
     file_source::interface::{
         CInputFileInfo, DynamicFileSource, DynamicFileSourceV1, Handler,
         DYNAMIC_FILE_SOURCE_ABI_VERSION_V1,
@@ -15,7 +15,7 @@ use std::{
 
 use crate::plugin::{
     common::get_plugin,
-    file_source::interface::{FileId, FileSource, InputFileInfo, OutputFileInfo},
+    file_source::interface::{FileIterationInfo, FileSource, InputFileInfo, OutputFileInfo},
     manager::LibraryLoader,
 };
 
@@ -39,6 +39,16 @@ impl LibraryLoader for DynamicFileSource {
             }
             version => Err(format!("unsupported version: {version}")),
         }
+    }
+}
+
+fn object_to_hash_map(value: serde_json::Value) -> HashMap<String, String> {
+    match value {
+        serde_json::Value::Object(map) => map
+            .into_iter()
+            .filter_map(|(key, value)| value.as_str().map(|value| (key, value.to_owned())))
+            .collect(),
+        _ => HashMap::new(),
     }
 }
 
@@ -106,63 +116,52 @@ impl FileSource for DynamicFileSource {
         }
     }
 
-    fn next_added_or_changed(&self, handler: Handler) -> Result<Option<OutputFileInfo>, String> {
+    fn next(&self, handler: Handler) -> Result<Option<FileIterationInfo>, String> {
         match self {
             DynamicFileSource::V1(plugin_v1) => {
-                let result_ptr = unsafe { (plugin_v1.next_added_or_changed)(handler) };
+                let result_ptr = unsafe { (plugin_v1.next)(handler) };
                 let result = unsafe { result_ptr.read() };
+                let mut ret: Result<Option<FileIterationInfo>, String> = Ok(None);
                 if !result.success {
-                    return Err("next_added_or_changed failed".into());
-                } else if result.data.is_null() {
-                    return Ok(None);
+                    ret = Err("next_added_or_changed failed".into());
                 }
-
-                let cfile = unsafe { result.data.read() };
-                let mut metadata = HashMap::new();
-                let cmetadata_vec: Vec<CPair<*const i8, *const i8>> = cfile.metadata.into();
-                for data in cmetadata_vec {
-                    metadata.insert(to_string(data.key), to_string(data.value));
+                if result.data.added_or_updated.is_null() && result.data.deleted.is_null() {
+                    ret = Ok(None);
                 }
+                // added or updated
+                if !result.data.added_or_updated.is_null() {
+                    let cfile = unsafe { result.data.added_or_updated.read() };
+                    let metadata = serde_json::Value::from(to_string(cfile.metadata));
 
-                let ret = OutputFileInfo {
-                    file_id: unsafe {
-                        CStr::from_ptr(cfile.file_id).to_string_lossy().into_owned()
-                    },
-                    name: unsafe { CStr::from_ptr(cfile.name).to_string_lossy().into_owned() },
-                    file_path: unsafe {
-                        CStr::from_ptr(cfile.file_path)
-                            .to_string_lossy()
-                            .into_owned()
-                    },
-                    content_type: unsafe {
-                        CStr::from_ptr(cfile.content_type)
-                            .to_string_lossy()
-                            .into_owned()
-                    },
-                    size: cfile.size,
-                    updated_at: DateTime::from_timestamp(cfile.updated_at_utc, 0)
-                        .unwrap_or(Utc::now()),
-                    metadata: metadata,
-                };
+                    let added_or_updated = OutputFileInfo {
+                        file_id: unsafe {
+                            CStr::from_ptr(cfile.file_id).to_string_lossy().into_owned()
+                        },
+                        name: unsafe { CStr::from_ptr(cfile.name).to_string_lossy().into_owned() },
+                        file_path: unsafe {
+                            CStr::from_ptr(cfile.file_path)
+                                .to_string_lossy()
+                                .into_owned()
+                        },
+                        content_type: unsafe {
+                            CStr::from_ptr(cfile.content_type)
+                                .to_string_lossy()
+                                .into_owned()
+                        },
+                        size: cfile.size,
+                        updated_at: DateTime::from_timestamp(cfile.updated_at_utc, 0)
+                            .unwrap_or(Utc::now()),
+                        metadata: object_to_hash_map(metadata),
+                    };
+                    ret = Ok(Some(FileIterationInfo::AddedOrDeleted(added_or_updated)));
+                }
+                // deleted
+                if !result.data.deleted.is_null() {
+                    let deleted: String = to_string(result.data.deleted);
+                    ret = Ok(Some(FileIterationInfo::Deleted(deleted)));
+                }
                 unsafe { (plugin_v1.free)(result_ptr as *mut c_void) };
-                Ok(Some(ret))
-            }
-        }
-    }
-
-    fn next_deleted(&self, handler: Handler) -> Result<Option<FileId>, String> {
-        match self {
-            DynamicFileSource::V1(plugin_v1) => {
-                let result_ptr = unsafe { (plugin_v1.next_deleted)(handler) };
-                let result = unsafe { result_ptr.read() };
-                if !result.success {
-                    return Err("next_added_or_changed failed".into());
-                } else if result.data.is_null() {
-                    return Ok(None);
-                }
-                let ret = to_string(result.data);
-                unsafe { (plugin_v1.free)(result_ptr as *mut c_void) };
-                Ok(Some(ret))
+                ret
             }
         }
     }

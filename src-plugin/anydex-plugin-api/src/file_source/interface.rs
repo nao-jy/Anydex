@@ -1,6 +1,7 @@
-use crate::common::{CPair, CResult, CSlice};
+use crate::common::{CResult, CSlice};
 use std::ffi::{c_char, c_void};
 
+pub const INVALID_HANDLE: u64 = u64::MAX;
 pub type Handler = u64;
 pub type CFileId = *const c_char;
 
@@ -21,7 +22,12 @@ pub struct COutputFileInfo {
     pub content_type: *const c_char,
     pub size: usize,
     pub updated_at_utc: i64,
-    pub metadata: CSlice<CPair<*const c_char, *const c_char>>,
+    pub metadata: *const c_char,
+}
+
+pub struct CFileIterationInfo {
+    pub added_or_updated: *const COutputFileInfo,
+    pub deleted: CFileId,
 }
 
 /// ABI version implemented by this host.
@@ -43,9 +49,7 @@ pub struct DynamicFileSourceV1 {
     ) -> Handler,
     pub free_handler: unsafe extern "C" fn(handler: Handler),
 
-    pub next_added_or_changed:
-        unsafe extern "C" fn(handler: Handler) -> *const CResult<*const COutputFileInfo>,
-    pub next_deleted: unsafe extern "C" fn(handler: Handler) -> *const CResult<CFileId>,
+    pub next: unsafe extern "C" fn(handler: Handler) -> *const CResult<CFileIterationInfo>,
 
     /// Releases allocations returned by this plugin's ABI functions.
     pub free: unsafe extern "C" fn(value: *const c_void),
