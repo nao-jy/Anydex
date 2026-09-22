@@ -4,7 +4,7 @@ use crate::plugin::{
     vector_store::interface::{Chunk, SearchHit, SearchRequest, VectorStore},
 };
 use anydex_plugin_api_lib::{
-    common::{to_string, CPair, CSlice},
+    common::{to_string, CSlice},
     interface::DynamicPluginHeader,
     vector_store::interface::{
         CChunk, CSearchHit, CSearchRequest, DynamicVectorStore, DynamicVectorStoreV1, FileId,
@@ -13,10 +13,7 @@ use anydex_plugin_api_lib::{
 };
 use chrono::{DateTime, Utc};
 use libloading::Library;
-use std::{
-    collections::HashMap,
-    ffi::{c_char, c_void, CString},
-};
+use std::ffi::{c_void, CString};
 
 impl LibraryLoader for DynamicVectorStore {
     fn load_library(library: &Library) -> Result<Self, String> {
@@ -82,11 +79,9 @@ impl VectorStore for DynamicVectorStore {
         }
     }
 
-    fn clear_chunk(&self, handler: Handler, index_id: IndexId) -> Result<(), String> {
+    fn clear_chunk(&self, handler: Handler) -> Result<(), String> {
         match self {
-            DynamicVectorStore::V1(plugin_v1) => {
-                Ok(unsafe { (plugin_v1.clear_chunk)(handler, index_id) })
-            }
+            DynamicVectorStore::V1(plugin_v1) => Ok(unsafe { (plugin_v1.clear_chunk)(handler) }),
         }
     }
 
@@ -111,19 +106,8 @@ impl VectorStore for DynamicVectorStore {
                     }),
                     None => None,
                 };
-                let mut metadata_vec: Vec<CPair<*const c_char, *const c_char>> =
-                    Vec::with_capacity(chunk.metadata.len());
-                let mut cstr_vec: Vec<CString> = Vec::with_capacity(metadata_vec.capacity() * 2);
-                for (k, v) in chunk.metadata.iter() {
-                    let key = CString::new(k.as_str()).map_err(|err| err.to_string())?;
-                    let value = CString::new(v.as_str()).map_err(|err| err.to_string())?;
-                    cstr_vec.push(key);
-                    cstr_vec.push(value);
-                    metadata_vec.push(CPair {
-                        key: cstr_vec[cstr_vec.len() - 2].as_ptr(),
-                        value: cstr_vec[cstr_vec.len() - 1].as_ptr(),
-                    });
-                }
+                let metadata_str =
+                    CString::new(chunk.metadata.to_string()).map_err(|err| err.to_string())?;
                 let cchunk = CChunk {
                     id: chunk.id,
                     index_id: chunk.index_id,
@@ -137,10 +121,7 @@ impl VectorStore for DynamicVectorStore {
                     content_vector: ccontent_vector
                         .as_ref()
                         .map_or(std::ptr::null(), |cvec| cvec),
-                    metadata: CSlice {
-                        ptr: metadata_vec.as_ptr(),
-                        length: metadata_vec.len(),
-                    },
+                    metadata: metadata_str.as_ptr(),
                     created_at_utc: chunk.created_at.timestamp(),
                     updated_at_utc: chunk.updated_at.timestamp(),
                 };
@@ -163,6 +144,8 @@ impl VectorStore for DynamicVectorStore {
                         length: search_request.embedding.len(),
                     },
                     additional_cond_sql: ccond.as_ptr(),
+                    limit: search_request.limit,
+                    offset: search_request.offset,
                 };
                 let result_ptr = unsafe { (plugin_v1.search)(handler, csearch) };
                 let result = unsafe { result_ptr.read() };
@@ -183,11 +166,7 @@ impl VectorStore for DynamicVectorStore {
                         let v = unsafe { res.chunk.content_vector.read() };
                         Some(v.into())
                     };
-                    let mut metadata = HashMap::new();
-                    let cmetadata_vec: Vec<CPair<*const i8, *const i8>> = res.chunk.metadata.into();
-                    for data in cmetadata_vec {
-                        metadata.insert(to_string(data.key), to_string(data.value));
-                    }
+                    let metadata = serde_json::Value::from(to_string(res.chunk.metadata));
                     let now = Utc::now();
                     let chunk = Chunk {
                         id: res.chunk.id,

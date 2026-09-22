@@ -16,7 +16,7 @@ pub struct Chunk {
     pub content_type: String,
     pub content: Option<String>,
     pub content_vector: Option<Vec<f32>>,
-    pub metadata: Option<serde_json::Value>,
+    pub metadata: serde_json::Value,
     pub created_at_utc: i64,
     pub updated_at_utc: i64,
 }
@@ -56,19 +56,19 @@ pub fn init_table(index_id: IndexId, param: &Param) -> Result<(), String> {
             uri TEXT NOT NULL,
             content_type TEXT NOT NULL,
             content TEXT,
-            content_vector BLOB, -- For sqlite-vector
-            metadata BLOB,       -- JSONB
+            content_vector BLOB,     -- For sqlite-vector
+            metadata BLOB NOT NULL,  -- JSONB
             created_at_utc INTEGER NOT NULL,
             updated_at_utc INTEGER NOT NULL)"
         );
-        conn.execute(&stmt, []).map_err(|err| err.to_string());
+        conn.execute(&stmt, []).map_err(|err| err.to_string())?;
     }
 
     // init vector
     {
         let dim = param.dimensions;
         let stmt = format!("SELECT vector_init('{table_name}', 'content_vector', 'type=FLOAT32,dimension={dim},distance=COSINE,normalized=1')");
-        conn.execute(&stmt, []).map_err(|err| err.to_string());
+        conn.execute(&stmt, []).map_err(|err| err.to_string())?;
     }
 
     Ok(())
@@ -81,7 +81,7 @@ pub fn delete(index_id: IndexId, fild_id: FileId) -> Result<(), String> {
 
     let stmt = format!("DELETE FROM {table_name} WHERE file_id = ?");
     conn.execute(&stmt, [fild_id])
-        .map_err(|err| err.to_string());
+        .map_err(|err| err.to_string())?;
     Ok(())
 }
 
@@ -92,7 +92,7 @@ pub fn clear(index_id: IndexId) -> Result<(), String> {
 
     let stmt = format!("DELETE FROM {table_name} WHERE index_id = ?");
     conn.execute(&stmt, [index_id])
-        .map_err(|err| err.to_string());
+        .map_err(|err| err.to_string())?;
     Ok(())
 }
 
@@ -114,11 +114,7 @@ pub fn insert(index_id: IndexId, chunk: Chunk) -> Result<(), String> {
         let ser = serde_json::to_string(&c).map_err(|err| err.to_string())?;
         content_vec_str = format!("vector_as_f32('{ser}')");
     }
-    let mut metadata_str = "NULL".into();
-    if let Some(c) = chunk.metadata {
-        let ser = serde_json::to_string(&c).map_err(|err| err.to_string())?;
-        metadata_str = format!("jsonb('{ser}')");
-    }
+    let metadata_str = serde_json::to_string(&chunk.metadata).map_err(|err| err.to_string())?;
     let created_at_utc = chunk.created_at_utc;
     let updated_at_utc = chunk.updated_at_utc;
 
@@ -128,7 +124,7 @@ pub fn insert(index_id: IndexId, chunk: Chunk) -> Result<(), String> {
 
     let stmt = format!("INSERT INTO {table_name} ({update_column}) VALUES ({update_values})");
     conn.execute(&stmt, [index_id])
-        .map_err(|err| err.to_string());
+        .map_err(|err| err.to_string())?;
 
     Ok(())
 }
@@ -154,12 +150,8 @@ pub fn search(
     let mut prepare = conn.prepare(&stmt).map_err(|err| err.to_string())?;
     let iter = prepare
         .query_map([], |row| {
-            let metadata_str: Option<String> = row.get(7)?;
-            let metadata = if let Some(c) = metadata_str {
-                Some(serde_json::Value::from_str(&c).unwrap())
-            } else {
-                None
-            };
+            let metadata_str: String = row.get(7)?;
+            let metadata = serde_json::Value::from_str(&metadata_str).unwrap();
             let chunk = Chunk {
                 id: row.get(0)?,
                 index_id: row.get(1)?,

@@ -1,6 +1,5 @@
 use anydex_plugin_api_lib::vector_store::interface::{FileId, Handler, IndexId, IndexerId};
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
 
 pub struct Chunk {
     pub id: i32,
@@ -11,7 +10,7 @@ pub struct Chunk {
     pub content_type: String,
     pub content: Option<String>,
     pub content_vector: Option<Vec<f32>>,
-    pub metadata: HashMap<String, String>,
+    pub metadata: serde_json::Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -24,6 +23,8 @@ pub struct SearchHit {
 pub struct SearchRequest {
     pub embedding: Vec<f32>,
     pub additional_cond_sql: String,
+    pub limit: i32,
+    pub offset: i32,
 }
 
 pub trait VectorStore {
@@ -33,7 +34,7 @@ pub trait VectorStore {
     fn free_handler(&self, handler: Handler) -> Result<(), String>;
 
     fn delete_chunk(&self, handler: Handler, fild_id: FileId) -> Result<(), String>;
-    fn clear_chunk(&self, handler: Handler, fild_id: IndexId) -> Result<(), String>;
+    fn clear_chunk(&self, handler: Handler) -> Result<(), String>;
     fn insert_chunk(&self, handler: Handler, chunk: &Chunk) -> Result<(), String>;
     fn search(
         &self,
