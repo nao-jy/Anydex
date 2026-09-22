@@ -11,7 +11,7 @@ use anydex_plugin_api_lib::vector_store::interface::{
 };
 use schemars::schema_for;
 
-use crate::sqlite::sqlite_init;
+use crate::sqlite::init_sqlite;
 
 pub mod param;
 pub mod sqlite;
@@ -28,7 +28,7 @@ fn log(level: LogLevel, msg: &str) {
 }
 
 pub unsafe extern "C" fn get_plugin(init: *const PluginInit) -> *const DynamicVectorStoreV1 {
-    sqlite_init(&resolve_dylib_name("vector"));
+    init_sqlite(&resolve_dylib_name("vector"));
 
     let mut plugin_mtx = PLUGIN.lock().unwrap();
     if (*plugin_mtx).is_none() {

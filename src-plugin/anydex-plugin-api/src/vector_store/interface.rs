@@ -9,7 +9,7 @@ pub type FileId = i32;
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CChunk {
-    pub uuid: *const c_char,
+    pub id: i32,
     pub index_id: IndexId,
     pub indexer_id: IndexerId,
     pub file_id: FileId,

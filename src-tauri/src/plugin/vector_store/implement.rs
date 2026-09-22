@@ -93,7 +93,6 @@ impl VectorStore for DynamicVectorStore {
     fn insert_chunk(&self, handler: Handler, chunk: &Chunk) -> Result<(), String> {
         match self {
             DynamicVectorStore::V1(plugin_v1) => {
-                let cuuid = CString::new(chunk.uuid.as_str()).map_err(|err| err.to_string())?;
                 let curi = CString::new(chunk.uri.as_str()).map_err(|err| err.to_string())?;
                 let ccontent_type =
                     CString::new(chunk.content_type.as_str()).map_err(|err| err.to_string())?;
@@ -126,7 +125,7 @@ impl VectorStore for DynamicVectorStore {
                     });
                 }
                 let cchunk = CChunk {
-                    uuid: cuuid.as_ptr(),
+                    id: chunk.id,
                     index_id: chunk.index_id,
                     indexer_id: chunk.indexer_id,
                     file_id: chunk.file_id,
@@ -191,7 +190,7 @@ impl VectorStore for DynamicVectorStore {
                     }
                     let now = Utc::now();
                     let chunk = Chunk {
-                        uuid: to_string(res.chunk.uuid),
+                        id: res.chunk.id,
                         index_id: res.chunk.index_id,
                         indexer_id: res.chunk.indexer_id,
                         file_id: res.chunk.file_id,

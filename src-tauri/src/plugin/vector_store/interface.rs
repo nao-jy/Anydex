@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
 pub struct Chunk {
-    pub uuid: String,
+    pub id: i32,
     pub index_id: IndexId,
     pub indexer_id: IndexerId,
     pub file_id: FileId,
