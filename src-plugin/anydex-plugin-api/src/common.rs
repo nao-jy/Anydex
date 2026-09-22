@@ -1,4 +1,4 @@
-use std::env::consts::{ARCH, OS};
+use std::env::consts::{ARCH, DLL_SUFFIX, OS};
 use std::ffi::{c_char, CStr};
 use std::path::Path;
 
@@ -43,25 +43,28 @@ pub enum LogLevel {
     Trace = 5,
 }
 
-pub fn get_dylib_prefix() -> String {
-    format!("{OS}-{ARCH}-")
+pub fn get_dylib_suffix() -> String {
+    format!("-{OS}-{ARCH}{DLL_SUFFIX}")
 }
 
-pub fn get_dylib_name(filename: &str) -> Option<String> {
+pub fn get_dylib_stem_name(filename: &str) -> Option<String> {
     let file_stem = Path::new(filename)
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap();
-    let prefix = get_dylib_prefix();
-    if !file_stem.starts_with(&prefix) {
+    let suffix = get_dylib_suffix();
+    if !file_stem.ends_with(&suffix) {
         None
     } else {
-        let len = prefix.chars().count();
-        Some(file_stem.chars().skip(len).collect())
+        let len = file_stem
+            .chars()
+            .count()
+            .saturating_sub(suffix.chars().count());
+        Some(file_stem.chars().take(len).collect())
     }
 }
 
 // https://doc.rust-lang.org/std/env/consts/index.html
 pub fn resolve_dylib_name(name: &str) -> String {
-    format!("{OS}-{ARCH}-{name}")
+    format!("{name}-{OS}-{ARCH}")
 }
