@@ -33,6 +33,7 @@ fn log(level: LogLevel, msg: &str) {
     }
 }
 
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn get_plugin(init: *const PluginInit) -> *const DynamicFileExtractorV1 {
     let mut plugin_mtx = PLUGIN.lock().unwrap();
     if (*plugin_mtx).is_none() {

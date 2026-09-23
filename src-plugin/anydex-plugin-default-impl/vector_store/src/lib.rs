@@ -27,6 +27,7 @@ fn log(level: LogLevel, msg: &str) {
     }
 }
 
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn get_plugin(init: *const PluginInit) -> *const DynamicVectorStoreV1 {
     sqlite::init_sqlite(&resolve_dylib_name("vector"))
         .unwrap_or_else(|err| log(LogLevel::Error, &err));
