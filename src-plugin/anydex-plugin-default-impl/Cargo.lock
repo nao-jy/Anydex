@@ -84,6 +84,11 @@ name = "anydex-plugin-default-impl-file-extractor"
 version = "0.1.0"
 dependencies = [
  "anydex-plugin-api",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid",
  "xberg",
 ]
 

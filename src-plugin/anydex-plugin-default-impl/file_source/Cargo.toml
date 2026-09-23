@@ -15,7 +15,7 @@ crate-type = ["cdylib"]
 [dependencies]
 opendal = "0.59.2"
 mime_guess.workspace = true
-uuid = { version = "1.26.1", features = ["v4", "v7", "serde"] }
+uuid.workspace = true
 anydex-plugin-api.workspace = true
 serde.workspace = true
 serde_json.workspace = true

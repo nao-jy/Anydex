@@ -15,7 +15,6 @@ crate-type = ["cdylib"]
 [dependencies]
 reqwest = { version = "0.13.5", features = ["blocking"] }
 base64 = "0.23.1"
-image = "0.25.10"
 jsonpath-rust = "1.0.11"
 anydex-plugin-api.workspace = true
 serde.workspace = true
@@ -24,3 +23,4 @@ schemars.workspace = true
 mime_guess.workspace = true
 encoding_rs.workspace = true
 chardetng.workspace = true
+image.workspace = true

@@ -1,6 +1,7 @@
 use crate::common::CSlice;
 use std::ffi::{c_char, c_void};
 
+pub const INVALID_HANDLE: u64 = u64::MAX;
 pub type Handler = u64;
 
 /// ABI version implemented by this host.
