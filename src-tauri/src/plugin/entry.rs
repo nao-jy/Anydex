@@ -1,13 +1,19 @@
+use crate::plugin::embedder::interface::Embedder;
+use crate::plugin::file_extractor::interface::FileExtractor;
+use crate::plugin::file_source::interface::FileSource;
+use crate::plugin::manager::PluginManager;
+use crate::plugin::vector_store::interface::VectorStore;
 use anydex_plugin_api_lib::{
     embedder::interface::DynamicEmbedder, file_extractor::interface::DynamicFileExtractor,
     file_source::interface::DynamicFileSource, vector_store::interface::DynamicVectorStore,
 };
 use enum_iterator::{all, Sequence};
+use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Mutex};
+use tracing::error;
 
-use crate::plugin::manager::PluginManager;
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Sequence)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Sequence, Deserialize, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub enum PluginType {
     FileSource,
     FileExtractor,
@@ -103,7 +109,7 @@ impl PluginType {
             .to_string()
     }
 
-    pub fn list_names(self) -> Vec<String> {
+    pub fn list_names(&self) -> Vec<String> {
         match self {
             Self::Embedder => {
                 let mgr_mtx = EMBEDDER_MGR.lock().unwrap();
@@ -128,7 +134,7 @@ impl PluginType {
         }
     }
 
-    pub fn reload(self) -> Result<(), String> {
+    pub fn reload(&self) -> Result<(), String> {
         match self {
             Self::Embedder => {
                 let mut mgr_mtx = EMBEDDER_MGR.lock().unwrap();
@@ -153,6 +159,67 @@ impl PluginType {
                 let mgr = mgr_mtx.as_mut().unwrap();
                 mgr.load_plugins()?;
                 Ok(())
+            }
+        }
+    }
+
+    pub fn get_param_schema(&self, plugin_name: &str) -> Option<serde_json::Value> {
+        match self {
+            Self::Embedder => {
+                let mut mgr_mtx = EMBEDDER_MGR.lock().unwrap();
+                let mgr = mgr_mtx.as_mut().unwrap();
+                let plugin_opt = mgr.get_plugin(plugin_name);
+                if let Some(plugin) = plugin_opt {
+                    let schema = plugin.get_param_schema();
+                    if let Err(err) = schema {
+                        error!("{err}");
+                        return None;
+                    }
+                    return Some(schema.unwrap());
+                }
+                None
+            }
+            Self::FileExtractor => {
+                let mut mgr_mtx = FILE_EXTRACTOR_MGR.lock().unwrap();
+                let mgr = mgr_mtx.as_mut().unwrap();
+                let plugin_opt = mgr.get_plugin(plugin_name);
+                if let Some(plugin) = plugin_opt {
+                    let schema = plugin.get_param_schema();
+                    if let Err(err) = schema {
+                        error!("{err}");
+                        return None;
+                    }
+                    return Some(schema.unwrap());
+                }
+                None
+            }
+            Self::FileSource => {
+                let mut mgr_mtx = FILE_SOURCE_MGR.lock().unwrap();
+                let mgr = mgr_mtx.as_mut().unwrap();
+                let plugin_opt = mgr.get_plugin(plugin_name);
+                if let Some(plugin) = plugin_opt {
+                    let schema = plugin.get_param_schema();
+                    if let Err(err) = schema {
+                        error!("{err}");
+                        return None;
+                    }
+                    return Some(schema.unwrap());
+                }
+                None
+            }
+            Self::VectorStore => {
+                let mut mgr_mtx = VECTOR_STORE_MGR.lock().unwrap();
+                let mgr = mgr_mtx.as_mut().unwrap();
+                let plugin_opt = mgr.get_plugin(plugin_name);
+                if let Some(plugin) = plugin_opt {
+                    let schema = plugin.get_param_schema();
+                    if let Err(err) = schema {
+                        error!("{err}");
+                        return None;
+                    }
+                    return Some(schema.unwrap());
+                }
+                None
             }
         }
     }

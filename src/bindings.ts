@@ -17,6 +17,7 @@ export const commands = {
 	getPluginInfo: () => typedError<PluginInfo[], string>(__TAURI_INVOKE("get_plugin_info")),
 	upsertEmbedder: (indexId: number, embedderName: string, dimensions: number, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_embedder", { indexId, embedderName, dimensions, paramsJson })),
 	reloadPlugins: () => typedError<null, string>(__TAURI_INVOKE("reload_plugins")),
+	getParamSchema: (pluginType: PluginType, pluginName: string) => __TAURI_INVOKE<string | null>("get_param_schema", { pluginType, pluginName }),
 	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),
 };
 
@@ -121,6 +122,8 @@ export type PluginInfo = {
 	path: string,
 	plugins: string[],
 };
+
+export type PluginType = "fileSource" | "fileExtractor" | "embedder" | "vectorStore";
 
 export type Schedule = {
 	id: number,

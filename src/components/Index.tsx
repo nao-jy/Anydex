@@ -14,7 +14,12 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { commands, Index as IndexInfo, PluginInfo } from "../bindings";
+import {
+  commands,
+  Index as IndexInfo,
+  PluginInfo,
+  PluginType,
+} from "../bindings";
 import { unwrapCommandResult } from "../tauri";
 
 type SortKey = "name" | "createdAt" | "updatedAt";
@@ -195,6 +200,7 @@ export const Index = () => {
                         error={false}
                         info={plugins.find((v) => v.pluginType === "embedder")!}
                         selected={null}
+                        plugin_type="embedder"
                         onSave={(name: string) => {}}
                       />
                       <PluginSelector
@@ -205,6 +211,7 @@ export const Index = () => {
                           plugins.find((v) => v.pluginType === "vector-store")!
                         }
                         selected={null}
+                        plugin_type="vectorStore"
                         onSave={(name: string) => {}}
                       />
                     </Stack>
@@ -289,9 +296,10 @@ function PluginSelector(props: {
   error: boolean;
   info: PluginInfo;
   selected: string | null;
+  plugin_type: PluginType;
   onSave: (name: string) => void;
 }) {
-  const { label, info, selected, onSave, saving, error } = props;
+  const { label, info, selected, onSave, saving, error, plugin_type } = props;
   const [selecting, setSelecting] = useState(selected);
   const save = () => {
     const nextName = selecting?.trim();
@@ -314,7 +322,14 @@ function PluginSelector(props: {
           label={info.pluginType}
           value={selecting}
           data={info.plugins}
-          onChange={(_value, option) => setSelecting(option.value)}
+          onChange={async (_value, option) => {
+            setSelecting(option.value);
+            const paramSchema = await commands.getParamSchema(
+              plugin_type,
+              option.value,
+            );
+            console.log(paramSchema);
+          }}
           disabled={saving}
           error={error && "保存できませんでした。"}
           style={{ flex: 1 }}

@@ -30,6 +30,15 @@ pub fn reload_plugins() -> Result<(), String> {
 
 #[tauri::command]
 #[specta::specta]
+#[tracing::instrument()]
+pub fn get_param_schema(plugin_type: PluginType, plugin_name: &str) -> Option<String> {
+    plugin_type
+        .get_param_schema(plugin_name)
+        .map(|v| v.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 #[tracing::instrument(skip(database))]
 pub async fn upsert_embedder(
     index_id: i32,
