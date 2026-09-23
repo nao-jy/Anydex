@@ -25,20 +25,28 @@ pub mod param;
 static PLUGIN: Mutex<Option<DynamicFileExtractorV1>> = Mutex::new(None);
 static PLUGIN_INIT: Mutex<Option<PluginInit>> = Mutex::new(None);
 
-fn log(level: LogLevel, msg: &str) {
-    let plugin_init_mtx = PLUGIN_INIT.lock().unwrap();
-    if let Some(plugin_init) = *plugin_init_mtx {
-        let cmsg = CString::new(msg).unwrap();
-        unsafe { (plugin_init.log)(level, cmsg.as_ptr()) };
-    }
-}
+static mut LOGGER: Option<unsafe extern "C" fn(log_level: LogLevel, message: *const c_char)> = None;
 
+fn log(level: LogLevel, msg: &str) {
+    let logger = unsafe { std::ptr::read_volatile(std::ptr::addr_of!(LOGGER)) };
+    let Some(logger_fn) = logger else {
+        return;
+    };
+
+    let cmsg = CString::new(msg).unwrap();
+    unsafe { logger_fn(level, cmsg.as_ptr()) };
+}
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn get_plugin(init: *const PluginInit) -> *const DynamicFileExtractorV1 {
+    let plugin_read = unsafe { init.read().clone() };
+    unsafe {
+        std::ptr::write(std::ptr::addr_of_mut!(LOGGER), Some(plugin_read.log));
+    }
+
     let mut plugin_mtx = PLUGIN.lock().unwrap();
     if (*plugin_mtx).is_none() {
         let mut plugin_init_mtx = PLUGIN_INIT.lock().unwrap();
-        *plugin_init_mtx = Some(unsafe { init.read().clone() });
+        *plugin_init_mtx = Some(plugin_read);
 
         let new_plugin = DynamicFileExtractorV1 {
             abi_version: DYNAMIC_FILE_EXTRACTOR_ABI_VERSION_V1,
