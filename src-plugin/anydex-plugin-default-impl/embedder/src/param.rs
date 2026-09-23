@@ -14,7 +14,7 @@ pub struct APIParam {
     #[schemars(
         description = "JSON format for request. {{text}} {{image_base64}} are reserved and automatically injected"
     )]
-    pub request_json: serde_json::Value,
+    pub request_json: serde_json::Map<String, serde_json::Value>,
 
     #[schemars(description = "place of embedding in response")]
     pub response_json_path: String,
@@ -37,7 +37,7 @@ impl APIParam {
         text: Option<String>,
         image_base64: Option<String>,
     ) -> Result<Vec<f32>, String> {
-        let mut body_json = self.request_json.to_string();
+        let mut body_json = serde_json::Value::from(self.request_json.clone()).to_string();
         if let Some(content) = text {
             body_json = APIParam::get_text_replaced(&body_json, &content);
         }
