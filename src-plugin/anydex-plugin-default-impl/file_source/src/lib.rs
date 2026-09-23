@@ -18,6 +18,7 @@ use opendal::{Entry, Operator};
 use schemars::schema_for;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
+use xxhash_rust::xxh3::xxh3_64;
 
 use crate::param::Param;
 
@@ -61,6 +62,7 @@ struct InputFileInfo {
     pub file_id: String,
     pub size: usize,
     pub updated_at_utc: i64,
+    pub file_hash: u64,
 }
 struct HandleInfo {
     pub last_indexed_files: HashMap<String, InputFileInfo>,
@@ -130,6 +132,7 @@ unsafe extern "C" fn get_handler(
                 file_id: to_string(f.file_id),
                 size: f.size,
                 updated_at_utc: f.updated_at_utc,
+                file_hash: f.file_hash,
             })
             .collect();
 
@@ -233,6 +236,7 @@ unsafe extern "C" fn next(handler: Handler) -> *const CResult<CFileIterationInfo
                 .join(dl_filename)
                 .to_string_lossy()
                 .to_string();
+            let mut prev_file_hash: Option<u64> = None;
 
             delete_entries.remove(uri);
 
@@ -242,7 +246,9 @@ unsafe extern "C" fn next(handler: Handler) -> *const CResult<CFileIterationInfo
             let added_or_updated = if prev_entry.is_none() {
                 true
             } else {
+                // updated
                 let prev_entry_unwrapped = prev_entry.unwrap();
+                prev_file_hash = Some(prev_entry_unwrapped.file_hash);
                 prev_entry_unwrapped.size != size
                     || (prev_entry_unwrapped.updated_at_utc < last_modified || last_modified < 0)
             };
@@ -253,6 +259,25 @@ unsafe extern "C" fn next(handler: Handler) -> *const CResult<CFileIterationInfo
                 let metadata = Box::new(CString::new(metadata).unwrap());
                 let file_path = Box::new(CString::new(download_path.clone()).unwrap());
 
+                let file_blob_res = rt.block_on(async { operator.read(&uri).await });
+                if file_blob_res.is_err() {
+                    log(LogLevel::Debug, &file_blob_res.unwrap_err().to_string());
+                    break;
+                }
+                let file_blob_content = file_blob_res.unwrap().to_vec();
+
+                // check file hash
+                let file_hash = xxh3_64(&file_blob_content);
+                if prev_file_hash.is_none_or(|f| file_hash == f) {
+                    continue;
+                }
+
+                let fs_result = fs::write(&download_path, file_blob_content);
+                if fs_result.is_err() {
+                    log(LogLevel::Debug, &fs_result.unwrap_err().to_string());
+                    break;
+                };
+
                 let added = Box::new(COutputFileInfo {
                     file_id: file_id.as_ptr(),
                     name: name.as_ptr(),
@@ -261,18 +286,8 @@ unsafe extern "C" fn next(handler: Handler) -> *const CResult<CFileIterationInfo
                     size: size,
                     updated_at_utc: last_modified,
                     metadata: metadata.as_ptr(),
+                    file_hash: file_hash,
                 });
-
-                let file_blob_res = rt.block_on(async { operator.read(&uri).await });
-                if file_blob_res.is_err() {
-                    log(LogLevel::Debug, &file_blob_res.unwrap_err().to_string());
-                    break;
-                }
-                let fs_result = fs::write(&download_path, file_blob_res.unwrap().to_vec());
-                if fs_result.is_err() {
-                    log(LogLevel::Debug, &fs_result.unwrap_err().to_string());
-                    break;
-                }
 
                 nex_ref.chars.push(file_id);
                 nex_ref.chars.push(name);

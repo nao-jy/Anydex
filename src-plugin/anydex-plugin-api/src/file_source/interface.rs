@@ -11,6 +11,7 @@ pub struct CInputFileInfo {
     pub file_id: CFileId,
     pub size: usize,
     pub updated_at_utc: i64,
+    pub file_hash: u64,
 }
 
 #[repr(C)]
@@ -24,6 +25,7 @@ pub struct COutputFileInfo {
     pub size: usize,
     pub updated_at_utc: i64,
     pub metadata: *const c_char,
+    pub file_hash: u64,
 }
 
 pub struct CFileIterationInfo {

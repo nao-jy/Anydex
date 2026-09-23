@@ -198,6 +198,7 @@ pub mod file {
         pub content_type: String,
         pub size: u64,
         pub updated_at: DateTimeUtc,
+        pub file_hash: u64,
         #[sea_orm(belongs_to, from = "file_source_id", to = "id")]
         pub file_source: BelongsTo<super::file_source::Entity>,
     }

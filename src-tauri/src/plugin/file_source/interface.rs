@@ -8,6 +8,7 @@ pub struct InputFileInfo {
     pub file_id: FileId,
     pub size: usize,
     pub updated_at: DateTime<Utc>,
+    pub file_hash: u64,
 }
 
 pub struct OutputFileInfo {
@@ -18,6 +19,7 @@ pub struct OutputFileInfo {
     pub size: usize,
     pub updated_at: DateTime<Utc>,
     pub metadata: HashMap<String, String>,
+    pub file_hash: u64,
 }
 
 pub enum FileIterationInfo {

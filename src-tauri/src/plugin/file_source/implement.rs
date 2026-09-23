@@ -91,6 +91,7 @@ impl FileSource for DynamicFileSource {
                         file_id: fid.as_ptr(),
                         size: info.size,
                         updated_at_utc: info.updated_at.timestamp(),
+                        file_hash: info.file_hash,
                     });
 
                     cstrings.push(fid);
@@ -134,24 +135,15 @@ impl FileSource for DynamicFileSource {
                     let metadata = serde_json::Value::from(to_string(cfile.metadata));
 
                     let added_or_updated = OutputFileInfo {
-                        file_id: unsafe {
-                            CStr::from_ptr(cfile.file_id).to_string_lossy().into_owned()
-                        },
-                        name: unsafe { CStr::from_ptr(cfile.name).to_string_lossy().into_owned() },
-                        file_path: unsafe {
-                            CStr::from_ptr(cfile.file_path)
-                                .to_string_lossy()
-                                .into_owned()
-                        },
-                        content_type: unsafe {
-                            CStr::from_ptr(cfile.content_type)
-                                .to_string_lossy()
-                                .into_owned()
-                        },
+                        file_id: to_string(cfile.file_id),
+                        name: to_string(cfile.name),
+                        file_path: to_string(cfile.file_path),
+                        content_type: to_string(cfile.content_type),
                         size: cfile.size,
                         updated_at: DateTime::from_timestamp(cfile.updated_at_utc, 0)
                             .unwrap_or(Utc::now()),
                         metadata: object_to_hash_map(metadata),
+                        file_hash: cfile.file_hash,
                     };
                     ret = Ok(Some(FileIterationInfo::AddedOrDeleted(added_or_updated)));
                 }
