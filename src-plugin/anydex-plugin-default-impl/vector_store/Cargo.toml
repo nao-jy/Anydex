@@ -18,3 +18,4 @@ anydex-plugin-api.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 schemars.workspace = true
+process_path.workspace = true

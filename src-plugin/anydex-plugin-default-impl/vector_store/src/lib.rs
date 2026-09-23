@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::ffi::{c_char, c_void, CString};
 use std::sync::{LazyLock, Mutex};
 
-use anydex_plugin_api_lib::common::{resolve_dylib_name, to_string, CResult, CSlice, LogLevel};
+use anydex_plugin_api_lib::common::{to_string, CResult, CSlice, LogLevel};
 use anydex_plugin_api_lib::interface::PluginInit;
 use anydex_plugin_api_lib::vector_store::interface::{
     CChunk, CSearchHit, CSearchRequest, DynamicVectorStoreV1, FileId, Handler, IndexId,
@@ -38,7 +38,7 @@ pub unsafe extern "C" fn get_plugin(init: *const PluginInit) -> *const DynamicVe
         std::ptr::write(std::ptr::addr_of_mut!(LOGGER), Some(plugin_read.log));
     }
 
-    let init_result = sqlite::init_sqlite(&resolve_dylib_name("vector"));
+    let init_result = sqlite::init_sqlite();
     if let Err(err) = init_result {
         log(LogLevel::Error, &err);
         return std::ptr::null();

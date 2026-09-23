@@ -1,6 +1,10 @@
 use std::{str::FromStr, sync::Mutex};
 
-use anydex_plugin_api_lib::vector_store::interface::{FileId, IndexId};
+use anydex_plugin_api_lib::{
+    common::resolve_dylib_name,
+    vector_store::interface::{FileId, IndexId},
+};
+use process_path::get_dylib_path;
 use rusqlite::Connection;
 
 use crate::param::Param;
@@ -21,16 +25,28 @@ pub struct Chunk {
     pub updated_at_utc: i64,
 }
 
-pub fn init_sqlite(sqlite_extension_path: &str) -> Result<(), String> {
-    let conn = Connection::open("vector-store.db").map_err(|err| err.to_string())?;
+pub fn init_sqlite() -> Result<(), String> {
+    let this_dir = get_dylib_path().unwrap().parent().map(|p| p.to_path_buf());
+    if this_dir.is_none() {
+        return Err("failed get_dylib_path".into());
+    }
+    let cur_dir = this_dir.unwrap();
+    let vector_path = cur_dir.join("vector-store.db");
+    let dylib_path = cur_dir.join(&resolve_dylib_name("vector"));
+
+    let conn = Connection::open(vector_path).map_err(|err| err.to_string())?;
     unsafe {
         conn.load_extension_enable()
             .map_err(|err| err.to_string())?;
     }
 
     // load vector extension
-    conn.execute("SELECT load_extension(?)", [sqlite_extension_path])
-        .map_err(|err| err.to_string())?;
+    conn.query_one(
+        "SELECT load_extension(?1, ?2)",
+        [dylib_path.to_str(), "sqlite3_vector_init".into()],
+        |_| Ok(()),
+    )
+    .map_err(|err| err.to_string())?;
 
     let mut db_mtx = DB.lock().unwrap();
     (*db_mtx) = Some(conn);
