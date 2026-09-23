@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ActionIcon,
   Badge,
@@ -19,6 +19,7 @@ import { openPath } from "@tauri-apps/plugin-opener";
 import { unwrapCommandResult } from "../tauri";
 
 export const Settings = () => {
+  const queryClient = useQueryClient();
   const settingsQuery = useQuery({
     queryKey: ["applicationSettings"],
     queryFn: commands.getApplicationSettings,
@@ -26,6 +27,13 @@ export const Settings = () => {
   const getPluginInfo = useQuery({
     queryKey: ["getPluginInfo"],
     queryFn: async () => await unwrapCommandResult(commands.getPluginInfo()),
+  });
+  const reloadPlugins = useMutation({
+    mutationKey: ["reloadPlugins"],
+    mutationFn: async () => {
+      await unwrapCommandResult(commands.reloadPlugins());
+      queryClient.invalidateQueries({ queryKey: ["getPluginInfo"] });
+    },
   });
   const settings = settingsQuery.data;
 
@@ -74,8 +82,8 @@ export const Settings = () => {
                 </Box>
                 <Button
                   variant="light"
-                  onClick={() => getPluginInfo.refetch()}
-                  loading={getPluginInfo.isPending}
+                  onClick={() => reloadPlugins.mutate()}
+                  loading={getPluginInfo.isPending || reloadPlugins.isPending}
                 >
                   プラグインを再読み込み
                 </Button>

@@ -104,6 +104,56 @@ impl PluginType {
     }
 
     pub fn list_names(self) -> Vec<String> {
-        vec!["sample".into()]
+        match self {
+            Self::Embedder => {
+                let mgr_mtx = EMBEDDER_MGR.lock().unwrap();
+                let mgr = mgr_mtx.as_ref().unwrap();
+                return mgr.get_plugin_names();
+            }
+            Self::FileExtractor => {
+                let mgr_mtx = FILE_EXTRACTOR_MGR.lock().unwrap();
+                let mgr = mgr_mtx.as_ref().unwrap();
+                return mgr.get_plugin_names();
+            }
+            Self::FileSource => {
+                let mgr_mtx = FILE_SOURCE_MGR.lock().unwrap();
+                let mgr = mgr_mtx.as_ref().unwrap();
+                return mgr.get_plugin_names();
+            }
+            Self::VectorStore => {
+                let mgr_mtx = VECTOR_STORE_MGR.lock().unwrap();
+                let mgr = mgr_mtx.as_ref().unwrap();
+                return mgr.get_plugin_names();
+            }
+        }
+    }
+
+    pub fn reload(self) -> Result<(), String> {
+        match self {
+            Self::Embedder => {
+                let mut mgr_mtx = EMBEDDER_MGR.lock().unwrap();
+                let mgr = mgr_mtx.as_mut().unwrap();
+                mgr.load_plugins()?;
+                Ok(())
+            }
+            Self::FileExtractor => {
+                let mut mgr_mtx = FILE_EXTRACTOR_MGR.lock().unwrap();
+                let mgr = mgr_mtx.as_mut().unwrap();
+                mgr.load_plugins()?;
+                Ok(())
+            }
+            Self::FileSource => {
+                let mut mgr_mtx = FILE_SOURCE_MGR.lock().unwrap();
+                let mgr = mgr_mtx.as_mut().unwrap();
+                mgr.load_plugins()?;
+                Ok(())
+            }
+            Self::VectorStore => {
+                let mut mgr_mtx = VECTOR_STORE_MGR.lock().unwrap();
+                let mgr = mgr_mtx.as_mut().unwrap();
+                mgr.load_plugins()?;
+                Ok(())
+            }
+        }
     }
 }

@@ -16,6 +16,7 @@ export const commands = {
 	getApplicationSettings: () => __TAURI_INVOKE<ApplicationSettings>("get_application_settings"),
 	getPluginInfo: () => typedError<PluginInfo[], string>(__TAURI_INVOKE("get_plugin_info")),
 	upsertEmbedder: (indexId: number, embedderName: string, dimensions: number, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_embedder", { indexId, embedderName, dimensions, paramsJson })),
+	reloadPlugins: () => typedError<null, string>(__TAURI_INVOKE("reload_plugins")),
 	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),
 };
 

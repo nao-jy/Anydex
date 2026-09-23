@@ -1,6 +1,5 @@
 use std::env::consts::{ARCH, DLL_SUFFIX, OS};
 use std::ffi::{c_char, CStr};
-use std::path::Path;
 
 // common type
 #[repr(C)]
@@ -41,19 +40,15 @@ pub fn get_dylib_suffix() -> String {
 }
 
 pub fn get_dylib_stem_name(filename: &str) -> Option<String> {
-    let file_stem = Path::new(filename)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap();
     let suffix = get_dylib_suffix();
-    if !file_stem.ends_with(&suffix) {
+    if !filename.ends_with(&suffix) {
         None
     } else {
-        let len = file_stem
+        let len = filename
             .chars()
             .count()
             .saturating_sub(suffix.chars().count());
-        Some(file_stem.chars().take(len).collect())
+        Some(filename.chars().take(len).collect())
     }
 }
 

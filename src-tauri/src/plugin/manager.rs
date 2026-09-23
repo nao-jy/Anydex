@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fs, path::Path};
 
 use anydex_plugin_api_lib::common::{get_dylib_stem_name, get_dylib_suffix};
+use tracing::warn;
 
 pub struct Plugin<T> {
     // Fields are dropped in declaration order, so the instance is dropped
@@ -50,13 +51,21 @@ impl<T: LibraryLoader> PluginManager<T> {
 
             let name_opt = get_dylib_stem_name(entry.file_name().to_str().unwrap_or_default());
             if let Some(name) = name_opt {
-                // Loading a dynamic library is unsafe because its initialization code runs in-process.
-                let library = unsafe { libloading::Library::new(&path) }.map_err(|error| {
-                    format!("failed to load plugin '{}': {error}", path.display())
-                })?;
-                let instance = T::load_library(&library).map_err(|error| {
-                    format!("failed to initialize plugin '{}': {error}", path.display())
-                })?;
+                let library_load = unsafe { libloading::Library::new(&path) };
+                if let Err(err) = library_load {
+                    let pathname = path.to_str().unwrap_or("?");
+                    warn!("failed to load plugin {pathname} {err}");
+                    continue;
+                }
+                let library = library_load.unwrap();
+
+                let load_lib = T::load_library(&library);
+                if let Err(err) = load_lib {
+                    let pathname = path.to_str().unwrap_or("?");
+                    warn!("failed to load plugin {pathname} {err}");
+                    continue;
+                }
+                let instance = load_lib.unwrap();
 
                 plugins.insert(
                     name,
@@ -88,5 +97,5 @@ fn is_valid_name(path: &Path) -> bool {
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or_default();
-    file_name.starts_with(&get_dylib_suffix())
+    file_name.ends_with(&get_dylib_suffix())
 }

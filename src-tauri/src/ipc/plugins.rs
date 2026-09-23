@@ -1,3 +1,4 @@
+use enum_iterator::all;
 use sea_orm::{DatabaseConnection, EntityTrait};
 use tauri::State;
 
@@ -7,29 +8,24 @@ use crate::{dto::models::PluginInfo, plugin::entry::PluginType, repository};
 #[specta::specta]
 #[tracing::instrument()]
 pub fn get_plugin_info() -> Result<Vec<PluginInfo>, String> {
-    let ret = vec![
-        PluginInfo {
-            plugin_type: PluginType::FileSource.into(),
-            path: PluginType::FileSource.get_dir(),
-            plugins: PluginType::FileSource.list_names(),
-        },
-        PluginInfo {
-            plugin_type: PluginType::FileExtractor.into(),
-            path: PluginType::FileExtractor.get_dir(),
-            plugins: PluginType::FileExtractor.list_names(),
-        },
-        PluginInfo {
-            plugin_type: PluginType::Embedder.into(),
-            path: PluginType::Embedder.get_dir(),
-            plugins: PluginType::Embedder.list_names(),
-        },
-        PluginInfo {
-            plugin_type: PluginType::VectorStore.into(),
-            path: PluginType::VectorStore.get_dir(),
-            plugins: PluginType::VectorStore.list_names(),
-        },
-    ];
+    let ret = all::<PluginType>()
+        .map(|f| PluginInfo {
+            plugin_type: f.into(),
+            path: f.get_dir(),
+            plugins: f.list_names(),
+        })
+        .collect();
     Ok(ret)
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument()]
+pub fn reload_plugins() -> Result<(), String> {
+    for p in all::<PluginType>() {
+        p.reload()?;
+    }
+    Ok(())
 }
 
 #[tauri::command]

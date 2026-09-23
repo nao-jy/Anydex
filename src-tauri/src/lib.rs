@@ -2,6 +2,7 @@
 use specta_typescript::Typescript;
 use tauri::{generate_handler, Manager};
 use tauri_specta::{collect_commands, collect_events, Builder};
+use tracing::error;
 
 use crate::plugin::entry::PluginType;
 
@@ -28,6 +29,7 @@ macro_rules! app_commands {
             ipc::settings::get_application_settings,
             ipc::plugins::get_plugin_info,
             ipc::plugins::upsert_embedder,
+            ipc::plugins::reload_plugins,
             ipc::search::search_mock
         ]
     };
@@ -59,8 +61,13 @@ pub fn run() {
             app.manage(database);
             tracing::info!(path = %database_path.display(), "application database initialized");
 
-            PluginType::init(app_data_dir.to_str().unwrap())?;
-            tracing::info!(path = %database_path.display(), "plugin initialized");
+            let init_result = PluginType::init(app_data_dir.to_str().unwrap());
+            if let Err(err) = init_result {
+                error!(err);
+            } else {
+                tracing::info!(path = %database_path.display(), "plugin initialized");
+            }
+
             Ok(())
         })
         .plugin(tauri_plugin_store::Builder::new().build())
