@@ -3,12 +3,12 @@ import { MantineProvider } from "@mantine/core";
 import { BrowserRouter, Routes, Route } from "react-router";
 
 import "@mantine/core/styles.css";
-import { Layout } from "./components/Layout";
-import { Index } from "./components/Index";
-import { Mcp } from "./components/Mcp";
-import { Search } from "./components/Search";
-import { Settings } from "./components/Settings";
-import { Tasks } from "./components/Tasks";
+import { Layout } from "./pages/Layout";
+import { Index } from "./pages/Index";
+import { Mcp } from "./pages/Mcp";
+import { Search } from "./pages/Search";
+import { Settings } from "./pages/Settings";
+import { Tasks } from "./pages/Tasks";
 
 const queryClient = new QueryClient();
 

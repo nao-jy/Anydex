@@ -21,9 +21,6 @@ import {
   PluginType,
 } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
-import { withTheme } from "@rjsf/core";
-import { Theme as MantineTheme } from "@rjsf/mantine";
-import validator from "@rjsf/validator-ajv8";
 
 type SortKey = "name" | "createdAt" | "updatedAt";
 type Direction = "asc" | "desc";
@@ -316,7 +313,6 @@ function PluginSelector(props: {
   const onCancel = () => {
     setSelecting(selected);
   };
-  const Form = withTheme(MantineTheme);
 
   return (
     <Paper withBorder p="md" radius="md">
@@ -351,7 +347,7 @@ function PluginSelector(props: {
           </Button>
         </Group>
       </Group>
-      {schema !== null && <Form schema={schema} validator={validator} />}
+      {schema !== null && <></>}
     </Paper>
   );
 }
