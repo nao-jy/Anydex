@@ -5,18 +5,25 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
 pub struct APIParam {
-    #[schemars(description = "content type prefix to prcess with this API")]
+    #[schemars(
+        title = "Target Content Type",
+        description = "Content type prefix to prcess with this API, see https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/MIME_types/Common_types"
+    )]
     pub target_content_type_prefix: String,
 
-    #[schemars(description = "endpoint for request")]
+    #[schemars(title = "Request Endpoint", description = "Endpoint for request")]
     pub request_endpoint: String,
 
     #[schemars(
+        title = "Request JSON",
         description = "JSON format for request. {{text}} {{image_base64}} are reserved and automatically injected"
     )]
     pub request_json: serde_json::Map<String, serde_json::Value>,
 
-    #[schemars(description = "place of embedding in response")]
+    #[schemars(
+        title = "Response JSON Path",
+        description = "Place of embedding in response, see https://jsonpath.com/"
+    )]
     pub response_json_path: String,
 }
 
@@ -77,8 +84,9 @@ impl APIParam {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
+#[schemars(title = "JSON Web API Params")]
 pub struct Param {
-    #[schemars(description = "list of embedding API")]
+    #[schemars(title = "API List", description = "List of embedding API")]
     pub api_list: Vec<APIParam>,
 }
 
