@@ -7,6 +7,11 @@ pub struct Param {
     pub text_window: i32,
     #[schemars(description = "text overwrap length of chunks")]
     pub text_overwrap: i32,
+
+    #[schemars(
+        description = "languages of OCR, see https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html"
+    )]
+    pub ocr_languages: Vec<String>,
 }
 
 impl Param {

@@ -16,7 +16,7 @@ use anydex_plugin_api_lib::{
 use schemars::schema_for;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
-use xberg::{extract as xberg_extract, ExtractInput, ExtractionConfig};
+use xberg::{extract as xberg_extract, ExtractInput, ExtractionConfig, OcrConfig};
 
 use crate::param::Param;
 
@@ -141,7 +141,14 @@ unsafe extern "C" fn extract(
         let mut chars: Vec<Box<CString>> = Vec::new();
 
         let file_path = CStr::from_ptr(file_abs_path).to_string_lossy().to_string();
-        let config = ExtractionConfig::default();
+        let config = ExtractionConfig {
+            ocr: Some(OcrConfig {
+                enabled: true,
+                language: param.ocr_languages.clone(),
+                ..OcrConfig::default()
+            }),
+            ..ExtractionConfig::default()
+        };
         let output = rt.block_on(xberg_extract(ExtractInput::from_uri(file_path), &config));
         if let Err(err) = &output {
             log(LogLevel::Error, &err.to_string());
