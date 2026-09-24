@@ -48,6 +48,7 @@ url = "2"
 libloading = "0.9.0"
 axum = "0.8.9"
 enum-iterator = "2.3.0"
+tauri-plugin-dialog = "2"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
