@@ -3,7 +3,8 @@
 use std::{error::Error, fs, path::PathBuf};
 use tauri::{App, Manager, Runtime};
 use tracing_appender::{non_blocking::WorkerGuard, rolling};
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::{fmt, registry, EnvFilter};
 
 /// Keeps the non-blocking log writer alive until the application exits.
 pub struct LogGuard {
@@ -23,12 +24,15 @@ pub fn init<R: Runtime>(app: &App<R>) -> Result<(LogGuard, PathBuf), Box<dyn Err
     let file_appender = rolling::daily(&log_dir, "anydex.log");
     let (writer, guard) = tracing_appender::non_blocking(file_appender);
 
-    fmt()
-        .with_env_filter(filter)
+    let fmt_layer = fmt::layer()
         .with_writer(writer)
         .with_ansi(false)
         .with_target(cfg!(debug_assertions))
         .compact()
+        .with_filter(filter);
+
+    registry()
+        .with(fmt_layer)
         .try_init()
         .map_err(std::io::Error::other)?;
 
