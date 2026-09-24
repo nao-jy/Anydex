@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   Container,
+  Divider,
   Group,
   Paper,
   Select,
@@ -21,6 +22,7 @@ import {
   PluginType,
 } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
+import { JsonSchemaForm } from "../components/JsonSchemaForm";
 
 type SortKey = "name" | "createdAt" | "updatedAt";
 type Direction = "asc" | "desc";
@@ -316,38 +318,45 @@ function PluginSelector(props: {
 
   return (
     <Paper withBorder p="md" radius="md">
-      <Text size="xs" c="dimmed">
-        {label}
-      </Text>
-      <Group align="flex-start" wrap="nowrap">
-        <Select
-          label={info.pluginType}
-          value={selecting}
-          data={info.plugins}
-          onChange={async (_value, option) => {
-            if (option === null) return;
-            setSelecting(option.value);
-            const paramSchema = await commands.getParamSchema(
-              plugin_type,
-              option.value,
-            );
-            console.log(paramSchema);
-            setParamSchema(paramSchema);
-          }}
-          disabled={saving}
-          error={error && "保存できませんでした。"}
-          style={{ flex: 1 }}
-        />
-        <Group gap="xs" mt={24} wrap="nowrap">
-          <Button variant="default" onClick={onCancel} disabled={saving}>
-            キャンセル
-          </Button>
-          <Button onClick={save} loading={saving}>
-            保存
-          </Button>
+      <Stack gap="md">
+        <Text size="xs" c="dimmed">
+          {label}
+        </Text>
+        <Group align="flex-start" wrap="nowrap">
+          <Select
+            label={info.pluginType}
+            value={selecting}
+            data={info.plugins}
+            onChange={async (_value, option) => {
+              if (option === null) return;
+              setSelecting(option.value);
+              const paramSchema = await commands.getParamSchema(
+                plugin_type,
+                option.value,
+              );
+              console.log(paramSchema);
+              setParamSchema(paramSchema);
+            }}
+            disabled={saving}
+            error={error && "保存できませんでした。"}
+            style={{ flex: 1 }}
+          />
+          <Group gap="xs" mt={24} wrap="nowrap">
+            <Button variant="default" onClick={onCancel} disabled={saving}>
+              キャンセル
+            </Button>
+            <Button onClick={save} loading={saving}>
+              保存
+            </Button>
+          </Group>
         </Group>
-      </Group>
-      {schema !== null && <></>}
+        {schema !== null && (
+          <>
+            <Divider my="sm" />
+            <JsonSchemaForm jsonSchema={schema} />
+          </>
+        )}
+      </Stack>
     </Paper>
   );
 }
