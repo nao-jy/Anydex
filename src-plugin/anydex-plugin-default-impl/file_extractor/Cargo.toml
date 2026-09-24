@@ -13,10 +13,18 @@ name = "anydex_plugin_default_impl_file_extractor_lib"
 crate-type = ["cdylib"]
 
 [dependencies]
-xberg = { version = "1.2.8", features = ["full"] }
+xberg = { version = "1.2.8", features = [
+    "pdf",
+    "office",
+    "excel",
+    "html",
+    "chunking",
+    "ocr",
+] }
 anydex-plugin-api.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 schemars.workspace = true
 tokio.workspace = true
 uuid.workspace = true
+mime_guess.workspace = true

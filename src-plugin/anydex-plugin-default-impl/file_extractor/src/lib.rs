@@ -13,10 +13,14 @@ use anydex_plugin_api_lib::{
     },
     interface::PluginInit,
 };
+use mime_guess::mime;
 use schemars::schema_for;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
-use xberg::{extract as xberg_extract, ExtractInput, ExtractionConfig, OcrConfig};
+use xberg::{
+    extract as xberg_extract, ChunkerType, ChunkingConfig, ExtractInput, ExtractionConfig,
+    OcrConfig,
+};
 
 use crate::param::Param;
 
@@ -141,11 +145,35 @@ unsafe extern "C" fn extract(
         let mut chars: Vec<Box<CString>> = Vec::new();
 
         let file_path = CStr::from_ptr(file_abs_path).to_string_lossy().to_string();
+        let guess = mime_guess::from_path(&file_path);
+        let mime = guess.first_or_octet_stream();
+        let copy_result = match mime.type_() {
+            mime::IMAGE => {
+                let file_stem = Uuid::new_v4().to_string();
+                let ext = Path::new(&file_path).extension().unwrap().to_string_lossy();
+                let filename = format!("{file_stem}.{ext}");
+                let copy_path = Path::new(base_dir).join(&filename);
+                std::fs::copy(&file_path, copy_path)
+            }
+            _ => Ok(0u64),
+        };
+        if let Err(err) = &copy_result {
+            log(LogLevel::Error, &err.to_string());
+        }
+
         let config = ExtractionConfig {
             ocr: Some(OcrConfig {
                 enabled: true,
                 language: param.ocr_languages.clone(),
                 ..OcrConfig::default()
+            }),
+            chunking: Some(ChunkingConfig {
+                max_characters: param.text_window,
+                overlap: param.text_overwrap,
+                trim: true,
+                chunker_type: ChunkerType::Semantic,
+
+                ..ChunkingConfig::default()
             }),
             ..ExtractionConfig::default()
         };
@@ -165,21 +193,19 @@ unsafe extern "C" fn extract(
         let extract_result = &output_unwrapped.results;
         for result in extract_result {
             // output text
-            let content = &result.content;
-            let texts = param.split_text(&content).unwrap_or_else(|err| {
-                log(LogLevel::Warn, &err);
-                Vec::new()
-            });
-            for t in texts {
-                let name = Uuid::new_v4().to_string();
-                let filename = format!("{name}.txt");
+            if let Some(chunks) = &result.chunks {
+                for chunk in chunks {
+                    let name = Uuid::new_v4().to_string();
+                    let filename = format!("{name}.txt");
 
-                let write_result = fs::write(Path::new(base_dir).join(&filename), t);
+                    let write_result =
+                        fs::write(Path::new(base_dir).join(&filename), &chunk.content);
 
-                if let Err(err) = write_result {
-                    log(LogLevel::Warn, &err.to_string());
-                } else if let Ok(_) = write_result {
-                    chars.push(Box::new(CString::new(filename).unwrap()));
+                    if let Err(err) = write_result {
+                        log(LogLevel::Warn, &err.to_string());
+                    } else if let Ok(_) = write_result {
+                        chars.push(Box::new(CString::new(filename).unwrap()));
+                    }
                 }
             }
 
