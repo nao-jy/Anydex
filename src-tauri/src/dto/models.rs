@@ -47,13 +47,11 @@ pub struct VectorStore {
 pub struct Indexer {
     pub id: i32,
     pub index_id: i32,
-    pub extractor_name: String,
-    #[specta(type = specta_typescript::Any)]
-    pub params: Value,
     pub last_start: Option<DateTime<Utc>>,
     pub last_success: Option<DateTime<Utc>>,
     pub last_processed_files: Option<i32>,
     pub file_source: FileSource,
+    pub file_extractor: FileExtractor,
     pub schedule: Schedule,
     pub tasks: Vec<Task>,
 }
@@ -78,6 +76,16 @@ pub struct FileSource {
     pub params: Value,
     pub files: Vec<File>,
     pub oauth_client: Option<OAuthClient>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct FileExtractor {
+    pub id: i32,
+    pub indexer_id: i32,
+    pub name: String,
+    #[specta(type = specta_typescript::Any)]
+    pub params: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]

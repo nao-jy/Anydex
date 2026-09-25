@@ -50,6 +50,13 @@ export type File = {
 	updatedAt: string,
 };
 
+export type FileExtractor = {
+	id: number,
+	indexerId: number,
+	name: string,
+	params: any,
+};
+
 /**  OpenDAL file-source configuration and the files discovered from it. */
 export type FileSource = {
 	id: number,
@@ -83,12 +90,11 @@ export type Index = {
 export type Indexer = {
 	id: number,
 	indexId: number,
-	extractorName: string,
-	params: any,
 	lastStart: string | null,
 	lastSuccess: string | null,
 	lastProcessedFiles: number | null,
 	fileSource: FileSource,
+	fileExtractor: FileExtractor,
 	schedule: Schedule,
 	tasks: Task[],
 };

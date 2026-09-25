@@ -10,7 +10,8 @@ use sea_orm::{
 
 use crate::{
     dto::models::{
-        Embedder, File, FileSource, Index, Indexer, OAuthClient, Schedule, Task, VectorStore,
+        Embedder, File, FileExtractor, FileSource, Index, Indexer, OAuthClient, Schedule, Task,
+        VectorStore,
     },
     repository::models,
 };
@@ -232,6 +233,11 @@ async fn load_indexer(
         .one(database)
         .await?
         .ok_or_else(|| missing_relation("file source", "indexer", model.id))?;
+    let file_extractor = models::file_extractor::Entity::find()
+        .filter(models::file_extractor::Column::IndexerId.eq(model.id))
+        .one(database)
+        .await?
+        .ok_or_else(|| missing_relation("file extractor", "indexer", model.id))?;
     let schedule = models::schedule::Entity::find()
         .filter(models::schedule::Column::IndexerId.eq(model.id))
         .one(database)
@@ -274,8 +280,6 @@ async fn load_indexer(
     Ok(Indexer {
         id: model.id,
         index_id: model.index_id,
-        extractor_name: model.extractor_name,
-        params: model.params,
         last_start: model.last_start,
         last_success: model.last_success,
         last_processed_files: model.last_processed_files,
@@ -286,6 +290,12 @@ async fn load_indexer(
             params: file_source.params,
             files,
             oauth_client,
+        },
+        file_extractor: FileExtractor {
+            id: file_extractor.id,
+            indexer_id: file_extractor.indexer_id,
+            name: file_extractor.name,
+            params: file_extractor.params,
         },
         schedule: Schedule {
             id: schedule.id,
