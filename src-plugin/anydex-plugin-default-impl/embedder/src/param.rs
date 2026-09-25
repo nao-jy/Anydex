@@ -11,8 +11,11 @@ pub struct APIParam {
     )]
     pub target_content_type_prefix: String,
 
-    #[schemars(title = "Request Endpoint", description = "Endpoint for request")]
+    #[schemars(title = "Request Endpoint")]
     pub request_endpoint: String,
+
+    #[schemars(title = "API Key")]
+    pub api_key: Option<String>,
 
     #[schemars(
         title = "Request JSON",
