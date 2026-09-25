@@ -16,6 +16,7 @@ export const commands = {
 	getApplicationSettings: () => __TAURI_INVOKE<ApplicationSettings>("get_application_settings"),
 	getPluginInfo: () => typedError<PluginInfo[], string>(__TAURI_INVOKE("get_plugin_info")),
 	upsertEmbedder: (indexId: number, embedderName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_embedder", { indexId, embedderName, paramsJson })),
+	upsertVectorStore: (indexId: number, vectorStoreName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_vector_store", { indexId, vectorStoreName, paramsJson })),
 	reloadPlugins: () => typedError<null, string>(__TAURI_INVOKE("reload_plugins")),
 	getParamSchema: (pluginType: PluginType, pluginName: string) => __TAURI_INVOKE<string | null>("get_param_schema", { pluginType, pluginName }),
 	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),

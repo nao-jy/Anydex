@@ -1,7 +1,7 @@
 import { Button, Input } from "@mantine/core";
-import { getDefaultRegistry, withTheme } from "@rjsf/core";
+import { getDefaultRegistry, IChangeEvent, withTheme } from "@rjsf/core";
 import { Theme as MantineTheme } from "@rjsf/mantine";
-import { FieldProps, SubmitButtonProps } from "@rjsf/utils";
+import { FieldProps, RJSFSchema, SubmitButtonProps } from "@rjsf/utils";
 import { customizeValidator } from "@rjsf/validator-ajv8";
 import { JsonEditor } from "json-edit-react";
 import Ajv2020 from "ajv/dist/2020";
@@ -49,15 +49,17 @@ export const CustomObjectField = (props: FieldProps) => {
 };
 
 const SubmitButton = (_: SubmitButtonProps) => {
-  return <Button type="submit">パラメータを保存</Button>;
+  return <Button type="submit">保存</Button>;
 };
 
 export interface JsonSchemaFormParams {
   jsonSchema: any;
+  initParams: any | null;
+  onSubmit: (event: IChangeEvent<any, RJSFSchema, any>) => void;
 }
 
 export const JsonSchemaForm = (props: JsonSchemaFormParams) => {
-  const { jsonSchema } = props;
+  const { jsonSchema, onSubmit, initParams } = props;
   const Form = withTheme(MantineTheme);
   const validator = customizeValidator({
     AjvClass: Ajv2020,
@@ -65,6 +67,7 @@ export const JsonSchemaForm = (props: JsonSchemaFormParams) => {
 
   return (
     <Form
+      formData={initParams ?? undefined}
       schema={jsonSchema}
       validator={validator}
       fields={{
@@ -76,7 +79,7 @@ export const JsonSchemaForm = (props: JsonSchemaFormParams) => {
         },
       }}
       onSubmit={(data) => {
-        console.log(data);
+        onSubmit(data);
       }}
     ></Form>
   );

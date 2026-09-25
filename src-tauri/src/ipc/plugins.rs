@@ -66,3 +66,33 @@ pub async fn upsert_embedder(
 
     Ok(())
 }
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(database))]
+pub async fn upsert_vector_store(
+    index_id: i32,
+    vector_store_name: String,
+    params_json: String,
+    database: State<'_, DatabaseConnection>,
+) -> Result<(), String> {
+    let _model = repository::models::index::Entity::find_by_id(index_id)
+        .one(database.inner())
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("index {index_id} was not found"))?;
+
+    let plugins = PluginType::VectorStore.list_names();
+    if !plugins.contains(&vector_store_name) {
+        return Err(format!("Vector store {vector_store_name} was not found"));
+    }
+
+    let params: serde_json::Value =
+        serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
+
+    repository::indexes::upsert_vector_store(&database, index_id, vector_store_name, params)
+        .await
+        .map_err(|err| err.to_string())?;
+
+    Ok(())
+}

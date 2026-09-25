@@ -4,6 +4,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 #[schemars(title = "SQLite-Vector Params")]
 pub struct Param {
-    #[schemars(title = "Vector Dimensions")]
-    pub dimensions: u32,
+    #[schemars(title = "Vector Dimensions", range(min = 1))]
+    pub dimensions: i32,
 }

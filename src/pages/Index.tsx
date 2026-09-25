@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Accordion,
@@ -23,6 +23,9 @@ import {
 } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
 import { JsonSchemaForm } from "../components/JsonSchemaForm";
+import { IChangeEvent } from "@rjsf/core";
+import { RJSFSchema } from "@rjsf/utils";
+import { showErrorDialog } from "../components/Dialogs";
 
 type SortKey = "name" | "createdAt" | "updatedAt";
 type Direction = "asc" | "desc";
@@ -143,6 +146,35 @@ export const Index = () => {
             radius="md"
           >
             {sortedIndexes.map((index) => {
+              const onSubmitEmbedder = async (
+                event: IChangeEvent<any, RJSFSchema, any>,
+                plugin_name: string,
+              ) => {
+                const result = await commands.upsertEmbedder(
+                  index.id,
+                  plugin_name,
+                  JSON.stringify(event.formData),
+                );
+                if (result.status === "error") {
+                  await showErrorDialog(result.error);
+                }
+                queryClient.invalidateQueries({ queryKey: ["indexes"] });
+              };
+              const onSubmitVectorStore = async (
+                event: IChangeEvent<any, RJSFSchema, any>,
+                plugin_name: string,
+              ) => {
+                const result = await commands.upsertVectorStore(
+                  index.id,
+                  plugin_name,
+                  JSON.stringify(event.formData),
+                );
+                if (result.status === "error") {
+                  await showErrorDialog(result.error);
+                }
+                queryClient.invalidateQueries({ queryKey: ["indexes"] });
+              };
+              console.log(index);
               return (
                 <Accordion.Item value={index.id.toString()} key={index.id}>
                   <Group gap={0} wrap="nowrap" align="stretch">
@@ -201,9 +233,10 @@ export const Index = () => {
                         saving={false}
                         error={false}
                         info={plugins.find((v) => v.pluginType === "embedder")!}
-                        selected={null}
+                        selected={index.embedder?.name ?? null}
                         plugin_type="embedder"
-                        onSave={(name: string) => {}}
+                        onSubmit={onSubmitEmbedder}
+                        initParams={index.embedder?.params}
                       />
                       <PluginSelector
                         label="ベクトルストア：生成したベクトルを保存し、検索に使います"
@@ -212,9 +245,10 @@ export const Index = () => {
                         info={
                           plugins.find((v) => v.pluginType === "vector-store")!
                         }
-                        selected={null}
+                        selected={index.vectorStore?.name ?? null}
                         plugin_type="vectorStore"
-                        onSave={(name: string) => {}}
+                        onSubmit={onSubmitVectorStore}
+                        initParams={index.vectorStore?.params}
                       />
                     </Stack>
                   </Accordion.Panel>
@@ -299,22 +333,47 @@ function PluginSelector(props: {
   info: PluginInfo;
   selected: string | null;
   plugin_type: PluginType;
-  onSave: (name: string) => void;
+  onSubmit: (
+    event: IChangeEvent<any, RJSFSchema, any>,
+    plugin_name: string,
+  ) => void;
+  initParams: any | null;
 }) {
-  const { label, info, selected, onSave, saving, error, plugin_type } = props;
+  const {
+    label,
+    info,
+    selected,
+    saving,
+    error,
+    plugin_type,
+    onSubmit,
+    initParams,
+  } = props;
   const [selecting, setSelecting] = useState(selected);
-  const [paramSchema, setParamSchema] = useState<string | null>(null);
-  const schema = paramSchema !== null ? JSON.parse(paramSchema) : null;
-  const save = () => {
-    const nextName = selecting?.trim();
-    if (!nextName) {
-      return;
-    }
-    onSave(nextName);
-  };
+  const [paramSchema, setParamSchema] = useState<any | null>(null);
   const onCancel = () => {
     setSelecting(selected);
   };
+  useEffect(() => {
+    const asyncSchema = async () => {
+      if (selecting === null || selecting.length === 0) {
+        setParamSchema(null);
+        return;
+      }
+      const paramSchema = await commands.getParamSchema(plugin_type, selecting);
+      if (paramSchema === null) {
+        setParamSchema(null);
+      } else {
+        try {
+          const parsed = JSON.parse(paramSchema);
+          setParamSchema(parsed);
+        } catch {
+          setParamSchema(null);
+        }
+      }
+    };
+    asyncSchema();
+  }, [selecting]);
 
   return (
     <Paper withBorder p="md" radius="md">
@@ -328,14 +387,11 @@ function PluginSelector(props: {
             value={selecting}
             data={info.plugins}
             onChange={async (_value, option) => {
-              if (option === null) return;
+              if (option === null || option.value.length === 0) {
+                setParamSchema(null);
+                return;
+              }
               setSelecting(option.value);
-              const paramSchema = await commands.getParamSchema(
-                plugin_type,
-                option.value,
-              );
-              console.log(paramSchema);
-              setParamSchema(paramSchema);
             }}
             disabled={saving}
             error={error && "保存できませんでした。"}
@@ -343,17 +399,21 @@ function PluginSelector(props: {
           />
           <Group gap="xs" mt={24} wrap="nowrap">
             <Button variant="default" onClick={onCancel} disabled={saving}>
-              キャンセル
-            </Button>
-            <Button onClick={save} loading={saving}>
-              保存
+              リセット
             </Button>
           </Group>
         </Group>
-        {schema !== null && (
+        {paramSchema !== null && (
           <>
             <Divider my="sm" />
-            <JsonSchemaForm jsonSchema={schema} />
+            <JsonSchemaForm
+              initParams={initParams}
+              jsonSchema={paramSchema}
+              onSubmit={(event) => {
+                if (selecting === null) return;
+                onSubmit(event, selecting);
+              }}
+            />
           </>
         )}
       </Stack>

@@ -113,6 +113,38 @@ pub async fn upsert_embedder(
     Ok(())
 }
 
+pub async fn upsert_vector_store(
+    database: &DatabaseConnection,
+    index_id: i32,
+    vector_store_name: String,
+    params: serde_json::Value,
+) -> Result<(), DbErr> {
+    let transaction = database.begin().await?;
+
+    let vec_model = models::vector_store::Entity::find_by_index_id(index_id);
+    let vec = vec_model.one(&transaction).await?;
+
+    if let Some(vec_ent) = vec {
+        let mut active_model = vec_ent.into_active_model();
+        active_model.name = Set(vector_store_name);
+        active_model.params = Set(params);
+
+        active_model.update(&transaction).await?;
+    } else {
+        models::vector_store::ActiveModel {
+            name: Set(vector_store_name),
+            index_id: Set(index_id),
+            params: Set(params),
+            ..Default::default()
+        }
+        .insert(&transaction)
+        .await?;
+    }
+
+    transaction.commit().await?;
+    Ok(())
+}
+
 async fn next_empty_index_name(transaction: &DatabaseTransaction) -> Result<String, DbErr> {
     let names = models::index::Entity::find()
         .all(transaction)

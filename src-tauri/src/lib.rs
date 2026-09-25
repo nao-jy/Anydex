@@ -29,6 +29,7 @@ macro_rules! app_commands {
             ipc::settings::get_application_settings,
             ipc::plugins::get_plugin_info,
             ipc::plugins::upsert_embedder,
+            ipc::plugins::upsert_vector_store,
             ipc::plugins::reload_plugins,
             ipc::plugins::get_param_schema,
             ipc::search::search_mock
