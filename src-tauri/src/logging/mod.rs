@@ -45,7 +45,5 @@ pub fn init<R: Runtime>(app: &App<R>) -> Result<(LogGuard, PathBuf), Box<dyn Err
         .try_init()
         .map_err(std::io::Error::other)?;
 
-    tracing::error!("TEST ERROR");
-
     Ok((LogGuard { _worker: guard }, log_dir))
 }

@@ -5,5 +5,5 @@ use serde::{Deserialize, Serialize};
 #[schemars(title = "SQLite-Vector Params")]
 pub struct Param {
     #[schemars(title = "Vector Dimensions")]
-    pub dimensions: i32,
+    pub dimensions: u32,
 }

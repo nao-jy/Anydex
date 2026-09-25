@@ -11,7 +11,7 @@ pub struct APIParam {
     )]
     pub target_content_type_prefix: String,
 
-    #[schemars(title = "Request Endpoint")]
+    #[schemars(title = "Request Endpoint", url)]
     pub request_endpoint: String,
 
     #[schemars(title = "API Key")]
