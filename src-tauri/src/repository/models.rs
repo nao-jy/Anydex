@@ -18,7 +18,6 @@ pub mod embedder {
         pub index_id: i32,
         // embedder plugin name
         pub name: String,
-        pub dimensions: i32,
         pub params: Json,
         #[sea_orm(belongs_to, from = "index_id", to = "id")]
         pub index: BelongsTo<super::index::Entity>,
@@ -41,7 +40,6 @@ pub mod vector_store {
         pub index_id: i32,
         // vector store plugin name
         pub name: String,
-        pub dimensions: i32,
         pub params: Json,
         #[sea_orm(belongs_to, from = "index_id", to = "id")]
         pub index: BelongsTo<super::index::Entity>,

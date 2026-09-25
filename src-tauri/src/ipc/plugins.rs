@@ -43,7 +43,6 @@ pub fn get_param_schema(plugin_type: PluginType, plugin_name: &str) -> Option<St
 pub async fn upsert_embedder(
     index_id: i32,
     embedder_name: String,
-    dimensions: i32,
     params_json: String,
     database: State<'_, DatabaseConnection>,
 ) -> Result<(), String> {
@@ -61,7 +60,7 @@ pub async fn upsert_embedder(
     let params: serde_json::Value =
         serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
 
-    repository::indexes::upsert_embedder(&database, index_id, embedder_name, dimensions, params)
+    repository::indexes::upsert_embedder(&database, index_id, embedder_name, params)
         .await
         .map_err(|err| err.to_string())?;
 

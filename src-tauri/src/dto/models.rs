@@ -28,7 +28,6 @@ pub struct Embedder {
     pub id: i32,
     pub index_id: i32,
     pub name: String,
-    pub dimensions: i32,
     #[specta(type = specta_typescript::Any)]
     pub params: Value,
 }
@@ -39,7 +38,6 @@ pub struct VectorStore {
     pub id: i32,
     pub index_id: i32,
     pub name: String,
-    pub dimensions: i32,
     #[specta(type = specta_typescript::Any)]
     pub params: Value,
 }

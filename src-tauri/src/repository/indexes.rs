@@ -85,7 +85,6 @@ pub async fn upsert_embedder(
     database: &DatabaseConnection,
     index_id: i32,
     embedder_name: String,
-    dimensions: i32,
     params: serde_json::Value,
 ) -> Result<(), DbErr> {
     let transaction = database.begin().await?;
@@ -96,7 +95,6 @@ pub async fn upsert_embedder(
     if let Some(emb_ent) = emb {
         let mut active_model = emb_ent.into_active_model();
         active_model.name = Set(embedder_name);
-        active_model.dimensions = Set(dimensions);
         active_model.params = Set(params);
 
         active_model.update(&transaction).await?;
@@ -104,7 +102,6 @@ pub async fn upsert_embedder(
         models::embedder::ActiveModel {
             name: Set(embedder_name),
             index_id: Set(index_id),
-            dimensions: Set(dimensions),
             params: Set(params),
             ..Default::default()
         }
@@ -158,7 +155,6 @@ async fn load_index(
             id: embedder.id,
             index_id: embedder.index_id,
             name: embedder.name,
-            dimensions: embedder.dimensions,
             params: embedder.params,
         });
     let vector_store = models::vector_store::Entity::find()
@@ -169,7 +165,6 @@ async fn load_index(
             id: vector_store.id,
             index_id: vector_store.index_id,
             name: vector_store.name,
-            dimensions: vector_store.dimensions,
             params: vector_store.params,
         });
     let indexers = models::indexer::Entity::find()
