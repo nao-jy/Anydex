@@ -12,11 +12,11 @@ import {
   Stack,
   Text,
   ThemeIcon,
-  Title,
 } from "@mantine/core";
 import { commands } from "../bindings";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { unwrapCommandResult } from "../tauri";
+import { PageHeader } from "../components/PageHeader";
 
 export const Settings = () => {
   const queryClient = useQueryClient();
@@ -40,17 +40,7 @@ export const Settings = () => {
   return (
     <Box bg="var(--mantine-color-body)" mih="calc(100vh - 60px)" py={40}>
       <Container size="lg">
-        <Box mb={28}>
-          <Text size="sm" c="indigo" fw={700} tt="uppercase" lts={1}>
-            Application
-          </Text>
-          <Title order={1} mt={4}>
-            設定
-          </Title>
-          <Text c="dimmed" mt={6}>
-            ローカルデータとプラグインの配置を確認します
-          </Text>
-        </Box>
+        <PageHeader pageName="設定" description="各種設定を閲覧・変更します" />
 
         {settingsQuery.isLoading && <Message text="設定を読み込んでいます…" />}
         {settingsQuery.isError && (

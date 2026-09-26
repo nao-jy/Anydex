@@ -14,11 +14,11 @@ import {
   Switch,
   Text,
   ThemeIcon,
-  Title,
 } from "@mantine/core";
 import { commands } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
 import { formatDateTime } from "../components/utils";
+import { PageHeader } from "../components/PageHeader";
 
 export const Mcp = () => {
   const queryClient = useQueryClient();
@@ -70,17 +70,10 @@ export const Mcp = () => {
   return (
     <Box bg="var(--mantine-color-body)" mih="calc(100vh - 60px)" py={40}>
       <Container size="lg">
-        <Box mb={28}>
-          <Text size="sm" c="indigo" fw={700} tt="uppercase" lts={1}>
-            Local integration
-          </Text>
-          <Title order={1} mt={4}>
-            MCPサーバー
-          </Title>
-          <Text c="dimmed" mt={6}>
-            MCP から公開するインデックスとローカルサーバーを管理します
-          </Text>
-        </Box>
+        <PageHeader
+          pageName="MCPサーバー"
+          description="MCP から公開するインデックスとローカルサーバーを管理します"
+        />
 
         {isLoading && (
           <LoadingMessage text="MCP サーバーの状態を読み込んでいます…" />

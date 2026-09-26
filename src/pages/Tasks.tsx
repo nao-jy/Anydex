@@ -11,11 +11,11 @@ import {
   Stack,
   Text,
   ThemeIcon,
-  Title,
 } from "@mantine/core";
 import { commands, type Index } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
 import { formatDateTime } from "../components/utils";
+import { PageHeader } from "../components/PageHeader";
 
 export const Tasks = () => {
   const tasksQuery = useQuery({
@@ -40,17 +40,10 @@ export const Tasks = () => {
     <Box bg="var(--mantine-color-body)" mih="calc(100vh - 60px)" py={40}>
       <Container size="lg">
         <Group justify="space-between" align="flex-end" mb={28}>
-          <Box>
-            <Text size="sm" c="indigo" fw={700} tt="uppercase" lts={1}>
-              Background jobs
-            </Text>
-            <Title order={1} mt={4}>
-              タスク
-            </Title>
-            <Text c="dimmed" mt={6}>
-              現在実行中のインデックス処理を表示します
-            </Text>
-          </Box>
+          <PageHeader
+            pageName="タスク"
+            description="現在実行中のインデックス処理を表示します"
+          />
           <Badge size="lg" variant="light" color="indigo">
             実行中 {tasks.length} 件
           </Badge>

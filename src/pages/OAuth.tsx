@@ -15,10 +15,10 @@ import {
   Text,
   TextInput,
   ThemeIcon,
-  Title,
 } from "@mantine/core";
 import { commands } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
+import { PageHeader } from "../components/PageHeader";
 
 export const OAuth = () => {
   const [query, setQuery] = useState("");
@@ -46,17 +46,10 @@ export const OAuth = () => {
   return (
     <Box bg="var(--mantine-color-body)" mih="calc(100vh - 60px)" py={40}>
       <Container size="lg">
-        <Box mb={28}>
-          <Text size="sm" c="indigo" fw={700} tt="uppercase" lts={1}>
-            OAuth Settings
-          </Text>
-          <Title order={1} mt={4}>
-            OAuth設定
-          </Title>
-          <Text c="dimmed" mt={6}>
-            ファイルソースのための認証を設定します
-          </Text>
-        </Box>
+        <PageHeader
+          pageName="OAuth設定"
+          description="ファイルソースのための認証を設定します"
+        />
         <Card withBorder radius="md" padding="lg" mb="xl">
           <Group align="flex-end">
             <TextInput

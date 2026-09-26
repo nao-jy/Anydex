@@ -18,7 +18,6 @@ import {
   Text,
   Textarea,
   TextInput,
-  Title,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { CaretDownIcon, WarningIcon } from "@phosphor-icons/react";
@@ -37,6 +36,7 @@ import { RJSFSchema } from "@rjsf/utils";
 import { showConfirmDialog, showErrorDialog } from "../components/Dialogs";
 import { RRuleTemporal, TemporalZonedDateTime } from "rrule-temporal";
 import { Temporal } from "temporal-polyfill";
+import { PageHeader } from "../components/PageHeader";
 
 type SortKey = "name" | "createdAt" | "updatedAt";
 type Direction = "asc" | "desc";
@@ -108,17 +108,10 @@ export const Index = () => {
     <Box bg="var(--mantine-color-body)" mih="calc(100vh - 60px)" py={40}>
       <Container size="lg">
         <Group justify="space-between" align="flex-end" mb={28}>
-          <Box>
-            <Text size="sm" c="indigo" fw={700} tt="uppercase" lts={1}>
-              Search indexes
-            </Text>
-            <Title order={1} mt={4}>
-              インデックス
-            </Title>
-            <Text c="dimmed" mt={6}>
-              ファイルソースと検索設定を管理します
-            </Text>
-          </Box>
+          <PageHeader
+            pageName="インデックス"
+            description="ファイルソースと検索設定を管理します"
+          />
           <Button
             size="md"
             onClick={() => createIndex.mutate()}

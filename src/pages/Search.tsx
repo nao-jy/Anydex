@@ -15,10 +15,10 @@ import {
   Text,
   TextInput,
   ThemeIcon,
-  Title,
 } from "@mantine/core";
 import { commands } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
+import { PageHeader } from "../components/PageHeader";
 
 export const Search = () => {
   const [query, setQuery] = useState("");
@@ -46,17 +46,7 @@ export const Search = () => {
   return (
     <Box bg="var(--mantine-color-body)" mih="calc(100vh - 60px)" py={40}>
       <Container size="lg">
-        <Box mb={28}>
-          <Text size="sm" c="indigo" fw={700} tt="uppercase" lts={1}>
-            Semantic search
-          </Text>
-          <Title order={1} mt={4}>
-            検索
-          </Title>
-          <Text c="dimmed" mt={6}>
-            インデックス横断で、意味に近いコンテンツを探します
-          </Text>
-        </Box>
+        <PageHeader pageName="検索" description="コンテンツを検索します" />
         <Card withBorder radius="md" padding="lg" mb="xl">
           <Group align="flex-end">
             <TextInput
