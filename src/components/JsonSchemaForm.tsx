@@ -5,6 +5,7 @@ import { FieldProps, RJSFSchema, SubmitButtonProps } from "@rjsf/utils";
 import { customizeValidator } from "@rjsf/validator-ajv8";
 import { JsonEditor } from "json-edit-react";
 import Ajv2020 from "ajv/dist/2020";
+import Ajv2019 from "ajv/dist/2019";
 
 const DefaultObjectField = getDefaultRegistry().fields.ObjectField;
 
@@ -62,7 +63,9 @@ export const JsonSchemaForm = (props: JsonSchemaFormParams) => {
   const { jsonSchema, onSubmit, initParams } = props;
   const Form = withTheme(MantineTheme);
   const validator = customizeValidator({
-    AjvClass: Ajv2020,
+    AjvClass: String(jsonSchema.$schema).includes("draft/2020")
+      ? Ajv2020
+      : Ajv2019,
   });
 
   return (

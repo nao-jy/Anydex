@@ -21,7 +21,7 @@ import {
   Title,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { CaretDownIcon, InfoIcon, WarningIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, WarningIcon } from "@phosphor-icons/react";
 import {
   commands,
   Index as IndexInfo,
