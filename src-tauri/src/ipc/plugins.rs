@@ -96,3 +96,65 @@ pub async fn upsert_vector_store(
 
     Ok(())
 }
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(database))]
+pub async fn upsert_file_extractor(
+    indexer_id: i32,
+    file_extractor_name: String,
+    params_json: String,
+    database: State<'_, DatabaseConnection>,
+) -> Result<(), String> {
+    let _model = repository::models::indexer::Entity::find_by_id(indexer_id)
+        .one(database.inner())
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("indexer {indexer_id} was not found"))?;
+
+    let names = PluginType::FileExtractor.list_names();
+    if !names.contains(&file_extractor_name) {
+        return Err(format!(
+            "File Extractor {file_extractor_name} was not found"
+        ));
+    }
+
+    let params: serde_json::Value =
+        serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
+
+    repository::indexes::upsert_file_extractor(&database, indexer_id, file_extractor_name, params)
+        .await
+        .map_err(|err| err.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(database))]
+pub async fn upsert_file_source(
+    indexer_id: i32,
+    file_source_name: String,
+    params_json: String,
+    database: State<'_, DatabaseConnection>,
+) -> Result<(), String> {
+    let _model = repository::models::indexer::Entity::find_by_id(indexer_id)
+        .one(database.inner())
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("indexer {indexer_id} was not found"))?;
+
+    let plugins = PluginType::FileSource.list_names();
+    if !plugins.contains(&file_source_name) {
+        return Err(format!("File Source {file_source_name} was not found"));
+    }
+
+    let params: serde_json::Value =
+        serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
+
+    repository::indexes::upsert_file_source(&database, indexer_id, file_source_name, params)
+        .await
+        .map_err(|err| err.to_string())?;
+
+    Ok(())
+}

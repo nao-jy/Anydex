@@ -33,6 +33,8 @@ macro_rules! app_commands {
             ipc::plugins::get_plugin_info,
             ipc::plugins::upsert_embedder,
             ipc::plugins::upsert_vector_store,
+            ipc::plugins::upsert_file_extractor,
+            ipc::plugins::upsert_file_source,
             ipc::plugins::reload_plugins,
             ipc::plugins::get_param_schema,
             ipc::search::search_mock

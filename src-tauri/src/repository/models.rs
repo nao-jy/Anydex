@@ -106,10 +106,13 @@ pub mod file_source {
         // file source plugin name
         pub name: String,
         pub params: Json,
+        pub oauth_id: Option<i32>,
         #[sea_orm(has_many)]
         pub files: HasMany<super::file::Entity>,
         #[sea_orm(belongs_to, from = "indexer_id", to = "id")]
         pub indexer: BelongsTo<super::indexer::Entity>,
+        #[sea_orm(belongs_to, from = "oauth_id", to = "id")]
+        pub oauth_client: BelongsTo<Option<super::oauth_client::Entity>>,
         #[sea_orm(has_one)]
         pub oauth_authentication: HasOne<super::oauth_authentication::Entity>,
     }
@@ -266,6 +269,8 @@ pub mod oauth_client {
         pub scopes: Json,
         #[sea_orm(has_many)]
         pub authentications: HasMany<super::oauth_authentication::Entity>,
+        #[sea_orm(has_many)]
+        pub file_sources: HasMany<super::file_source::Entity>,
     }
 
     impl ActiveModelBehavior for ActiveModel {}

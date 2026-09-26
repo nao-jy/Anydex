@@ -499,8 +499,10 @@ const PluginSelector = (props: PluginSelectorProps) => {
   } = props;
   const [selecting, setSelecting] = useState(selected);
   const [paramSchema, setParamSchema] = useState<any | null>(null);
+  const [resetKey, setResetKey] = useState(0);
   const onCancel = () => {
     setSelecting(selected);
+    setResetKey((prev) => prev + 1);
   };
   useEffect(() => {
     const asyncSchema = async () => {
@@ -555,6 +557,7 @@ const PluginSelector = (props: PluginSelectorProps) => {
           <>
             <Divider my="sm" />
             <JsonSchemaForm
+              key={resetKey}
               initParams={initParams}
               jsonSchema={paramSchema}
               onSubmit={(event) => {
@@ -820,7 +823,17 @@ const Indexer = (params: IndexerProps) => {
           info={fileSourceInfo}
           selected={indexer.fileSource?.name ?? null}
           plugin_type="fileSource"
-          onSubmit={() => {}}
+          onSubmit={async (event, name) => {
+            const result = await commands.upsertFileSource(
+              indexer.id,
+              name,
+              JSON.stringify(event.formData),
+            );
+            if (result.status === "error") {
+              await showErrorDialog(result.error);
+            }
+            queryClient.invalidateQueries({ queryKey: ["indexes"] });
+          }}
           initParams={indexer.fileSource?.params}
         />
         <PluginSelector
@@ -830,7 +843,17 @@ const Indexer = (params: IndexerProps) => {
           info={fileExtractorInfo}
           selected={indexer.fileExtractor?.name ?? null}
           plugin_type="fileExtractor"
-          onSubmit={() => {}}
+          onSubmit={async (event, name) => {
+            const result = await commands.upsertFileExtractor(
+              indexer.id,
+              name,
+              JSON.stringify(event.formData),
+            );
+            if (result.status === "error") {
+              await showErrorDialog(result.error);
+            }
+            queryClient.invalidateQueries({ queryKey: ["indexes"] });
+          }}
           initParams={indexer.fileExtractor?.params}
         />
         <Group gap="xs" mt={24} wrap="nowrap">
