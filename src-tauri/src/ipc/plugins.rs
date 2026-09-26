@@ -60,7 +60,7 @@ pub async fn upsert_embedder(
     let params: serde_json::Value =
         serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
 
-    repository::indexes::upsert_embedder(&database, index_id, embedder_name, params)
+    repository::plugins::upsert_embedder(&database, index_id, embedder_name, params)
         .await
         .map_err(|err| err.to_string())?;
 
@@ -90,7 +90,7 @@ pub async fn upsert_vector_store(
     let params: serde_json::Value =
         serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
 
-    repository::indexes::upsert_vector_store(&database, index_id, vector_store_name, params)
+    repository::plugins::upsert_vector_store(&database, index_id, vector_store_name, params)
         .await
         .map_err(|err| err.to_string())?;
 
@@ -122,7 +122,7 @@ pub async fn upsert_file_extractor(
     let params: serde_json::Value =
         serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
 
-    repository::indexes::upsert_file_extractor(&database, indexer_id, file_extractor_name, params)
+    repository::plugins::upsert_file_extractor(&database, indexer_id, file_extractor_name, params)
         .await
         .map_err(|err| err.to_string())?;
 
@@ -152,7 +152,7 @@ pub async fn upsert_file_source(
     let params: serde_json::Value =
         serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
 
-    repository::indexes::upsert_file_source(&database, indexer_id, file_source_name, params)
+    repository::plugins::upsert_file_source(&database, indexer_id, file_source_name, params)
         .await
         .map_err(|err| err.to_string())?;
 

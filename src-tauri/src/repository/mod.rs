@@ -8,8 +8,11 @@ use sea_orm::{
 };
 use url::Url;
 
+pub mod indexers;
 pub mod indexes;
 pub mod models;
+pub mod oauth;
+pub mod plugins;
 
 /// Builds a SQLite URL for a database file, escaping paths such as those that
 /// contain spaces. `mode=rwc` lets SQLite create the file on first launch.

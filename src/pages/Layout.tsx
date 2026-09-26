@@ -30,6 +30,7 @@ export const Layout = () => {
             <Group gap={4}>
               {navButton("/index", "インデックス")}
               {navButton("/search", "検索")}
+              {navButton("/oauth", "OAuth")}
               {navButton("/mcp", "MCPサーバー")}
               {navButton("/tasks", "タスク")}
               {navButton("/settings", "設定")}

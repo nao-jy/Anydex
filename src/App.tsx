@@ -10,6 +10,7 @@ import { Mcp } from "./pages/Mcp";
 import { Search } from "./pages/Search";
 import { Settings } from "./pages/Settings";
 import { Tasks } from "./pages/Tasks";
+import { OAuth } from "./pages/OAuth";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ function AppInner() {
           <Route index element={<Index />} />
           <Route path="index" element={<Index />} />
           <Route path="search" element={<Search />} />
+          <Route path="oauth" element={<OAuth />} />
           <Route path="mcp" element={<Mcp />} />
           <Route path="tasks" element={<Tasks />} />
           <Route path="settings" element={<Settings />} />

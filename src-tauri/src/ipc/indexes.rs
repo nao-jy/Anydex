@@ -68,7 +68,7 @@ pub async fn create_empty_indexer(
     index_id: i32,
     database: State<'_, DatabaseConnection>,
 ) -> Result<crate::dto::models::Indexer, String> {
-    let indexer = repository::indexes::create_empty_indexer(index_id, database.inner())
+    let indexer = repository::indexers::create_empty_indexer(index_id, database.inner())
         .await
         .map_err(|error| error.to_string())?;
     tracing::info!(indexer_id = indexer.id, "empty indexer created");
