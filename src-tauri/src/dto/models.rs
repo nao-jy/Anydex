@@ -50,9 +50,9 @@ pub struct Indexer {
     pub last_start: Option<DateTime<Utc>>,
     pub last_success: Option<DateTime<Utc>>,
     pub last_processed_files: Option<i32>,
-    pub file_source: FileSource,
-    pub file_extractor: FileExtractor,
-    pub schedule: Schedule,
+    pub file_source: Option<FileSource>,
+    pub file_extractor: Option<FileExtractor>,
+    pub schedule: Option<Schedule>,
     pub tasks: Vec<Task>,
 }
 

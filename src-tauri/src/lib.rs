@@ -22,6 +22,7 @@ macro_rules! app_commands {
             ipc::indexes::create_empty_index,
             ipc::indexes::rename_index,
             ipc::indexes::set_index_mcp_server,
+            ipc::indexes::create_empty_indexer,
             ipc::mcp::list_mcp_servers,
             ipc::mcp::set_mcp_server_port,
             ipc::mcp::set_mcp_server_running,

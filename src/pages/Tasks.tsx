@@ -15,6 +15,7 @@ import {
 } from "@mantine/core";
 import { commands, type Index } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
+import { formatDateTime } from "../components/utils";
 
 export const Tasks = () => {
   const tasksQuery = useQuery({
@@ -138,7 +139,7 @@ function buildIndexerLabels(indexes: Index[]) {
         (indexer) =>
           [
             indexer.id,
-            { indexName: index.name, sourceName: indexer.fileSource.name },
+            { indexName: index.name, sourceName: indexer.fileSource?.name },
           ] as const,
       ),
     ),
@@ -173,12 +174,4 @@ function Message({ text, color = "dimmed" }: { text: string; color?: string }) {
       {text}
     </Text>
   );
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("ja-JP", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "Asia/Tokyo",
-  }).format(new Date(value));
 }

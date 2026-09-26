@@ -7,6 +7,7 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, DatabaseTransaction, DbErr, EntityTrait,
     IntoActiveModel, QueryFilter, QueryOrder, Set, TransactionTrait,
 };
+use std::option::Option::{None, Some};
 
 use crate::{
     dto::models::{
@@ -80,70 +81,6 @@ pub async fn list_indexes(database: &DatabaseConnection) -> Result<Vec<Index>, D
         indexes.push(load_index(database, model).await?);
     }
     Ok(indexes)
-}
-
-pub async fn upsert_embedder(
-    database: &DatabaseConnection,
-    index_id: i32,
-    embedder_name: String,
-    params: serde_json::Value,
-) -> Result<(), DbErr> {
-    let transaction = database.begin().await?;
-
-    let emb_model = models::embedder::Entity::find_by_index_id(index_id);
-    let emb = emb_model.one(&transaction).await?;
-
-    if let Some(emb_ent) = emb {
-        let mut active_model = emb_ent.into_active_model();
-        active_model.name = Set(embedder_name);
-        active_model.params = Set(params);
-
-        active_model.update(&transaction).await?;
-    } else {
-        models::embedder::ActiveModel {
-            name: Set(embedder_name),
-            index_id: Set(index_id),
-            params: Set(params),
-            ..Default::default()
-        }
-        .insert(&transaction)
-        .await?;
-    }
-
-    transaction.commit().await?;
-    Ok(())
-}
-
-pub async fn upsert_vector_store(
-    database: &DatabaseConnection,
-    index_id: i32,
-    vector_store_name: String,
-    params: serde_json::Value,
-) -> Result<(), DbErr> {
-    let transaction = database.begin().await?;
-
-    let vec_model = models::vector_store::Entity::find_by_index_id(index_id);
-    let vec = vec_model.one(&transaction).await?;
-
-    if let Some(vec_ent) = vec {
-        let mut active_model = vec_ent.into_active_model();
-        active_model.name = Set(vector_store_name);
-        active_model.params = Set(params);
-
-        active_model.update(&transaction).await?;
-    } else {
-        models::vector_store::ActiveModel {
-            name: Set(vector_store_name),
-            index_id: Set(index_id),
-            params: Set(params),
-            ..Default::default()
-        }
-        .insert(&transaction)
-        .await?;
-    }
-
-    transaction.commit().await?;
-    Ok(())
 }
 
 async fn next_empty_index_name(transaction: &DatabaseTransaction) -> Result<String, DbErr> {
@@ -231,35 +168,15 @@ async fn load_indexer(
     let file_source = models::file_source::Entity::find()
         .filter(models::file_source::Column::IndexerId.eq(model.id))
         .one(database)
-        .await?
-        .ok_or_else(|| missing_relation("file source", "indexer", model.id))?;
+        .await?;
     let file_extractor = models::file_extractor::Entity::find()
         .filter(models::file_extractor::Column::IndexerId.eq(model.id))
         .one(database)
-        .await?
-        .ok_or_else(|| missing_relation("file extractor", "indexer", model.id))?;
+        .await?;
     let schedule = models::schedule::Entity::find()
         .filter(models::schedule::Column::IndexerId.eq(model.id))
         .one(database)
-        .await?
-        .ok_or_else(|| missing_relation("schedule", "indexer", model.id))?;
-    let files = models::file::Entity::find()
-        .filter(models::file::Column::FileSourceId.eq(file_source.id))
-        .order_by_asc(models::file::Column::Id)
-        .all(database)
-        .await?
-        .into_iter()
-        .map(|file| File {
-            id: file.id,
-            file_source_id: file.file_source_id,
-            name: file.name,
-            uri: file.uri,
-            content_type: file.content_type,
-            size: file.size.to_string(),
-            updated_at: file.updated_at,
-        })
-        .collect();
-    let oauth_client = load_oauth_client(database, file_source.id).await?;
+        .await?;
     let tasks = models::task::Entity::find()
         .filter(models::task::Column::IndexerId.eq(model.id))
         .order_by_asc(models::task::Column::Id)
@@ -277,32 +194,66 @@ async fn load_indexer(
         })
         .collect();
 
+    let file_source_dto = match file_source {
+        Some(file_source_some) => {
+            let files = models::file::Entity::find()
+                .filter(models::file::Column::FileSourceId.eq(file_source_some.id))
+                .order_by_asc(models::file::Column::Id)
+                .all(database)
+                .await?
+                .into_iter()
+                .map(|file| File {
+                    id: file.id,
+                    file_source_id: file.file_source_id,
+                    name: file.name,
+                    uri: file.uri,
+                    content_type: file.content_type,
+                    size: file.size.to_string(),
+                    updated_at: file.updated_at,
+                })
+                .collect();
+            let oauth_client = load_oauth_client(database, file_source_some.id).await?;
+            Some(FileSource {
+                id: file_source_some.id,
+                indexer_id: file_source_some.indexer_id,
+                name: file_source_some.name,
+                params: file_source_some.params,
+                files,
+                oauth_client,
+            })
+        }
+        None => None,
+    };
+
+    let file_ex_dto = match file_extractor {
+        Some(file_ex_some) => Some(FileExtractor {
+            id: file_ex_some.id,
+            indexer_id: file_ex_some.indexer_id,
+            name: file_ex_some.name,
+            params: file_ex_some.params,
+        }),
+        None => None,
+    };
+
+    let schedule_dto = match schedule {
+        Some(schedule_some) => Some(Schedule {
+            id: schedule_some.id,
+            indexer_id: schedule_some.indexer_id,
+            rfc5545_rrule: schedule_some.rfc5545_rrule,
+            catchup_when_missed: schedule_some.catchup_when_missed,
+        }),
+        None => None,
+    };
+
     Ok(Indexer {
         id: model.id,
         index_id: model.index_id,
         last_start: model.last_start,
         last_success: model.last_success,
         last_processed_files: model.last_processed_files,
-        file_source: FileSource {
-            id: file_source.id,
-            indexer_id: file_source.indexer_id,
-            name: file_source.name,
-            params: file_source.params,
-            files,
-            oauth_client,
-        },
-        file_extractor: FileExtractor {
-            id: file_extractor.id,
-            indexer_id: file_extractor.indexer_id,
-            name: file_extractor.name,
-            params: file_extractor.params,
-        },
-        schedule: Schedule {
-            id: schedule.id,
-            indexer_id: schedule.indexer_id,
-            rfc5545_rrule: schedule.rfc5545_rrule,
-            catchup_when_missed: schedule.catchup_when_missed,
-        },
+        file_source: file_source_dto,
+        file_extractor: file_ex_dto,
+        schedule: schedule_dto,
         tasks,
     })
 }
@@ -319,22 +270,20 @@ async fn load_oauth_client(
     };
     let client = models::oauth_client::Entity::find_by_id(authentication.oauth_id)
         .one(database)
-        .await?
-        .ok_or_else(|| missing_relation("OAuth client", "file source", file_source_id))?;
+        .await?;
 
-    Ok(Some(OAuthClient {
-        id: client.id,
-        name: client.name,
-        client_id: client.client_id,
-        authorization_endpoint: client.authorization_endpoint,
-        token_endpoint: client.token_endpoint,
-        refresh_endpoint: client.refresh_endpoint,
-        scopes: client.scopes,
-    }))
-}
-
-fn missing_relation(relation: &str, parent: &str, parent_id: i32) -> DbErr {
-    DbErr::Custom(format!("{relation} is missing for {parent} {parent_id}"))
+    match client {
+        Some(cl) => Ok(Some(OAuthClient {
+            id: cl.id,
+            name: cl.name,
+            client_id: cl.client_id,
+            authorization_endpoint: cl.authorization_endpoint,
+            token_endpoint: cl.token_endpoint,
+            refresh_endpoint: cl.refresh_endpoint,
+            scopes: cl.scopes,
+        })),
+        None => Ok(None),
+    }
 }
 
 #[cfg(test)]
@@ -401,4 +350,98 @@ mod tests {
             .await
             .is_err());
     }
+}
+
+pub async fn upsert_embedder(
+    database: &DatabaseConnection,
+    index_id: i32,
+    embedder_name: String,
+    params: serde_json::Value,
+) -> Result<(), DbErr> {
+    let transaction = database.begin().await?;
+
+    let emb_model = models::embedder::Entity::find_by_index_id(index_id);
+    let emb = emb_model.one(&transaction).await?;
+
+    if let Some(emb_ent) = emb {
+        let mut active_model = emb_ent.into_active_model();
+        active_model.name = Set(embedder_name);
+        active_model.params = Set(params);
+
+        active_model.update(&transaction).await?;
+    } else {
+        models::embedder::ActiveModel {
+            name: Set(embedder_name),
+            index_id: Set(index_id),
+            params: Set(params),
+            ..Default::default()
+        }
+        .insert(&transaction)
+        .await?;
+    }
+
+    transaction.commit().await?;
+    Ok(())
+}
+
+pub async fn upsert_vector_store(
+    database: &DatabaseConnection,
+    index_id: i32,
+    vector_store_name: String,
+    params: serde_json::Value,
+) -> Result<(), DbErr> {
+    let transaction = database.begin().await?;
+
+    let vec_model = models::vector_store::Entity::find_by_index_id(index_id);
+    let vec = vec_model.one(&transaction).await?;
+
+    if let Some(vec_ent) = vec {
+        let mut active_model = vec_ent.into_active_model();
+        active_model.name = Set(vector_store_name);
+        active_model.params = Set(params);
+
+        active_model.update(&transaction).await?;
+    } else {
+        models::vector_store::ActiveModel {
+            name: Set(vector_store_name),
+            index_id: Set(index_id),
+            params: Set(params),
+            ..Default::default()
+        }
+        .insert(&transaction)
+        .await?;
+    }
+
+    transaction.commit().await?;
+    Ok(())
+}
+
+pub async fn create_empty_indexer(
+    indexer_id: i32,
+    database: &DatabaseConnection,
+) -> Result<Indexer, DbErr> {
+    let transaction = database.begin().await?;
+
+    let model = models::indexer::ActiveModel {
+        index_id: Set(indexer_id),
+        last_start: Set(None),
+        last_success: Set(None),
+        last_processed_files: Set(None),
+        ..Default::default()
+    }
+    .insert(&transaction)
+    .await?;
+
+    transaction.commit().await?;
+    Ok(Indexer {
+        id: model.id,
+        index_id: model.index_id,
+        last_start: model.last_start,
+        last_success: model.last_success,
+        last_processed_files: model.last_processed_files,
+        file_source: None,
+        file_extractor: None,
+        schedule: None,
+        tasks: Vec::new(),
+    })
 }

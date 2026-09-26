@@ -49,6 +49,20 @@ pub async fn rename_index(
 #[tauri::command]
 #[specta::specta]
 #[tracing::instrument(skip(database))]
+pub async fn create_empty_indexer(
+    index_id: i32,
+    database: State<'_, DatabaseConnection>,
+) -> Result<crate::dto::models::Indexer, String> {
+    let indexer = repository::indexes::create_empty_indexer(index_id, database.inner())
+        .await
+        .map_err(|error| error.to_string())?;
+    tracing::info!(indexer_id = indexer.id, "empty indexer created");
+    Ok(indexer)
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(database))]
 pub async fn set_index_mcp_server(
     index_id: i32,
     enabled: bool,

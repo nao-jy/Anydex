@@ -18,6 +18,7 @@ import {
 } from "@mantine/core";
 import { commands } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
+import { formatDateTime } from "../components/utils";
 
 export const Mcp = () => {
   const queryClient = useQueryClient();
@@ -245,12 +246,4 @@ function ErrorMessage({ text }: { text: string }) {
       {text}
     </Text>
   );
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("ja-JP", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "Asia/Tokyo",
-  }).format(new Date(value));
 }

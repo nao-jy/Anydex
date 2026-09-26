@@ -20,6 +20,7 @@ import {
   Index as IndexInfo,
   PluginInfo,
   PluginType,
+  Indexer as IndexerInfo,
 } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
 import { JsonSchemaForm } from "../components/JsonSchemaForm";
@@ -41,7 +42,14 @@ export const Index = () => {
     isError,
   } = useQuery({
     queryKey: ["indexes"],
-    queryFn: () => unwrapCommandResult(commands.listIndexes()),
+    queryFn: async () => {
+      const result = await commands.listIndexes();
+      if (result.status === "error") {
+        await showErrorDialog(result.error);
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
   });
   const { data: plugins = [] } = useQuery({
     queryKey: ["plugins"],
@@ -174,7 +182,13 @@ export const Index = () => {
                 }
                 queryClient.invalidateQueries({ queryKey: ["indexes"] });
               };
-              console.log(index);
+              const onAddIndexer = async () => {
+                const result = await commands.createEmptyIndexer(index.id);
+                if (result.status === "error") {
+                  await showErrorDialog(result.error);
+                }
+                queryClient.invalidateQueries({ queryKey: ["indexes"] });
+              };
               return (
                 <Accordion.Item value={index.id.toString()} key={index.id}>
                   <Group gap={0} wrap="nowrap" align="stretch">
@@ -221,13 +235,25 @@ export const Index = () => {
                           index={index}
                         />
                       </Paper>
-                      <Setting
-                        label="インデクサ"
-                        value={`${index.indexers.length} 件`}
-                        detail="ファイルソースからデータを抽出します"
-                        setting_label="インデクサを追加"
-                        on_click_setting={() => {}}
-                      />
+                      <Paper withBorder p="md" radius="md">
+                        <Stack gap={"md"}>
+                          <Group justify="space-between">
+                            <Text size="xs" c="dimmed">
+                              {`${"インデクサ"}：${"ファイルソースからデータを抽出します"}`}
+                            </Text>
+                            <Button
+                              variant={"subtle"}
+                              size="compact-sm"
+                              onClick={onAddIndexer}
+                            >
+                              {"インデクサを追加"}
+                            </Button>
+                          </Group>
+                          {index.indexers.map((v) => (
+                            <Indexer indexer={v} onSave={() => {}} />
+                          ))}
+                        </Stack>
+                      </Paper>
                       <PluginSelector
                         label="ベクトル化：ファイルを検索可能に変換します"
                         saving={false}
@@ -436,73 +462,28 @@ function DateInfo({ label, value }: { label: string; value: string }) {
     </Box>
   );
 }
-function Setting({
-  label,
-  detail,
-  setting_label,
-  on_click_setting,
+function Indexer({
+  indexer,
+  onSave,
 }: {
-  label: string;
-  value: string;
-  detail: string;
-  setting_label: string;
-  on_click_setting: () => void;
+  indexer: IndexerInfo;
+  onSave: (indexer: IndexerInfo) => void;
 }) {
   return (
     <Paper withBorder p="md" radius="md">
-      <Text size="xs" c="dimmed">
-        {`${label}：${detail}`}
-      </Text>
-      <Group justify="space-between">
-        <Group gap="xs" mt={3}>
-          未設定
-        </Group>
-        <Button variant={"subtle"} size="compact-sm" onClick={on_click_setting}>
-          {setting_label}
+      <Group gap="xs" mt={24} wrap="nowrap">
+        <Button
+          size="sm"
+          onClick={() => {
+            onSave(indexer);
+          }}
+        >
+          {"保存"}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => {}}>
+          {"削除"}
         </Button>
       </Group>
     </Paper>
   );
-}
-
-const weekdays: Record<string, string> = {
-  MO: "月",
-  TU: "火",
-  WE: "水",
-  TH: "木",
-  FR: "金",
-  SA: "土",
-  SU: "日",
-};
-
-function formatSchedule(rule: string) {
-  const fields = Object.fromEntries(
-    rule
-      .split(";")
-      .map((field) => field.split("=", 2))
-      .filter((field): field is [string, string] => field.length === 2),
-  );
-  const interval =
-    fields.INTERVAL && fields.INTERVAL !== "1" ? Number(fields.INTERVAL) : 1;
-  if (fields.FREQ === "DAILY")
-    return interval === 1 ? "毎日" : `${interval} 日おき`;
-  if (fields.FREQ === "WEEKLY") {
-    const days = fields.BYDAY?.split(",")
-      .map((day) => weekdays[day] ?? day)
-      .join("・");
-    return `${interval === 1 ? "毎週" : `${interval} 週おき`}${days ? ` ${days}曜` : ""}`;
-  }
-  if (fields.FREQ === "MONTHLY")
-    return interval === 1 ? "毎月" : `${interval} か月おき`;
-  return rule;
-}
-
-function formatDateTime(value: string, timezone: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return value;
-  return new Intl.DateTimeFormat("ja-JP", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: timezone,
-  }).format(date);
 }

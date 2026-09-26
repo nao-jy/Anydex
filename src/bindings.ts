@@ -9,6 +9,7 @@ export const commands = {
 	createEmptyIndex: () => typedError<Index, string>(__TAURI_INVOKE("create_empty_index")),
 	renameIndex: (indexId: number, name: string) => typedError<Index, string>(__TAURI_INVOKE("rename_index", { indexId, name })),
 	setIndexMcpServer: (indexId: number, enabled: boolean) => typedError<null, string>(__TAURI_INVOKE("set_index_mcp_server", { indexId, enabled })),
+	createEmptyIndexer: (indexId: number) => typedError<Indexer, string>(__TAURI_INVOKE("create_empty_indexer", { indexId })),
 	listMcpServers: () => typedError<McpServer[], string>(__TAURI_INVOKE("list_mcp_servers")),
 	setMcpServerPort: (port: number) => __TAURI_INVOKE<void>("set_mcp_server_port", { port }),
 	setMcpServerRunning: (running: boolean) => __TAURI_INVOKE<void>("set_mcp_server_running", { running }),
@@ -93,9 +94,9 @@ export type Indexer = {
 	lastStart: string | null,
 	lastSuccess: string | null,
 	lastProcessedFiles: number | null,
-	fileSource: FileSource,
-	fileExtractor: FileExtractor,
-	schedule: Schedule,
+	fileSource: FileSource | null,
+	fileExtractor: FileExtractor | null,
+	schedule: Schedule | null,
 	tasks: Task[],
 };
 
