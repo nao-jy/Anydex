@@ -63,6 +63,22 @@ pub async fn create_empty_indexer(
 #[tauri::command]
 #[specta::specta]
 #[tracing::instrument(skip(database))]
+pub async fn delete_indexer(
+    indexer_id: i32,
+    database: State<'_, DatabaseConnection>,
+) -> Result<(), String> {
+    let _result = repository::models::indexer::Entity::delete_by_id(indexer_id)
+        .exec(database.inner())
+        .await
+        .map_err(|err| err.to_string())?;
+
+    tracing::info!(indexer_id = indexer_id, "indexer deleted");
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(database))]
 pub async fn set_index_mcp_server(
     index_id: i32,
     enabled: bool,

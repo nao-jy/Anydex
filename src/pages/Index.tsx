@@ -26,7 +26,7 @@ import { unwrapCommandResult } from "../tauri";
 import { JsonSchemaForm } from "../components/JsonSchemaForm";
 import { IChangeEvent } from "@rjsf/core";
 import { RJSFSchema } from "@rjsf/utils";
-import { showErrorDialog } from "../components/Dialogs";
+import { showConfirmDialog, showErrorDialog } from "../components/Dialogs";
 
 type SortKey = "name" | "createdAt" | "updatedAt";
 type Direction = "asc" | "desc";
@@ -469,6 +469,7 @@ function Indexer({
   indexer: IndexerInfo;
   onSave: (indexer: IndexerInfo) => void;
 }) {
+  const queryClient = useQueryClient();
   return (
     <Paper withBorder p="md" radius="md">
       <Group gap="xs" mt={24} wrap="nowrap">
@@ -480,7 +481,24 @@ function Indexer({
         >
           {"保存"}
         </Button>
-        <Button variant="outline" size="sm" onClick={() => {}}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={async () => {
+            await showConfirmDialog(
+              "インデクサを削除します、よろしいですか？",
+              async (ok) => {
+                if (ok) {
+                  const result = await commands.deleteIndexer(indexer.id);
+                  if (result.status === "error") {
+                    await showErrorDialog(result.error);
+                  }
+                  queryClient.invalidateQueries({ queryKey: ["indexes"] });
+                }
+              },
+            );
+          }}
+        >
           {"削除"}
         </Button>
       </Group>

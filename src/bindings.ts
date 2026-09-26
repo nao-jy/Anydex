@@ -10,6 +10,7 @@ export const commands = {
 	renameIndex: (indexId: number, name: string) => typedError<Index, string>(__TAURI_INVOKE("rename_index", { indexId, name })),
 	setIndexMcpServer: (indexId: number, enabled: boolean) => typedError<null, string>(__TAURI_INVOKE("set_index_mcp_server", { indexId, enabled })),
 	createEmptyIndexer: (indexId: number) => typedError<Indexer, string>(__TAURI_INVOKE("create_empty_indexer", { indexId })),
+	deleteIndexer: (indexerId: number) => typedError<null, string>(__TAURI_INVOKE("delete_indexer", { indexerId })),
 	listMcpServers: () => typedError<McpServer[], string>(__TAURI_INVOKE("list_mcp_servers")),
 	setMcpServerPort: (port: number) => __TAURI_INVOKE<void>("set_mcp_server_port", { port }),
 	setMcpServerRunning: (running: boolean) => __TAURI_INVOKE<void>("set_mcp_server_running", { running }),
