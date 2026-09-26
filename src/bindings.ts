@@ -25,6 +25,7 @@ export const commands = {
 	reloadPlugins: () => typedError<null, string>(__TAURI_INVOKE("reload_plugins")),
 	getParamSchema: (pluginType: PluginType, pluginName: string) => __TAURI_INVOKE<string | null>("get_param_schema", { pluginType, pluginName }),
 	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),
+	listOauthClient: () => typedError<OAuthClient[], string>(__TAURI_INVOKE("list_oauth_client")),
 };
 
 /* Types */

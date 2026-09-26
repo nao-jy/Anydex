@@ -37,7 +37,8 @@ macro_rules! app_commands {
             ipc::plugins::upsert_file_source,
             ipc::plugins::reload_plugins,
             ipc::plugins::get_param_schema,
-            ipc::search::search_mock
+            ipc::search::search_mock,
+            ipc::oauth::list_oauth_client,
         ]
     };
 }

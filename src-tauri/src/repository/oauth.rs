@@ -1,6 +1,25 @@
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait, Order};
 
 use crate::{dto::models::OAuthClient, repository::models};
+
+pub async fn list_oauth_client(database: &DatabaseConnection) -> Result<Vec<OAuthClient>, DbErr> {
+    let models = models::oauth_client::Entity::find()
+        .order_by_id(Order::Asc)
+        .all(database)
+        .await?
+        .into_iter()
+        .map(|cl| OAuthClient {
+            id: cl.id,
+            name: cl.name,
+            client_id: cl.client_id,
+            authorization_endpoint: cl.authorization_endpoint,
+            token_endpoint: cl.token_endpoint,
+            refresh_endpoint: cl.refresh_endpoint,
+            scopes: cl.scopes,
+        })
+        .collect();
+    Ok(models)
+}
 
 pub async fn load_oauth_client(
     database: &DatabaseConnection,
