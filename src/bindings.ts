@@ -8,6 +8,7 @@ export const commands = {
 	listIndexes: () => typedError<Index[], string>(__TAURI_INVOKE("list_indexes")),
 	createEmptyIndex: () => typedError<Index, string>(__TAURI_INVOKE("create_empty_index")),
 	renameIndex: (indexId: number, name: string) => typedError<Index, string>(__TAURI_INVOKE("rename_index", { indexId, name })),
+	putDescription: (indexId: number, description: string) => typedError<Index, string>(__TAURI_INVOKE("put_description", { indexId, description })),
 	setIndexMcpServer: (indexId: number, enabled: boolean) => typedError<null, string>(__TAURI_INVOKE("set_index_mcp_server", { indexId, enabled })),
 	createEmptyIndexer: (indexId: number) => typedError<Indexer, string>(__TAURI_INVOKE("create_empty_indexer", { indexId })),
 	deleteIndexer: (indexerId: number) => typedError<null, string>(__TAURI_INVOKE("delete_indexer", { indexerId })),

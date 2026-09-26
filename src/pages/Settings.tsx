@@ -74,12 +74,7 @@ export const Settings = () => {
 
             <Card withBorder radius="md" padding="lg">
               <Group justify="space-between" align="flex-start">
-                <Box>
-                  <Text fw={700}>プラグイン</Text>
-                  <Text size="sm" c="dimmed" mt={4}>
-                    次回の実装では、この場所から抽出器・ベクトルストア・ベクトル化プラグインを読み込みます。
-                  </Text>
-                </Box>
+                <Text fw={700}>プラグイン</Text>
                 <Button
                   variant="light"
                   onClick={() => reloadPlugins.mutate()}

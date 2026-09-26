@@ -69,6 +69,29 @@ pub async fn rename_index(
     get_index(database, index_id).await
 }
 
+pub async fn put_description(
+    database: &DatabaseConnection,
+    index_id: i32,
+    description: String,
+) -> Result<Index, DbErr> {
+    let description = description.trim();
+
+    let model = models::index::Entity::find_by_id(index_id)
+        .one(database)
+        .await?
+        .ok_or_else(|| DbErr::RecordNotFound(format!("index {index_id} was not found")))?;
+    if model.description == description {
+        return load_index(database, model).await;
+    }
+
+    let mut active_model = model.into_active_model();
+    active_model.description = Set(description.to_owned());
+    active_model.updated_at = Set(Utc::now());
+    active_model.update(database).await?;
+
+    get_index(database, index_id).await
+}
+
 /// Loads every index aggregate from the application database.
 pub async fn list_indexes(database: &DatabaseConnection) -> Result<Vec<Index>, DbErr> {
     let models = models::index::Entity::find()

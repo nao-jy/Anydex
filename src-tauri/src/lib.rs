@@ -21,6 +21,7 @@ macro_rules! app_commands {
             ipc::indexes::list_indexes,
             ipc::indexes::create_empty_index,
             ipc::indexes::rename_index,
+            ipc::indexes::put_description,
             ipc::indexes::set_index_mcp_server,
             ipc::indexes::create_empty_indexer,
             ipc::indexes::delete_indexer,

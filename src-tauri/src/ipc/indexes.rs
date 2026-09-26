@@ -48,6 +48,21 @@ pub async fn rename_index(
 
 #[tauri::command]
 #[specta::specta]
+#[tracing::instrument(skip(database, description))]
+pub async fn put_description(
+    index_id: i32,
+    description: String,
+    database: State<'_, DatabaseConnection>,
+) -> Result<crate::dto::models::Index, String> {
+    let index = repository::indexes::put_description(database.inner(), index_id, description)
+        .await
+        .map_err(|error| error.to_string())?;
+    tracing::info!(index_id = index.id, "index renamed");
+    Ok(index)
+}
+
+#[tauri::command]
+#[specta::specta]
 #[tracing::instrument(skip(database))]
 pub async fn create_empty_indexer(
     index_id: i32,

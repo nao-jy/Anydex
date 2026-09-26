@@ -2,21 +2,26 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Accordion,
+  Alert,
   Box,
   Button,
   Card,
+  Checkbox,
   Container,
   Divider,
   Group,
+  Input,
+  NumberInput,
   Paper,
   Select,
   Stack,
   Text,
+  Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { CaretDownIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, InfoIcon, WarningIcon } from "@phosphor-icons/react";
 import {
   commands,
   Index as IndexInfo,
@@ -67,6 +72,18 @@ export const Index = () => {
   const renameIndex = useMutation({
     mutationFn: ({ indexId, name }: { indexId: number; name: string }) =>
       unwrapCommandResult(commands.renameIndex(indexId, name)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["indexes"] });
+    },
+  });
+  const putDescription = useMutation({
+    mutationFn: ({
+      indexId,
+      description,
+    }: {
+      indexId: number;
+      description: string;
+    }) => unwrapCommandResult(commands.putDescription(indexId, description)),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["indexes"] });
     },
@@ -205,9 +222,13 @@ export const Index = () => {
                               {index.name}
                             </Text>
                           </Group>
-                          <Text size="sm" c="dimmed" mt={3}>
-                            {index.description ||
-                              "説明はまだ設定されていません"}
+                          <Text
+                            size="sm"
+                            c="dimmed"
+                            mt={3}
+                            style={{ whiteSpace: "pre-wrap" }}
+                          >
+                            {index.description || ""}
                           </Text>
                         </Box>
                         <Group gap="xl" visibleFrom="sm">
@@ -226,19 +247,29 @@ export const Index = () => {
                         <Group justify="space-between" mb="md">
                           <Box>
                             <Text fw={700}>基本情報</Text>
-                            <Text size="sm" c="dimmed">
-                              このインデックスを識別する名前です
-                            </Text>
                           </Box>
                         </Group>
-                        <IndexName
-                          saving={renameIndex.isPending}
-                          error={renameIndex.isError}
-                          onSave={(indexId, newName) =>
-                            renameIndex.mutate({ indexId, name: newName })
-                          }
-                          index={index}
-                        />
+                        <Stack gap={"md"}>
+                          <IndexName
+                            saving={renameIndex.isPending}
+                            error={renameIndex.isError}
+                            onSave={(indexId, newName) =>
+                              renameIndex.mutate({ indexId, name: newName })
+                            }
+                            index={index}
+                          />
+                          <IndexDescription
+                            saving={putDescription.isPending}
+                            error={putDescription.isError}
+                            onSave={(indexId, newDescription) =>
+                              putDescription.mutate({
+                                indexId,
+                                description: newDescription,
+                              })
+                            }
+                            index={index}
+                          />
+                        </Stack>
                       </Paper>
                       <Paper withBorder p="md" radius="md">
                         <Stack gap={"md"}>
@@ -367,6 +398,75 @@ const IndexName = (props: IndexNameProps) => {
         onClick={() => setIsEditting(true)}
       >
         名前を変更
+      </Button>
+    </Group>
+  );
+};
+
+interface IndexDescriptionProps {
+  saving: boolean;
+  error: boolean;
+  index: IndexInfo;
+  onSave: (indexId: number, newDescription: string) => void;
+}
+const IndexDescription = (props: IndexDescriptionProps) => {
+  const { index, onSave, saving, error } = props;
+  const [isEditting, setIsEditting] = useState(false);
+  const [newDesc, setNewDesc] = useState(index.description);
+
+  const save = () => {
+    const nextName = newDesc.trim();
+    if (!nextName) {
+      return;
+    }
+    onSave(index.id, nextName);
+    setIsEditting(false);
+  };
+
+  const onCancel = () => {
+    setIsEditting(false);
+  };
+
+  if (isEditting) {
+    return (
+      <Group align="flex-start" wrap="nowrap">
+        <Textarea
+          label="インデックスの詳細情報"
+          value={newDesc}
+          onChange={(event) => setNewDesc(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") onCancel();
+          }}
+          disabled={saving}
+          error={error && "保存できませんでした。"}
+          style={{ flex: 1 }}
+          rows={5}
+        />
+        <Group gap="xs" mt={24} wrap="nowrap">
+          <Button variant="default" onClick={onCancel} disabled={saving}>
+            キャンセル
+          </Button>
+          <Button onClick={save} loading={saving}>
+            保存
+          </Button>
+        </Group>
+      </Group>
+    );
+  }
+
+  return (
+    <Group justify="space-between" wrap="nowrap">
+      <Text size="sm" c="dimmed" style={{ whiteSpace: "pre-wrap" }}>
+        {index.description}
+      </Text>
+
+      <Button
+        variant="subtle"
+        size="compact-sm"
+        onClick={() => setIsEditting(true)}
+        style={{ flexShrink: "0" }}
+      >
+        詳細情報を変更
       </Button>
     </Group>
   );
@@ -516,6 +616,33 @@ const Schedule = (props: ScheduleProps) => {
   const [rrule, setRrule] = useState(rule);
   const rruleOptions = rrule.options();
 
+  const frequency = [
+    {
+      label: "時間おき",
+      value: "HOURLY",
+    },
+    {
+      label: "日おき",
+      value: "DAILY",
+    },
+    {
+      label: "週おき",
+      value: "WEEKLY",
+    },
+    {
+      label: "月おき",
+      value: "MONTHLY",
+    },
+    {
+      label: "年おき",
+      value: "YEARLY",
+    },
+  ];
+
+  const [catchupWhenMissed, setCatchupWhenMissed] = useState(
+    schedule?.catchupWhenMissed,
+  );
+
   useEffect(() => {
     setRruleText(rrule.toString());
   }, [rrule.toString()]);
@@ -555,7 +682,6 @@ const Schedule = (props: ScheduleProps) => {
                 ...rruleOptions,
                 until: newDt,
               });
-              console.log(newRule);
               setRrule(newRule);
             }}
             clearable
@@ -563,6 +689,45 @@ const Schedule = (props: ScheduleProps) => {
             clearSectionMode="clear"
           />
         </Group>
+        <Group align="flex-start" wrap="nowrap">
+          <Input.Wrapper label="頻度" style={{ flex: 1 }}>
+            <Group align="flex-start" gap="md" wrap="nowrap">
+              <NumberInput
+                style={{ width: "100px" }}
+                min={1}
+                allowDecimal={false}
+                value={rruleOptions.interval ?? 1}
+                onChange={(v) => {
+                  const newRule = new RRuleTemporal({
+                    ...rruleOptions,
+                    interval: Number(v),
+                  });
+                  setRrule(newRule);
+                }}
+              />
+              <Select
+                data={frequency}
+                style={{ width: "200px" }}
+                value={rruleOptions.freq}
+                onChange={(v) => {
+                  if (v === null) return;
+                  const newRule = new RRuleTemporal({
+                    ...rruleOptions,
+                    freq: v as any,
+                  });
+                  setRrule(newRule);
+                }}
+              />
+            </Group>
+          </Input.Wrapper>
+        </Group>
+        <Checkbox
+          label="非起動時に予定を過ぎた場合、次回起動時に処理を開始する"
+          checked={catchupWhenMissed}
+          onChange={(e) => {
+            setCatchupWhenMissed(e.currentTarget.checked);
+          }}
+        />
         <Divider />
         <Group align="flex-start" wrap="nowrap">
           <TextInput
@@ -618,6 +783,13 @@ const Schedule = (props: ScheduleProps) => {
           >
             {"削除"}
           </Button>
+          {schedule === null && (
+            <Alert
+              color="yellow"
+              title="スケジュールは未設定です"
+              icon={<WarningIcon />}
+            />
+          )}
         </Group>
       </Stack>
     </Paper>
@@ -662,6 +834,7 @@ const Indexer = (params: IndexerProps) => {
           initParams={indexer.fileExtractor?.params}
         />
         <Group gap="xs" mt={24} wrap="nowrap">
+          <Button size="sm">{"今すぐ実行"}</Button>
           <Button
             variant="outline"
             size="sm"
