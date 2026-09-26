@@ -3,6 +3,7 @@ import { MantineProvider } from "@mantine/core";
 import { BrowserRouter, Routes, Route } from "react-router";
 
 import "@mantine/core/styles.css";
+import "@mantine/dates/styles.css";
 import { Layout } from "./pages/Layout";
 import { Index } from "./pages/Index";
 import { Mcp } from "./pages/Mcp";

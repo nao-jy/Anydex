@@ -126,7 +126,7 @@ export type OAuthClient = {
 };
 
 export type PluginInfo = {
-	pluginType: string,
+	pluginType: PluginType,
 	path: string,
 	plugins: string[],
 };

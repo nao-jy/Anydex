@@ -15,18 +15,23 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
+import { CaretDownIcon } from "@phosphor-icons/react";
 import {
   commands,
   Index as IndexInfo,
   PluginInfo,
   PluginType,
   Indexer as IndexerInfo,
+  Schedule as ScheduleInfo,
 } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
 import { JsonSchemaForm } from "../components/JsonSchemaForm";
 import { IChangeEvent } from "@rjsf/core";
 import { RJSFSchema } from "@rjsf/utils";
 import { showConfirmDialog, showErrorDialog } from "../components/Dialogs";
+import { RRuleTemporal, TemporalZonedDateTime } from "rrule-temporal";
+import { Temporal } from "temporal-polyfill";
 
 type SortKey = "name" | "createdAt" | "updatedAt";
 type Direction = "asc" | "desc";
@@ -249,8 +254,22 @@ export const Index = () => {
                               {"インデクサを追加"}
                             </Button>
                           </Group>
-                          {index.indexers.map((v) => (
-                            <Indexer indexer={v} onSave={() => {}} />
+                          {index.indexers.map((v, idx) => (
+                            <Indexer
+                              key={idx}
+                              num={idx + 1}
+                              indexer={v}
+                              fileSourceInfo={
+                                plugins.find(
+                                  (v) => v.pluginType === "fileSource",
+                                )!
+                              }
+                              fileExtractorInfo={
+                                plugins.find(
+                                  (v) => v.pluginType === "fileExtractor",
+                                )!
+                              }
+                            />
                           ))}
                         </Stack>
                       </Paper>
@@ -269,7 +288,7 @@ export const Index = () => {
                         saving={false}
                         error={false}
                         info={
-                          plugins.find((v) => v.pluginType === "vector-store")!
+                          plugins.find((v) => v.pluginType === "vectorStore")!
                         }
                         selected={index.vectorStore?.name ?? null}
                         plugin_type="vectorStore"
@@ -288,12 +307,13 @@ export const Index = () => {
   );
 };
 
-const IndexName = (props: {
+interface IndexNameProps {
   saving: boolean;
   error: boolean;
   index: IndexInfo;
   onSave: (indexId: number, newName: string) => void;
-}) => {
+}
+const IndexName = (props: IndexNameProps) => {
   const { index, onSave, saving, error } = props;
   const [isEditting, setIsEditting] = useState(false);
   const [newName, setNewName] = useState(index.name);
@@ -352,7 +372,7 @@ const IndexName = (props: {
   );
 };
 
-function PluginSelector(props: {
+interface PluginSelectorProps {
   label: string;
   saving: boolean;
   error: boolean;
@@ -364,7 +384,9 @@ function PluginSelector(props: {
     plugin_name: string,
   ) => void;
   initParams: any | null;
-}) {
+}
+
+const PluginSelector = (props: PluginSelectorProps) => {
   const {
     label,
     info,
@@ -445,9 +467,15 @@ function PluginSelector(props: {
       </Stack>
     </Paper>
   );
+};
+
+interface DateInfoProps {
+  label: string;
+  value: string;
 }
 
-function DateInfo({ label, value }: { label: string; value: string }) {
+const DateInfo = (params: DateInfoProps) => {
+  const { label, value } = params;
   const date = new Date(value);
   const localValue = Number.isNaN(date.getTime())
     ? value
@@ -461,47 +489,201 @@ function DateInfo({ label, value }: { label: string; value: string }) {
       <Text size="sm">{localValue}</Text>
     </Box>
   );
+};
+
+const toDtStart = (zdt: TemporalZonedDateTime) => {
+  const local = zdt.toPlainDateTime();
+
+  const value = local.toString({ smallestUnit: "second" }).replace(/[-:]/g, "");
+
+  return `DTSTART;TZID=${zdt.timeZoneId}:${value}`;
+};
+
+interface ScheduleProps {
+  schedule: ScheduleInfo | null;
 }
-function Indexer({
-  indexer,
-  onSave,
-}: {
+
+const Schedule = (props: ScheduleProps) => {
+  const { schedule } = props;
+  const now = Temporal.Now.zonedDateTimeISO();
+  const defaultRuleStr =
+    schedule?.rfc5545Rrule ??
+    `DTSTART;TZID=${toDtStart(now)}\nRRULE:FREQ=DAILY`;
+  const rule = new RRuleTemporal({
+    rruleString: defaultRuleStr,
+  });
+  const [rruleText, setRruleText] = useState(rule.toString());
+  const [rrule, setRrule] = useState(rule);
+  const rruleOptions = rrule.options();
+
+  useEffect(() => {
+    setRruleText(rrule.toString());
+  }, [rrule.toString()]);
+
+  const queryClient = useQueryClient();
+
+  return (
+    <Paper withBorder p="md" radius="md">
+      <Stack gap="md">
+        <Text size="xs" c="dimmed">
+          {"定期実行スケジュール"}
+        </Text>
+        <Group align="flex-start" wrap="nowrap">
+          <DateTimePicker
+            label={"開始日"}
+            valueFormat="YYYY-MM-DD HH:mm"
+            style={{ flex: 1 }}
+            value={new Date(rruleOptions.dtstart.epochMilliseconds)}
+          />
+          <DateTimePicker
+            label={"終了日"}
+            valueFormat="YYYY-MM-DD HH:mm"
+            style={{ flex: 1 }}
+            value={
+              rruleOptions.until === undefined
+                ? null
+                : new Date(rruleOptions.until.epochMilliseconds)
+            }
+            onChange={(v) => {
+              const newDt =
+                v === null
+                  ? undefined
+                  : Temporal.PlainDateTime.from(
+                      v.replace(" ", "T"),
+                    ).toZonedDateTime(Temporal.Now.timeZoneId());
+              const newRule = new RRuleTemporal({
+                ...rruleOptions,
+                until: newDt,
+              });
+              console.log(newRule);
+              setRrule(newRule);
+            }}
+            clearable
+            rightSection={<CaretDownIcon size={16} />}
+            clearSectionMode="clear"
+          />
+        </Group>
+        <Divider />
+        <Group align="flex-start" wrap="nowrap">
+          <TextInput
+            label={"RFC5545 RRULE 直接入力"}
+            value={rruleText}
+            onChange={(e) => {
+              const v = e.currentTarget.value;
+              setRruleText(v);
+              try {
+                const newRule = new RRuleTemporal({
+                  rruleString: v,
+                });
+                setRrule(newRule);
+              } catch {}
+            }}
+            style={{ flex: 1 }}
+          />
+          <Group gap="xs" mt={24} wrap="nowrap">
+            <Button
+              variant="default"
+              onClick={() => {
+                const rule = new RRuleTemporal({
+                  rruleString: defaultRuleStr,
+                });
+                setRrule(rule);
+              }}
+            >
+              リセット
+            </Button>
+          </Group>
+        </Group>
+        <Group gap="xs" mt={24} wrap="nowrap">
+          <Button size="sm" onClick={async () => {}}>
+            {"保存"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              await showConfirmDialog(
+                "定期実行スケジュールを削除します、よろしいですか？",
+                async (ok) => {
+                  if (ok) {
+                    //const result = await commands.deleteIndexer(indexer.id);
+                    //if (result.status === "error") {
+                    // await showErrorDialog(result.error);
+                    //}
+                    queryClient.invalidateQueries({ queryKey: ["indexes"] });
+                  }
+                },
+              );
+            }}
+          >
+            {"削除"}
+          </Button>
+        </Group>
+      </Stack>
+    </Paper>
+  );
+};
+
+interface IndexerProps {
   indexer: IndexerInfo;
-  onSave: (indexer: IndexerInfo) => void;
-}) {
+  fileSourceInfo: PluginInfo;
+  fileExtractorInfo: PluginInfo;
+  num: number;
+}
+
+const Indexer = (params: IndexerProps) => {
+  const { indexer, fileSourceInfo, fileExtractorInfo, num } = params;
   const queryClient = useQueryClient();
   return (
     <Paper withBorder p="md" radius="md">
-      <Group gap="xs" mt={24} wrap="nowrap">
-        <Button
-          size="sm"
-          onClick={() => {
-            onSave(indexer);
-          }}
-        >
-          {"保存"}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={async () => {
-            await showConfirmDialog(
-              "インデクサを削除します、よろしいですか？",
-              async (ok) => {
-                if (ok) {
-                  const result = await commands.deleteIndexer(indexer.id);
-                  if (result.status === "error") {
-                    await showErrorDialog(result.error);
+      <Stack gap={"sm"}>
+        <Text size="xs" c="dimmed">
+          {`インデクサ ${num}`}
+        </Text>
+        <Schedule schedule={indexer.schedule} />
+        <PluginSelector
+          label="ファイルソース：ファイルの取得元です"
+          saving={false}
+          error={false}
+          info={fileSourceInfo}
+          selected={indexer.fileSource?.name ?? null}
+          plugin_type="fileSource"
+          onSubmit={() => {}}
+          initParams={indexer.fileSource?.params}
+        />
+        <PluginSelector
+          label="ファイル抽出：ファイルを抽出します"
+          saving={false}
+          error={false}
+          info={fileExtractorInfo}
+          selected={indexer.fileExtractor?.name ?? null}
+          plugin_type="fileExtractor"
+          onSubmit={() => {}}
+          initParams={indexer.fileExtractor?.params}
+        />
+        <Group gap="xs" mt={24} wrap="nowrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              await showConfirmDialog(
+                "インデクサを削除します、よろしいですか？",
+                async (ok) => {
+                  if (ok) {
+                    const result = await commands.deleteIndexer(indexer.id);
+                    if (result.status === "error") {
+                      await showErrorDialog(result.error);
+                    }
+                    queryClient.invalidateQueries({ queryKey: ["indexes"] });
                   }
-                  queryClient.invalidateQueries({ queryKey: ["indexes"] });
-                }
-              },
-            );
-          }}
-        >
-          {"削除"}
-        </Button>
-      </Group>
+                },
+              );
+            }}
+          >
+            {"削除"}
+          </Button>
+        </Group>
+      </Stack>
     </Paper>
   );
-}
+};

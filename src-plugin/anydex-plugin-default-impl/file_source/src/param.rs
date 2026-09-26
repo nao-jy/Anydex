@@ -13,7 +13,7 @@ pub struct Param {
         title = "Service Configurations",
         description = "Service configurations from https://opendal.apache.org/services/"
     )]
-    pub service_configurations: serde_json::Value,
+    pub service_configurations: serde_json::Map<String, serde_json::Value>,
 
     // following definitions will be used to automatically map OAuth credentials
     #[schemars(

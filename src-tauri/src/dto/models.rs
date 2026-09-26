@@ -2,6 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::plugin::entry::PluginType;
+
 /// Index configuration returned to the UI.
 ///
 /// This mirrors the aggregate rooted at `repository::models::index`. Related
@@ -165,7 +167,7 @@ pub struct ApplicationSettings {
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginInfo {
-    pub plugin_type: String,
+    pub plugin_type: PluginType,
     pub path: String,
     pub plugins: Vec<String>,
 }
