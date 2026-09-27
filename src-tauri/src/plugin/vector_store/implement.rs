@@ -8,7 +8,7 @@ use anydex_plugin_api_lib::{
     interface::DynamicPluginHeader,
     vector_store::interface::{
         CChunk, CSearchHit, CSearchRequest, DynamicVectorStore, DynamicVectorStoreV1, FileId,
-        Handler, IndexId, DYNAMIC_VECTOR_STORE_ABI_VERSION_V1,
+        Handler, IndexId, IndexerId, DYNAMIC_VECTOR_STORE_ABI_VERSION_V1,
     },
 };
 use chrono::{DateTime, Utc};
@@ -71,10 +71,18 @@ impl VectorStore for DynamicVectorStore {
         }
     }
 
-    fn delete_chunk(&self, handler: Handler, fild_id: FileId) -> Result<(), String> {
+    fn delete_chunk_file(&self, handler: Handler, fild_id: FileId) -> Result<(), String> {
         match self {
             DynamicVectorStore::V1(plugin_v1) => {
-                Ok(unsafe { (plugin_v1.delete_chunk)(handler, fild_id) })
+                Ok(unsafe { (plugin_v1.delete_chunk_file)(handler, fild_id) })
+            }
+        }
+    }
+
+    fn delete_chunk_indexer(&self, handler: Handler, indexer_id: IndexerId) -> Result<(), String> {
+        match self {
+            DynamicVectorStore::V1(plugin_v1) => {
+                Ok(unsafe { (plugin_v1.delete_chunk_indexer)(handler, indexer_id) })
             }
         }
     }

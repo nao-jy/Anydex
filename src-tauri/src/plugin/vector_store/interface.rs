@@ -33,7 +33,8 @@ pub trait VectorStore {
     fn get_handler(&self, param: &serde_json::Value, index_id: IndexId) -> Result<Handler, String>;
     fn free_handler(&self, handler: Handler) -> Result<(), String>;
 
-    fn delete_chunk(&self, handler: Handler, fild_id: FileId) -> Result<(), String>;
+    fn delete_chunk_file(&self, handler: Handler, fild_id: FileId) -> Result<(), String>;
+    fn delete_chunk_indexer(&self, handler: Handler, indexer_id: IndexerId) -> Result<(), String>;
     fn clear_chunk(&self, handler: Handler) -> Result<(), String>;
     fn insert_chunk(&self, handler: Handler, chunk: &Chunk) -> Result<(), String>;
     fn search(

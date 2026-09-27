@@ -6,7 +6,7 @@ use std::sync::{LazyLock, Mutex};
 use anydex_plugin_api_lib::common::{to_string, CResult, CSlice, LogLevel};
 use anydex_plugin_api_lib::interface::PluginInit;
 use anydex_plugin_api_lib::vector_store::interface::{
-    CChunk, CSearchHit, CSearchRequest, DynamicVectorStoreV1, FileId, Handler, IndexId,
+    CChunk, CSearchHit, CSearchRequest, DynamicVectorStoreV1, FileId, Handler, IndexId, IndexerId,
     DYNAMIC_VECTOR_STORE_ABI_VERSION_V1, INVALID_HANDLE,
 };
 use schemars::schema_for;
@@ -55,7 +55,8 @@ pub unsafe extern "C" fn get_plugin(init: *const PluginInit) -> *const DynamicVe
             get_param_schema,
             get_handler,
             free_handler,
-            delete_chunk,
+            delete_chunk_file,
+            delete_chunk_indexer,
             insert_chunk,
             clear_chunk,
             search,
@@ -116,11 +117,21 @@ unsafe extern "C" fn free_handler(handler: Handler) {
     HANDLERS.lock().unwrap().remove(&handler);
 }
 
-unsafe extern "C" fn delete_chunk(handler: Handler, file_id: FileId) {
+unsafe extern "C" fn delete_chunk_file(handler: Handler, file_id: FileId) {
     let info_mtx = HANDLERS.lock().unwrap();
     let info_opt = (*info_mtx).get(&handler);
     if let Some(info) = info_opt {
-        let _ = sqlite::delete(info.index_id, file_id).map_err(|err| log(LogLevel::Error, &err));
+        let _ =
+            sqlite::delete_file(info.index_id, file_id).map_err(|err| log(LogLevel::Error, &err));
+    }
+}
+
+unsafe extern "C" fn delete_chunk_indexer(handler: Handler, indexer_id: IndexerId) {
+    let info_mtx = HANDLERS.lock().unwrap();
+    let info_opt = (*info_mtx).get(&handler);
+    if let Some(info) = info_opt {
+        let _ = sqlite::delete_indexer(info.index_id, indexer_id)
+            .map_err(|err| log(LogLevel::Error, &err));
     }
 }
 

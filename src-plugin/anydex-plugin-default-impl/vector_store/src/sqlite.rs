@@ -2,7 +2,7 @@ use std::{str::FromStr, sync::Mutex};
 
 use anydex_plugin_api_lib::{
     common::resolve_dylib_name,
-    vector_store::interface::{FileId, IndexId},
+    vector_store::interface::{FileId, IndexId, IndexerId},
 };
 use process_path::get_dylib_path;
 use rusqlite::Connection;
@@ -90,13 +90,24 @@ pub fn init_table(index_id: IndexId, param: &Param) -> Result<(), String> {
     Ok(())
 }
 
-pub fn delete(index_id: IndexId, fild_id: FileId) -> Result<(), String> {
+pub fn delete_file(index_id: IndexId, fild_id: FileId) -> Result<(), String> {
     let conn_mtx = DB.lock().unwrap();
     let conn = conn_mtx.as_ref().ok_or("db not initialized")?;
     let table_name = get_table_name(index_id);
 
     let stmt = format!("DELETE FROM {table_name} WHERE file_id = ?");
     conn.execute(&stmt, [fild_id])
+        .map_err(|err| err.to_string())?;
+    Ok(())
+}
+
+pub fn delete_indexer(index_id: IndexId, indexer_id: IndexerId) -> Result<(), String> {
+    let conn_mtx = DB.lock().unwrap();
+    let conn = conn_mtx.as_ref().ok_or("db not initialized")?;
+    let table_name = get_table_name(index_id);
+
+    let stmt = format!("DELETE FROM {table_name} WHERE indexer_id = ?");
+    conn.execute(&stmt, [indexer_id])
         .map_err(|err| err.to_string())?;
     Ok(())
 }

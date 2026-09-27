@@ -1,3 +1,4 @@
+use crate::plugin::vector_store::interface::VectorStore;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, DatabaseTransaction, DbErr, EntityTrait,
     IntoActiveModel, QueryFilter, Set, TransactionTrait,
@@ -6,6 +7,7 @@ use std::option::Option::None;
 
 use crate::{
     dto::models::{Indexer, Schedule},
+    plugin::entry::VECTOR_STORE_MGR,
     repository::models,
 };
 
@@ -43,6 +45,19 @@ pub async fn delete_indexer(
     indexer_id: i32,
     transaction: &DatabaseTransaction,
 ) -> Result<(), DbErr> {
+    let indexer = models::indexer::Entity::find_by_id(indexer_id)
+        .one(transaction)
+        .await?;
+
+    let vector_store = match &indexer {
+        Some(indexer_some) => {
+            models::vector_store::Entity::find_by_index_id(indexer_some.index_id)
+                .one(transaction)
+                .await?
+        }
+        None => None,
+    };
+
     let _result = models::file_extractor::Entity::delete_by_indexer_id(indexer_id)
         .exec(transaction)
         .await?;
@@ -78,6 +93,22 @@ pub async fn delete_indexer(
     let _result = models::indexer::Entity::delete_by_id(indexer_id)
         .exec(transaction)
         .await?;
+
+    if let Some(vector_store_some) = &vector_store {
+        if let Some(indexer_some) = &indexer {
+            let mut mgr_mtx = VECTOR_STORE_MGR.lock().unwrap();
+            let mgr = mgr_mtx.as_mut().unwrap();
+            let plugin = mgr.get_plugin(&vector_store_some.name);
+            if let Some(plugin_some) = plugin {
+                let handler = plugin_some
+                    .get_handler(&vector_store_some.params, indexer_some.index_id)
+                    .map_err(|err| DbErr::Custom(err.to_string()))?;
+                let _ = plugin_some
+                    .delete_chunk_indexer(handler, indexer_some.id)
+                    .map_err(|err| DbErr::Custom(err.to_string()));
+            }
+        }
+    }
 
     Ok(())
 }
