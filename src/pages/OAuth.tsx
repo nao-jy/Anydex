@@ -6,13 +6,14 @@ import {
   Button,
   Container,
   Group,
-  Paper,
   Stack,
+  TagsInput,
   Text,
+  TextInput,
 } from "@mantine/core";
-import { commands } from "../bindings";
+import { commands, OAuthClient } from "../bindings";
 import { PageHeader } from "../components/PageHeader";
-import { showErrorDialog } from "../components/Dialogs";
+import { showConfirmDialog, showErrorDialog } from "../components/Dialogs";
 
 export const OAuth = () => {
   const [open, setOpen] = useState<string[]>([]);
@@ -45,7 +46,7 @@ export const OAuth = () => {
         <Group justify="space-between" align="flex-end" mb={28}>
           <PageHeader
             pageName="OAuth設定"
-            description="ファイルソースのための認証を設定します"
+            description="ファイルソースのためのOAuth認証（PKCE）を設定します"
           />
           <Button
             size="md"
@@ -80,9 +81,11 @@ export const OAuth = () => {
                   </Accordion.Control>
                 </Group>
                 <Accordion.Panel>
-                  <Paper withBorder p="md" radius="md">
-                    <Stack gap={"md"}></Stack>
-                  </Paper>
+                  <OAuthContent
+                    data={cl}
+                    onSave={() => {}}
+                    onDelete={() => {}}
+                  />
                 </Accordion.Panel>
               </Accordion.Item>
             );
@@ -90,5 +93,97 @@ export const OAuth = () => {
         </Accordion>
       </Container>
     </Box>
+  );
+};
+
+interface OAuthContentProps {
+  data: OAuthClient;
+  onSave: (data: OAuthClient) => void;
+  onDelete: (oauth_id: number) => void;
+}
+
+const OAuthContent = (props: OAuthContentProps) => {
+  const { data, onSave, onDelete } = props;
+  const [name, setName] = useState(data.name);
+  const [cliendId, setClientId] = useState(data.clientId);
+  const [authEndpoint, setAuthEndpoint] = useState(data.authorizationEndpoint);
+  const [tokenEndpoint, setTokenEndpoint] = useState(data.tokenEndpoint);
+  const [refreshEndpoint, setRefreshEndpoint] = useState(
+    data.refreshEndpoint ?? "",
+  );
+  const [scopes, setScopes] = useState<string[]>(data.scopes as string[]);
+  return (
+    <Stack gap={"md"}>
+      <TextInput
+        label={"名前"}
+        value={name}
+        onChange={(v) => setName(v.currentTarget.value)}
+      />
+      <TextInput
+        label={"クライアントID"}
+        value={cliendId}
+        onChange={(v) => setClientId(v.currentTarget.value)}
+      />
+      <TextInput
+        label={"認証エンドポイント"}
+        type="url"
+        value={authEndpoint}
+        onChange={(v) => setAuthEndpoint(v.currentTarget.value)}
+      />
+      <TextInput
+        label={"トークンエンドポイント"}
+        type="url"
+        value={tokenEndpoint}
+        onChange={(v) => setTokenEndpoint(v.currentTarget.value)}
+      />
+      <TextInput
+        label={"リフレッシュエンドポイント"}
+        type="url"
+        value={refreshEndpoint}
+        onChange={(v) => setRefreshEndpoint(v.currentTarget.value)}
+      />
+      <TagsInput
+        label={"スコープ"}
+        value={scopes}
+        onChange={(v) => setScopes(v)}
+      />
+      <Group gap="xs" mt={24} wrap="nowrap">
+        <Button
+          onClick={() => {
+            const refr =
+              refreshEndpoint.trim().length === 0
+                ? null
+                : refreshEndpoint.trim();
+            const newData: OAuthClient = {
+              id: data.id,
+              name: name,
+              clientId: cliendId,
+              authorizationEndpoint: authEndpoint,
+              tokenEndpoint: tokenEndpoint,
+              refreshEndpoint: refr,
+              scopes: scopes,
+            };
+            onSave(newData);
+          }}
+        >
+          保存
+        </Button>
+        <Button
+          variant="default"
+          onClick={async () => {
+            await showConfirmDialog(
+              "OAuthを削除します、よろしいですか？",
+              async (ok) => {
+                if (ok) {
+                  onDelete(data.id);
+                }
+              },
+            );
+          }}
+        >
+          削除
+        </Button>
+      </Group>
+    </Stack>
   );
 };

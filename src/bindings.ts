@@ -12,6 +12,7 @@ export const commands = {
 	setIndexMcpServer: (indexId: number, enabled: boolean) => typedError<null, string>(__TAURI_INVOKE("set_index_mcp_server", { indexId, enabled })),
 	createEmptyIndexer: (indexId: number) => typedError<Indexer, string>(__TAURI_INVOKE("create_empty_indexer", { indexId })),
 	deleteIndexer: (indexerId: number) => typedError<null, string>(__TAURI_INVOKE("delete_indexer", { indexerId })),
+	deleteIndex: (indexId: number) => typedError<null, string>(__TAURI_INVOKE("delete_index", { indexId })),
 	listMcpServers: () => typedError<McpServer[], string>(__TAURI_INVOKE("list_mcp_servers")),
 	setMcpServerPort: (port: number) => __TAURI_INVOKE<void>("set_mcp_server_port", { port }),
 	setMcpServerRunning: (running: boolean) => __TAURI_INVOKE<void>("set_mcp_server_running", { running }),
@@ -27,6 +28,8 @@ export const commands = {
 	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),
 	listOauthClient: () => typedError<OAuthClient[], string>(__TAURI_INVOKE("list_oauth_client")),
 	createEmptyOauthClient: () => typedError<OAuthClient, string>(__TAURI_INVOKE("create_empty_oauth_client")),
+	updateOauthClient: (data: OAuthClient) => typedError<null, string>(__TAURI_INVOKE("update_oauth_client", { data })),
+	deleteOauthClient: (oauthId: number) => typedError<null, string>(__TAURI_INVOKE("delete_oauth_client", { oauthId })),
 };
 
 /* Types */

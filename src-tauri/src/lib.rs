@@ -25,6 +25,7 @@ macro_rules! app_commands {
             ipc::indexes::set_index_mcp_server,
             ipc::indexes::create_empty_indexer,
             ipc::indexes::delete_indexer,
+            ipc::indexes::delete_index,
             ipc::mcp::list_mcp_servers,
             ipc::mcp::set_mcp_server_port,
             ipc::mcp::set_mcp_server_running,
@@ -40,6 +41,8 @@ macro_rules! app_commands {
             ipc::search::search_mock,
             ipc::oauth::list_oauth_client,
             ipc::oauth::create_empty_oauth_client,
+            ipc::oauth::update_oauth_client,
+            ipc::oauth::delete_oauth_client,
         ]
     };
 }

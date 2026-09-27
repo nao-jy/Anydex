@@ -211,7 +211,6 @@ pub mod file {
     pub struct Model {
         #[sea_orm(primary_key)]
         pub id: i32,
-        #[sea_orm(unique_key = "file_source_uri")]
         pub file_source_id: i32,
         pub name: String,
         /// Canonical URI in the file-source namespace. It is unique per source.
