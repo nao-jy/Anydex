@@ -57,20 +57,20 @@ pub async fn delete_indexer(
             .filter(models::file::Column::FileSourceId.eq(file_src.id))
             .exec(transaction)
             .await?;
-
-        let _result = models::file_source::Entity::delete_by_indexer_id(indexer_id)
-            .exec(transaction)
-            .await?;
-
-        let _result = models::schedule::Entity::delete_by_indexer_id(indexer_id)
-            .exec(transaction)
-            .await?;
-
-        let _result = models::task::Entity::delete_many()
-            .filter(models::task::Column::IndexerId.eq(indexer_id))
-            .exec(transaction)
-            .await?;
     }
+
+    let _result = models::file_source::Entity::delete_by_indexer_id(indexer_id)
+        .exec(transaction)
+        .await?;
+
+    let _result = models::schedule::Entity::delete_by_indexer_id(indexer_id)
+        .exec(transaction)
+        .await?;
+
+    let _result = models::task::Entity::delete_many()
+        .filter(models::task::Column::IndexerId.eq(indexer_id))
+        .exec(transaction)
+        .await?;
 
     let _result = models::indexer::Entity::delete_by_id(indexer_id)
         .exec(transaction)
