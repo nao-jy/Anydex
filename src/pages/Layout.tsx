@@ -3,7 +3,6 @@ import {
   AppShell,
   Button,
   Group,
-  Text,
   useMantineColorScheme,
 } from "@mantine/core";
 import { Link, Outlet, useLocation } from "react-router";
@@ -37,9 +36,6 @@ export const Layout = () => {
             </Group>
           </Group>
           <Group gap="sm">
-            <Text size="sm" c="dimmed" visibleFrom="sm">
-              ローカルサービス稼働中
-            </Text>
             <ActionIcon
               variant="default"
               size="lg"

@@ -624,11 +624,12 @@ const toDtStart = (zdt: TemporalZonedDateTime) => {
 };
 
 interface ScheduleProps {
+  indexer_id: number;
   schedule: ScheduleInfo | null;
 }
 
 const Schedule = (props: ScheduleProps) => {
-  const { schedule } = props;
+  const { schedule, indexer_id } = props;
   const now = Temporal.Now.zonedDateTimeISO();
   const defaultRuleStr =
     schedule?.rfc5545Rrule ??
@@ -664,7 +665,7 @@ const Schedule = (props: ScheduleProps) => {
   ];
 
   const [catchupWhenMissed, setCatchupWhenMissed] = useState(
-    schedule?.catchupWhenMissed,
+    schedule?.catchupWhenMissed ?? false,
   );
 
   useEffect(() => {
@@ -784,7 +785,25 @@ const Schedule = (props: ScheduleProps) => {
           </Group>
         </Group>
         <Group gap="xs" mt={24} wrap="nowrap">
-          <Button size="sm" onClick={async () => {}}>
+          <Button
+            size="sm"
+            onClick={async () => {
+              const newSchedule: ScheduleInfo = {
+                id: 0,
+                indexerId: indexer_id,
+                rfc5545Rrule: rrule.toString(),
+                catchupWhenMissed: catchupWhenMissed,
+              };
+              const result = await commands.upsertSchedule(
+                indexer_id,
+                newSchedule,
+              );
+              if (result.status === "error") {
+                await showErrorDialog(result.error);
+              }
+              queryClient.invalidateQueries({ queryKey: ["indexes"] });
+            }}
+          >
             {"保存"}
           </Button>
           <Button
@@ -795,10 +814,10 @@ const Schedule = (props: ScheduleProps) => {
                 "定期実行スケジュールを削除します、よろしいですか？",
                 async (ok) => {
                   if (ok) {
-                    //const result = await commands.deleteIndexer(indexer.id);
-                    //if (result.status === "error") {
-                    // await showErrorDialog(result.error);
-                    //}
+                    const result = await commands.deleteSchedule(indexer_id);
+                    if (result.status === "error") {
+                      await showErrorDialog(result.error);
+                    }
                     queryClient.invalidateQueries({ queryKey: ["indexes"] });
                   }
                 },
@@ -836,7 +855,7 @@ const Indexer = (params: IndexerProps) => {
         <Text size="xs" c="dimmed">
           {`インデクサ ${num}`}
         </Text>
-        <Schedule schedule={indexer.schedule} />
+        <Schedule schedule={indexer.schedule} indexer_id={indexer.id} />
         <PluginSelector
           label="ファイルソース：ファイルの取得元です"
           saving={false}

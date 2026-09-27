@@ -1,10 +1,13 @@
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, DatabaseTransaction, DbErr, EntityTrait,
-    QueryFilter, Set, TransactionTrait,
+    IntoActiveModel, QueryFilter, Set, TransactionTrait,
 };
 use std::option::Option::None;
 
-use crate::{dto::models::Indexer, repository::models};
+use crate::{
+    dto::models::{Indexer, Schedule},
+    repository::models,
+};
 
 pub async fn create_empty_indexer(
     indexer_id: i32,
@@ -76,5 +79,36 @@ pub async fn delete_indexer(
         .exec(transaction)
         .await?;
 
+    Ok(())
+}
+
+pub async fn upsert_schedule(
+    database: &DatabaseConnection,
+    indexer_id: i32,
+    schedule: Schedule,
+) -> Result<(), DbErr> {
+    let transaction = database.begin().await?;
+
+    let emb_model = models::schedule::Entity::find_by_indexer_id(indexer_id);
+    let emb = emb_model.one(&transaction).await?;
+
+    if let Some(emb_ent) = emb {
+        let mut active_model = emb_ent.into_active_model();
+        active_model.rfc5545_rrule = Set(schedule.rfc5545_rrule);
+        active_model.catchup_when_missed = Set(schedule.catchup_when_missed);
+
+        active_model.update(&transaction).await?;
+    } else {
+        models::schedule::ActiveModel {
+            indexer_id: Set(schedule.indexer_id),
+            rfc5545_rrule: Set(schedule.rfc5545_rrule),
+            catchup_when_missed: Set(schedule.catchup_when_missed),
+            ..Default::default()
+        }
+        .insert(&transaction)
+        .await?;
+    }
+
+    transaction.commit().await?;
     Ok(())
 }

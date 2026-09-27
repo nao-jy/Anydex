@@ -1,3 +1,4 @@
+pub mod indexers;
 pub mod indexes;
 pub mod mcp;
 pub mod oauth;
