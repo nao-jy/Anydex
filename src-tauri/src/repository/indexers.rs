@@ -71,5 +71,10 @@ pub async fn delete_indexer(
             .exec(transaction)
             .await?;
     }
+
+    let _result = models::indexer::Entity::delete_by_id(indexer_id)
+        .exec(transaction)
+        .await?;
+
     Ok(())
 }

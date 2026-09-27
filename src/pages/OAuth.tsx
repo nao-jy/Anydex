@@ -83,8 +83,22 @@ export const OAuth = () => {
                 <Accordion.Panel>
                   <OAuthContent
                     data={cl}
-                    onSave={() => {}}
-                    onDelete={() => {}}
+                    onSave={async (data) => {
+                      const result = await commands.updateOauthClient(data);
+                      if (result.status === "error") {
+                        await showErrorDialog(result.error);
+                        throw new Error(result.error);
+                      }
+                      queryClient.invalidateQueries({ queryKey: ["oauths"] });
+                    }}
+                    onDelete={async () => {
+                      const result = await commands.deleteOauthClient(cl.id);
+                      if (result.status === "error") {
+                        await showErrorDialog(result.error);
+                        throw new Error(result.error);
+                      }
+                      queryClient.invalidateQueries({ queryKey: ["oauths"] });
+                    }}
                   />
                 </Accordion.Panel>
               </Accordion.Item>
@@ -118,23 +132,27 @@ const OAuthContent = (props: OAuthContentProps) => {
         label={"名前"}
         value={name}
         onChange={(v) => setName(v.currentTarget.value)}
+        required
       />
       <TextInput
         label={"クライアントID"}
         value={cliendId}
         onChange={(v) => setClientId(v.currentTarget.value)}
+        required
       />
       <TextInput
         label={"認証エンドポイント"}
         type="url"
         value={authEndpoint}
         onChange={(v) => setAuthEndpoint(v.currentTarget.value)}
+        required
       />
       <TextInput
         label={"トークンエンドポイント"}
         type="url"
         value={tokenEndpoint}
         onChange={(v) => setTokenEndpoint(v.currentTarget.value)}
+        required
       />
       <TextInput
         label={"リフレッシュエンドポイント"}
@@ -146,6 +164,7 @@ const OAuthContent = (props: OAuthContentProps) => {
         label={"スコープ"}
         value={scopes}
         onChange={(v) => setScopes(v)}
+        required
       />
       <Group gap="xs" mt={24} wrap="nowrap">
         <Button
@@ -169,7 +188,7 @@ const OAuthContent = (props: OAuthContentProps) => {
           保存
         </Button>
         <Button
-          variant="default"
+          color="red"
           onClick={async () => {
             await showConfirmDialog(
               "OAuthを削除します、よろしいですか？",

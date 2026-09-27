@@ -262,6 +262,32 @@ export const Index = () => {
                             }
                             index={index}
                           />
+                          <Group gap="xs" mt={24} wrap="nowrap">
+                            <Button
+                              size="sm"
+                              color="red"
+                              onClick={async () => {
+                                await showConfirmDialog(
+                                  "インデックスを削除します、よろしいですか？",
+                                  async (ok) => {
+                                    if (ok) {
+                                      const result = await commands.deleteIndex(
+                                        index.id,
+                                      );
+                                      if (result.status === "error") {
+                                        await showErrorDialog(result.error);
+                                      }
+                                      queryClient.invalidateQueries({
+                                        queryKey: ["indexes"],
+                                      });
+                                    }
+                                  },
+                                );
+                              }}
+                            >
+                              {"インデックスを削除"}
+                            </Button>
+                          </Group>
                         </Stack>
                       </Paper>
                       <Paper withBorder p="md" radius="md">
@@ -450,7 +476,9 @@ const IndexDescription = (props: IndexDescriptionProps) => {
   return (
     <Group justify="space-between" wrap="nowrap">
       <Text size="sm" c="dimmed" style={{ whiteSpace: "pre-wrap" }}>
-        {index.description}
+        {index.description.length === 0
+          ? "情報がありません"
+          : index.description}
       </Text>
 
       <Button
@@ -869,7 +897,7 @@ const Indexer = (params: IndexerProps) => {
               );
             }}
           >
-            {"削除"}
+            {"インデクサを削除"}
           </Button>
         </Group>
       </Stack>
