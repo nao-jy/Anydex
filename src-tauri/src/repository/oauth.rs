@@ -1,6 +1,7 @@
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, Order};
-
 use crate::{dto::models::OAuthClient, repository::models};
+use sea_orm::ActiveModelTrait;
+use sea_orm::TransactionTrait;
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait, Order, Set};
 
 pub async fn list_oauth_client(database: &DatabaseConnection) -> Result<Vec<OAuthClient>, DbErr> {
     let models = models::oauth_client::Entity::find()
@@ -19,6 +20,37 @@ pub async fn list_oauth_client(database: &DatabaseConnection) -> Result<Vec<OAut
         })
         .collect();
     Ok(models)
+}
+
+pub async fn create_empty_oauth_client(
+    database: &DatabaseConnection,
+) -> Result<OAuthClient, DbErr> {
+    let transaction = database.begin().await?;
+    let name: String = "新しいOAuth".into();
+    let scope: Vec<String> = Vec::new();
+
+    let model = models::oauth_client::ActiveModel {
+        name: Set(name),
+        client_id: Set("".into()),
+        authorization_endpoint: Set("".into()),
+        token_endpoint: Set("".into()),
+        refresh_endpoint: Set(None),
+        scopes: Set(serde_json::Value::from(scope)),
+        ..Default::default()
+    }
+    .insert(&transaction)
+    .await?;
+
+    transaction.commit().await?;
+    Ok(OAuthClient {
+        id: model.id,
+        name: model.name,
+        client_id: model.client_id,
+        authorization_endpoint: model.authorization_endpoint,
+        token_endpoint: model.token_endpoint,
+        refresh_endpoint: model.refresh_endpoint,
+        scopes: model.scopes,
+    })
 }
 
 pub async fn load_oauth_client(

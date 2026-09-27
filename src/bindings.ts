@@ -26,6 +26,7 @@ export const commands = {
 	getParamSchema: (pluginType: PluginType, pluginName: string) => __TAURI_INVOKE<string | null>("get_param_schema", { pluginType, pluginName }),
 	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),
 	listOauthClient: () => typedError<OAuthClient[], string>(__TAURI_INVOKE("list_oauth_client")),
+	createEmptyOauthClient: () => typedError<OAuthClient, string>(__TAURI_INVOKE("create_empty_oauth_client")),
 };
 
 /* Types */

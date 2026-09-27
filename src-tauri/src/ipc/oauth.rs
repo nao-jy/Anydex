@@ -15,3 +15,15 @@ pub async fn list_oauth_client(
         .map_err(|err| err.to_string())?;
     Ok(ret)
 }
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument()]
+pub async fn create_empty_oauth_client(
+    database: State<'_, DatabaseConnection>,
+) -> Result<OAuthClient, String> {
+    let ret = repository::oauth::create_empty_oauth_client(database.inner())
+        .await
+        .map_err(|err| err.to_string())?;
+    Ok(ret)
+}

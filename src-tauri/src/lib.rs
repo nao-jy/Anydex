@@ -39,6 +39,7 @@ macro_rules! app_commands {
             ipc::plugins::get_param_schema,
             ipc::search::search_mock,
             ipc::oauth::list_oauth_client,
+            ipc::oauth::create_empty_oauth_client,
         ]
     };
 }
