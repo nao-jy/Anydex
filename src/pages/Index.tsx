@@ -557,12 +557,11 @@ const PluginSelector = (props: PluginSelectorProps) => {
             label={info.pluginType}
             value={selecting}
             data={info.plugins}
-            onChange={async (_value, option) => {
-              if (option === null || option.value.length === 0) {
-                setParamSchema(null);
+            onChange={async (value, _option) => {
+              if (value === null || value.length === 0) {
                 return;
               }
-              setSelecting(option.value);
+              setSelecting(value);
             }}
             disabled={saving}
             error={error && "保存できませんでした。"}
