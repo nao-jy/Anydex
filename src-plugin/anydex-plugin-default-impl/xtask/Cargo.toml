@@ -1,0 +1,10 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+dirs = "7.0.0"
+serde_json.workspace = true
+tauri-utils = "2.10.0"
