@@ -3,14 +3,7 @@ use std::{path::Path, sync::Mutex};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
-/// 非表示・最小化・裏に隠れている、のどれからでも手前に出す
-fn bring_main_to_front(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.unminimize();
-        let _ = window.set_focus();
-    }
-}
+use crate::window::common::bring_main_to_front;
 
 #[derive(Clone, Serialize)]
 struct Launch {

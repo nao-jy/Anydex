@@ -4,7 +4,10 @@ use tauri::{generate_handler, Manager};
 use tauri_specta::{collect_commands, collect_events, Builder};
 use tracing::error;
 
-use crate::plugin::entry::PluginType;
+use crate::{
+    plugin::entry::PluginType,
+    window::task_tray::{init_task_tray, prevent_close},
+};
 
 pub mod dto;
 pub mod ipc;
@@ -64,9 +67,9 @@ pub fn run() {
     let mut builder = tauri::Builder::default();
     #[cfg(desktop)]
     {
-        builder = builder.plugin(tauri_plugin_single_instance::init(
-            window::singleton::on_second_instance,
-        ))
+        use crate::window::singleton::on_second_instance;
+
+        builder = builder.plugin(tauri_plugin_single_instance::init(on_second_instance))
     }
 
     builder
@@ -85,6 +88,13 @@ pub fn run() {
             app.manage(database);
             tracing::info!(path = %database_path.display(), "application database initialized");
 
+            let task_tray_init = init_task_tray(app);
+            if let Err(err) = task_tray_init {
+                error!(err);
+            } else {
+                tracing::info!("task tray initialized");
+            }
+
             let init_result = PluginType::init(app_data_dir.to_str().unwrap());
             if let Err(err) = init_result {
                 error!(err);
@@ -97,6 +107,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(app_commands!(generate_handler))
+        .on_window_event(prevent_close)
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
