@@ -13,6 +13,7 @@ pub mod plugin;
 pub mod repository;
 pub mod server;
 pub mod state;
+pub mod window;
 
 macro_rules! app_commands {
     ($command_macro:ident) => {
@@ -51,16 +52,24 @@ macro_rules! app_commands {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder: Builder<tauri::Wry> = Builder::new()
+    let exporter: Builder<tauri::Wry> = Builder::new()
         .commands(app_commands!(collect_commands))
         .events(collect_events![]);
 
     #[cfg(debug_assertions)]
-    builder
+    exporter
         .export(Typescript::default(), "../src/bindings.ts")
         .expect("Failed to export typescript bindings");
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(
+            window::singleton::on_second_instance,
+        ))
+    }
+
+    builder
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             app.manage(state::McpServerState::default());
