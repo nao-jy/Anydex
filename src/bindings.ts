@@ -129,6 +129,7 @@ export type OAuthClient = {
 	id: number,
 	name: string,
 	clientId: string,
+	clientSecret: string | null,
 	authorizationEndpoint: string,
 	tokenEndpoint: string,
 	refreshEndpoint: string | null,

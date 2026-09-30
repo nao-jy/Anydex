@@ -1,0 +1,74 @@
+use std::future::Future;
+
+use chrono::{DateTime, Utc};
+use oauth2::{
+    basic::BasicClient, reqwest, AccessToken, AuthUrl, AuthorizationCode, ClientId, ClientSecret,
+    CsrfToken, PkceCodeChallenge, RedirectUrl, RefreshToken, Scope, TokenResponse, TokenUrl,
+};
+use url::Url;
+
+pub struct OAuthResult {
+    pub access_token: AccessToken,
+    pub refresh_token: Option<RefreshToken>,
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+type HostUrl<'a> = &'a str;
+
+pub async fn do_oauth_pkce<Fut>(
+    cliend_id: &str,
+    client_secret: Option<&str>,
+    auth_endpoint: &str,
+    token_endpoint: &str,
+    redirect_url: &str,
+    scopes: &[String],
+    callback: impl Fn(&Url, &CsrfToken, HostUrl) -> Fut,
+) -> Result<OAuthResult, String>
+where
+    Fut: Future<Output = String>,
+{
+    let mut client = BasicClient::new(ClientId::new(cliend_id.to_string()))
+        .set_auth_uri(AuthUrl::new(auth_endpoint.to_string()).map_err(|err| err.to_string())?)
+        .set_token_uri(TokenUrl::new(token_endpoint.to_string()).map_err(|err| err.to_string())?)
+        .set_redirect_uri(
+            RedirectUrl::new(redirect_url.to_string()).map_err(|err| err.to_string())?,
+        );
+
+    if let Some(v) = client_secret {
+        client = client.set_client_secret(ClientSecret::new(v.to_string()));
+    }
+
+    let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
+
+    // Generate the full authorization URL.
+    let (auth_url, csrf_token) = client
+        .authorize_url(CsrfToken::new_random)
+        .add_scopes(scopes.iter().cloned().map(Scope::new))
+        .set_pkce_challenge(pkce_challenge)
+        .url();
+
+    let auth_code = callback(&auth_url, &csrf_token, redirect_url).await;
+
+    let http_client = reqwest::ClientBuilder::new()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .expect("Client should build");
+
+    let token_result = client
+        .exchange_code(AuthorizationCode::new(auth_code))
+        // Set the PKCE code verifier.
+        .set_pkce_verifier(pkce_verifier)
+        .request_async(&http_client)
+        .await
+        .map_err(|err| err.to_string())?;
+
+    Ok(OAuthResult {
+        access_token: token_result.access_token().clone(),
+        refresh_token: token_result
+            .refresh_token()
+            .map_or(None, |t| Some(t.clone())),
+        expires_at: token_result
+            .expires_in()
+            .map_or(None, |e| Some(Utc::now() + e)),
+    })
+}

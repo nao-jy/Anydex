@@ -120,6 +120,7 @@ const OAuthContent = (props: OAuthContentProps) => {
   const { data, onSave, onDelete } = props;
   const [name, setName] = useState(data.name);
   const [cliendId, setClientId] = useState(data.clientId);
+  const [clientSecret, setClientSecret] = useState(data.clientSecret ?? "");
   const [authEndpoint, setAuthEndpoint] = useState(data.authorizationEndpoint);
   const [tokenEndpoint, setTokenEndpoint] = useState(data.tokenEndpoint);
   const [refreshEndpoint, setRefreshEndpoint] = useState(
@@ -139,6 +140,11 @@ const OAuthContent = (props: OAuthContentProps) => {
         value={cliendId}
         onChange={(v) => setClientId(v.currentTarget.value)}
         required
+      />
+      <TextInput
+        label={"クライアントシークレット"}
+        value={clientSecret ?? ""}
+        onChange={(v) => setClientSecret(v.currentTarget.value)}
       />
       <TextInput
         label={"認証エンドポイント"}
@@ -173,10 +179,13 @@ const OAuthContent = (props: OAuthContentProps) => {
               refreshEndpoint.trim().length === 0
                 ? null
                 : refreshEndpoint.trim();
+            const sec =
+              clientSecret.trim().length === 0 ? null : clientSecret.trim();
             const newData: OAuthClient = {
               id: data.id,
               name: name,
               clientId: cliendId,
+              clientSecret: sec,
               authorizationEndpoint: authEndpoint,
               tokenEndpoint: tokenEndpoint,
               refreshEndpoint: refr,

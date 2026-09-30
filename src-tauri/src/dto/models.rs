@@ -125,6 +125,7 @@ pub struct OAuthClient {
     pub id: i32,
     pub name: String,
     pub client_id: String,
+    pub client_secret: Option<String>,
     pub authorization_endpoint: String,
     pub token_endpoint: String,
     pub refresh_endpoint: Option<String>,

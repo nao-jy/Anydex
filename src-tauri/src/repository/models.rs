@@ -261,6 +261,7 @@ pub mod oauth_client {
         #[sea_orm(unique)]
         pub name: String,
         pub client_id: String,
+        pub client_sercret: Option<String>,
         pub authorization_endpoint: String,
         pub token_endpoint: String,
         pub refresh_endpoint: Option<String>,
