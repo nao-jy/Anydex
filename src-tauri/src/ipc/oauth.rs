@@ -11,7 +11,9 @@ use tauri::State;
 
 use crate::dto::models::OAuthClient;
 use crate::repository;
+use crate::server::manager::end;
 use crate::server::oauth::client::do_oauth_pkce;
+use crate::server::oauth::client::get_server_name;
 use crate::server::oauth::client::revoke_access_token;
 use crate::server::oauth::client::revoke_refresh_token;
 
@@ -148,5 +150,13 @@ pub async fn test_oauth(client: OAuthClient) -> Result<(), String> {
         }
     }
 
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument()]
+pub async fn abort_oauth(client_id: &str) -> Result<(), String> {
+    let _ = end(&get_server_name(client_id));
     Ok(())
 }

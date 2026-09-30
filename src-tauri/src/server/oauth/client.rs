@@ -19,7 +19,7 @@ pub struct OAuthResult {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-fn get_server_name(client_id: &str) -> String {
+pub fn get_server_name(client_id: &str) -> String {
     format!("oauth-{client_id}")
 }
 

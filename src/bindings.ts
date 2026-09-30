@@ -33,6 +33,7 @@ export const commands = {
 	updateOauthClient: (data: OAuthClient) => typedError<null, string>(__TAURI_INVOKE("update_oauth_client", { data })),
 	deleteOauthClient: (oauthId: number) => typedError<null, string>(__TAURI_INVOKE("delete_oauth_client", { oauthId })),
 	testOauth: (client: OAuthClient) => typedError<null, string>(__TAURI_INVOKE("test_oauth", { client })),
+	abortOauth: (clientId: string) => typedError<null, string>(__TAURI_INVOKE("abort_oauth", { clientId })),
 };
 
 /* Types */

@@ -225,27 +225,37 @@ const OAuthContent = (props: OAuthContentProps) => {
         >
           保存
         </Button>
-        <Button
-          variant="outline"
-          onClick={async () => {
-            setIsTesting(true);
-            try {
-              const newData = get_current_info();
-              const result = await commands.testOauth(newData);
-              if (result.status === "ok") {
-                await showInfoDialog("認証に成功しました");
-              } else {
-                await showErrorDialog(result.error);
+        {isTesting ? (
+          <Button
+            variant="outline"
+            onClick={async () => {
+              await commands.abortOauth(cliendId);
+            }}
+          >
+            <Loader size={"sm"} style={{ marginRight: "10px" }} />
+            中断
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            onClick={async () => {
+              setIsTesting(true);
+              try {
+                const newData = get_current_info();
+                const result = await commands.testOauth(newData);
+                if (result.status === "ok") {
+                  await showInfoDialog("認証に成功しました");
+                } else {
+                  await showErrorDialog(result.error);
+                }
+              } finally {
+                setIsTesting(false);
               }
-            } finally {
-              setIsTesting(false);
-            }
-          }}
-          disabled={isTesting}
-        >
-          {isTesting && <Loader size={"sm"} style={{ marginRight: "10px" }} />}
-          テスト
-        </Button>
+            }}
+          >
+            テスト
+          </Button>
+        )}
         <Button
           color="red"
           onClick={async () => {

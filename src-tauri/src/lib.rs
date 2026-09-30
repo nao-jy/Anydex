@@ -50,6 +50,7 @@ macro_rules! app_commands {
             ipc::oauth::update_oauth_client,
             ipc::oauth::delete_oauth_client,
             ipc::oauth::test_oauth,
+            ipc::oauth::abort_oauth,
         ]
     };
 }
