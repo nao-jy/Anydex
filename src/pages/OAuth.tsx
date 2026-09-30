@@ -243,7 +243,7 @@ const OAuthContent = (props: OAuthContentProps) => {
           }}
           disabled={isTesting}
         >
-          {isTesting && <Loader />}
+          {isTesting && <Loader size={"sm"} style={{ marginRight: "10px" }} />}
           テスト
         </Button>
         <Button

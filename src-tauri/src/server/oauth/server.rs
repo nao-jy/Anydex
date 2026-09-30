@@ -27,7 +27,7 @@ struct AppState {
     tx: Mutex<Option<oneshot::Sender<CallbackResult>>>,
 }
 
-const CALLBACK_PATH: &str = "/callback";
+pub const CALLBACK_PATH: &str = "/callback";
 
 async fn callback(
     State(st): State<Arc<AppState>>,

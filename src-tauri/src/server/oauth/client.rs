@@ -6,10 +6,11 @@ use oauth2::{
     CsrfToken, PkceCodeChallenge, RedirectUrl, RefreshToken, RevocationUrl, Scope,
     StandardRevocableToken, TokenResponse, TokenUrl,
 };
+use tracing::info;
 
 use crate::server::{
     manager::{end, start},
-    oauth::server::get_server,
+    oauth::server::{get_server, CALLBACK_PATH},
 };
 
 pub struct OAuthResult {
@@ -71,8 +72,10 @@ async fn do_oauth_pkce_inner(
     let server_name = get_server_name(client_id);
     let _end_result = end(&server_name);
     let start_result = start(&server_name, app, None).map_err(|err| err.to_string())?;
+    let port = start_result.port();
 
-    let redirect_url = start_result.to_string() + "/callback";
+    let redirect_url = format!("http://127.0.0.1:{port}{CALLBACK_PATH}");
+    info!("redirect_url:{redirect_url}");
 
     client = client
         .set_redirect_uri(RedirectUrl::new(redirect_url.clone()).map_err(|err| err.to_string())?);
