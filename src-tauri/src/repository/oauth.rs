@@ -17,6 +17,7 @@ pub async fn list_oauth_client(database: &DatabaseConnection) -> Result<Vec<OAut
             authorization_endpoint: cl.authorization_endpoint,
             token_endpoint: cl.token_endpoint,
             refresh_endpoint: cl.refresh_endpoint,
+            revocation_endpoint: cl.revocation_endpoint,
             scopes: cl.scopes,
         })
         .collect();
@@ -51,6 +52,7 @@ pub async fn create_empty_oauth_client(
         authorization_endpoint: model.authorization_endpoint,
         token_endpoint: model.token_endpoint,
         refresh_endpoint: model.refresh_endpoint,
+        revocation_endpoint: model.revocation_endpoint,
         scopes: model.scopes,
     })
 }
@@ -78,6 +80,7 @@ pub async fn load_oauth_client(
             authorization_endpoint: cl.authorization_endpoint,
             token_endpoint: cl.token_endpoint,
             refresh_endpoint: cl.refresh_endpoint,
+            revocation_endpoint: cl.revocation_endpoint,
             scopes: cl.scopes,
         })),
         None => Ok(None),

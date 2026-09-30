@@ -6,6 +6,8 @@ import {
   Button,
   Container,
   Group,
+  Loader,
+  PasswordInput,
   Stack,
   TagsInput,
   Text,
@@ -13,7 +15,11 @@ import {
 } from "@mantine/core";
 import { commands, OAuthClient } from "../bindings";
 import { PageHeader } from "../components/PageHeader";
-import { showConfirmDialog, showErrorDialog } from "../components/Dialogs";
+import {
+  showConfirmDialog,
+  showErrorDialog,
+  showInfoDialog,
+} from "../components/Dialogs";
 
 export const OAuth = () => {
   const [open, setOpen] = useState<string[]>([]);
@@ -123,10 +129,33 @@ const OAuthContent = (props: OAuthContentProps) => {
   const [clientSecret, setClientSecret] = useState(data.clientSecret ?? "");
   const [authEndpoint, setAuthEndpoint] = useState(data.authorizationEndpoint);
   const [tokenEndpoint, setTokenEndpoint] = useState(data.tokenEndpoint);
+  const [revokeEndpoint, setRevokeEndpoint] = useState(
+    data.revocationEndpoint ?? "",
+  );
   const [refreshEndpoint, setRefreshEndpoint] = useState(
     data.refreshEndpoint ?? "",
   );
   const [scopes, setScopes] = useState<string[]>(data.scopes as string[]);
+  const [isTesting, setIsTesting] = useState(false);
+  const get_current_info = () => {
+    const refr =
+      refreshEndpoint.trim().length === 0 ? null : refreshEndpoint.trim();
+    const sec = clientSecret.trim().length === 0 ? null : clientSecret.trim();
+    const rev =
+      revokeEndpoint.trim().length === 0 ? null : revokeEndpoint.trim();
+    const newData: OAuthClient = {
+      id: data.id,
+      name: name,
+      clientId: cliendId,
+      clientSecret: sec,
+      authorizationEndpoint: authEndpoint,
+      tokenEndpoint: tokenEndpoint,
+      refreshEndpoint: refr,
+      revocationEndpoint: rev,
+      scopes: scopes,
+    };
+    return newData;
+  };
   return (
     <Stack gap={"md"}>
       <TextInput
@@ -134,24 +163,28 @@ const OAuthContent = (props: OAuthContentProps) => {
         value={name}
         onChange={(v) => setName(v.currentTarget.value)}
         required
+        disabled={isTesting}
       />
       <TextInput
         label={"クライアントID"}
         value={cliendId}
         onChange={(v) => setClientId(v.currentTarget.value)}
         required
+        disabled={isTesting}
       />
-      <TextInput
+      <PasswordInput
         label={"クライアントシークレット"}
         value={clientSecret ?? ""}
         onChange={(v) => setClientSecret(v.currentTarget.value)}
+        disabled={isTesting}
       />
       <TextInput
-        label={"認証エンドポイント"}
+        label={"認可エンドポイント"}
         type="url"
         value={authEndpoint}
         onChange={(v) => setAuthEndpoint(v.currentTarget.value)}
         required
+        disabled={isTesting}
       />
       <TextInput
         label={"トークンエンドポイント"}
@@ -159,42 +192,59 @@ const OAuthContent = (props: OAuthContentProps) => {
         value={tokenEndpoint}
         onChange={(v) => setTokenEndpoint(v.currentTarget.value)}
         required
+        disabled={isTesting}
       />
       <TextInput
         label={"リフレッシュエンドポイント"}
         type="url"
         value={refreshEndpoint}
         onChange={(v) => setRefreshEndpoint(v.currentTarget.value)}
+        disabled={isTesting}
+      />
+      <TextInput
+        label={"失効エンドポイント"}
+        type="url"
+        value={revokeEndpoint}
+        onChange={(v) => setRevokeEndpoint(v.currentTarget.value)}
+        disabled={isTesting}
       />
       <TagsInput
         label={"スコープ"}
         value={scopes}
         onChange={(v) => setScopes(v)}
         required
+        disabled={isTesting}
       />
       <Group gap="xs" mt={24} wrap="nowrap">
         <Button
           onClick={() => {
-            const refr =
-              refreshEndpoint.trim().length === 0
-                ? null
-                : refreshEndpoint.trim();
-            const sec =
-              clientSecret.trim().length === 0 ? null : clientSecret.trim();
-            const newData: OAuthClient = {
-              id: data.id,
-              name: name,
-              clientId: cliendId,
-              clientSecret: sec,
-              authorizationEndpoint: authEndpoint,
-              tokenEndpoint: tokenEndpoint,
-              refreshEndpoint: refr,
-              scopes: scopes,
-            };
+            const newData = get_current_info();
             onSave(newData);
           }}
+          disabled={isTesting}
         >
           保存
+        </Button>
+        <Button
+          variant="outline"
+          onClick={async () => {
+            setIsTesting(true);
+            try {
+              const newData = get_current_info();
+              const result = await commands.testOauth(newData);
+              if (result.status === "ok") {
+                await showInfoDialog("認証に成功しました");
+              } else {
+                await showErrorDialog(result.error);
+              }
+            } finally {
+              setIsTesting(false);
+            }
+          }}
+          disabled={isTesting}
+        >
+          {isTesting && <Loader />}
+          テスト
         </Button>
         <Button
           color="red"
@@ -208,6 +258,7 @@ const OAuthContent = (props: OAuthContentProps) => {
               },
             );
           }}
+          disabled={isTesting}
         >
           削除
         </Button>

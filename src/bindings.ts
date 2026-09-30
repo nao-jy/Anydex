@@ -32,6 +32,7 @@ export const commands = {
 	createEmptyOauthClient: () => typedError<OAuthClient, string>(__TAURI_INVOKE("create_empty_oauth_client")),
 	updateOauthClient: (data: OAuthClient) => typedError<null, string>(__TAURI_INVOKE("update_oauth_client", { data })),
 	deleteOauthClient: (oauthId: number) => typedError<null, string>(__TAURI_INVOKE("delete_oauth_client", { oauthId })),
+	testOauth: (client: OAuthClient) => typedError<null, string>(__TAURI_INVOKE("test_oauth", { client })),
 };
 
 /* Types */
@@ -133,6 +134,7 @@ export type OAuthClient = {
 	authorizationEndpoint: string,
 	tokenEndpoint: string,
 	refreshEndpoint: string | null,
+	revocationEndpoint: string | null,
 	scopes: any,
 };
 

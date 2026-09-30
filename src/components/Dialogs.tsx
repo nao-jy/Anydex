@@ -14,3 +14,7 @@ export const showConfirmDialog = async (
   });
   onConfirm(confirmation);
 };
+
+export const showInfoDialog = async (msg: string) => {
+  await message(msg, { title: "Info", kind: "info" });
+};

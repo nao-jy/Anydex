@@ -265,6 +265,7 @@ pub mod oauth_client {
         pub authorization_endpoint: String,
         pub token_endpoint: String,
         pub refresh_endpoint: Option<String>,
+        pub revocation_endpoint: Option<String>,
         /// JSON array of OAuth scopes.
         pub scopes: Json,
         #[sea_orm(has_many)]

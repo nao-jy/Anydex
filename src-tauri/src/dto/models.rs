@@ -129,6 +129,7 @@ pub struct OAuthClient {
     pub authorization_endpoint: String,
     pub token_endpoint: String,
     pub refresh_endpoint: Option<String>,
+    pub revocation_endpoint: Option<String>,
     #[specta(type = specta_typescript::Any)]
     pub scopes: Value,
 }

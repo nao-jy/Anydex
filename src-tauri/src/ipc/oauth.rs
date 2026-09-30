@@ -11,6 +11,9 @@ use tauri::State;
 
 use crate::dto::models::OAuthClient;
 use crate::repository;
+use crate::server::oauth::client::do_oauth_pkce;
+use crate::server::oauth::client::revoke_access_token;
+use crate::server::oauth::client::revoke_refresh_token;
 
 #[tauri::command]
 #[specta::specta]
@@ -58,6 +61,8 @@ pub async fn update_oauth_client(
             active_model.token_endpoint = Set(data.token_endpoint);
             active_model.refresh_endpoint = Set(data.refresh_endpoint);
             active_model.scopes = Set(data.scopes);
+            active_model.revocation_endpoint = Set(data.revocation_endpoint);
+            active_model.client_sercret = Set(data.client_secret);
 
             active_model
                 .update(database.inner())
@@ -101,5 +106,47 @@ pub async fn delete_oauth_client(
         .map_err(|err| err.to_string())?;
 
     tracing::info!(oauth_id = oauth_id, "OAuth client deleted");
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument()]
+pub async fn test_oauth(client: OAuthClient) -> Result<(), String> {
+    let scopes: Vec<String> = client
+        .scopes
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    let result = do_oauth_pkce(
+        &client.client_id,
+        client.client_secret.as_deref(),
+        &client.authorization_endpoint,
+        &client.token_endpoint,
+        &scopes,
+    )
+    .await?;
+
+    if let Some(rev) = client.revocation_endpoint {
+        let _ = revoke_access_token(
+            &client.client_id,
+            client.client_secret.as_deref(),
+            result.access_token.secret(),
+            &rev,
+        )
+        .await;
+        if let Some(rfr) = result.refresh_token {
+            let _ = revoke_refresh_token(
+                &client.client_id,
+                client.client_secret.as_deref(),
+                rfr.secret(),
+                &rev,
+            )
+            .await;
+        }
+    }
+
     Ok(())
 }

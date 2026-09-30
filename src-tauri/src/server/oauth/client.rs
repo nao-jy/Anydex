@@ -3,7 +3,8 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use oauth2::{
     basic::BasicClient, reqwest, AccessToken, AuthUrl, AuthorizationCode, ClientId, ClientSecret,
-    CsrfToken, PkceCodeChallenge, RedirectUrl, RefreshToken, Scope, TokenResponse, TokenUrl,
+    CsrfToken, PkceCodeChallenge, RedirectUrl, RefreshToken, RevocationUrl, Scope,
+    StandardRevocableToken, TokenResponse, TokenUrl,
 };
 
 use crate::server::{
@@ -111,4 +112,63 @@ async fn do_oauth_pkce_inner(
             .expires_in()
             .map_or(None, |e| Some(Utc::now() + e)),
     })
+}
+
+async fn revoke_inner(
+    client_id: &str,
+    client_secret: Option<&str>,
+    token: &StandardRevocableToken,
+    revocation_endtpoint: &str,
+) -> Result<(), String> {
+    let mut client = BasicClient::new(ClientId::new(client_id.to_string())).set_revocation_url(
+        RevocationUrl::new(revocation_endtpoint.to_string()).map_err(|err| err.to_string())?,
+    );
+    if let Some(v) = client_secret {
+        client = client.set_client_secret(ClientSecret::new(v.to_string()));
+    }
+
+    let http_client = reqwest::ClientBuilder::new()
+        // SSRF対策としてリダイレクトは無効化
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|err| err.to_string())?;
+
+    // アクセストークンをrevoke
+    client
+        .revoke_token(token.to_owned())
+        .map_err(|err| err.to_string())?
+        .request_async(&http_client)
+        .await
+        .map_err(|err| err.to_string())?;
+    Ok(())
+}
+
+pub async fn revoke_access_token(
+    client_id: &str,
+    client_secret: Option<&str>,
+    access_token: &str,
+    revocation_endtpoint: &str,
+) -> Result<(), String> {
+    revoke_inner(
+        client_id,
+        client_secret,
+        &StandardRevocableToken::AccessToken(AccessToken::new(access_token.to_string())),
+        revocation_endtpoint,
+    )
+    .await
+}
+
+pub async fn revoke_refresh_token(
+    client_id: &str,
+    client_secret: Option<&str>,
+    refresh_token: &str,
+    revocation_endtpoint: &str,
+) -> Result<(), String> {
+    revoke_inner(
+        client_id,
+        client_secret,
+        &StandardRevocableToken::RefreshToken(RefreshToken::new(refresh_token.to_string())),
+        revocation_endtpoint,
+    )
+    .await
 }
