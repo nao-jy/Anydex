@@ -50,6 +50,8 @@ axum = "0.8.9"
 enum-iterator = "2.3.0"
 tauri-plugin-dialog = "2"
 oauth2 = "5.0.0"
+webbrowser = "1.2.4"
+subtle = "2.6.1"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

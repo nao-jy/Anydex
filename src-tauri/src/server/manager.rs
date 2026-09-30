@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    net::SocketAddr,
     sync::{mpsc, Mutex, OnceLock},
     thread::{self, JoinHandle},
 };
@@ -21,7 +22,7 @@ fn servers() -> &'static Mutex<HashMap<String, RunningServer>> {
 /// The function returns only after the listener has been bound, so a successful
 /// result means the server can accept connections. `end` uses `name` to signal
 /// a graceful shutdown and wait for this thread to exit.
-pub fn start(name: &str, app: axum::Router, port: Option<u16>) -> Result<(), String> {
+pub fn start(name: &str, app: axum::Router, port: Option<u16>) -> Result<SocketAddr, String> {
     if name.is_empty() {
         return Err("server name must not be empty".into());
     }
@@ -38,7 +39,7 @@ pub fn start(name: &str, app: axum::Router, port: Option<u16>) -> Result<(), Str
     }
 
     let (shutdown, shutdown_signal) = oneshot::channel();
-    let (ready, ready_signal) = mpsc::sync_channel::<Result<(), String>>(1);
+    let (ready, ready_signal) = mpsc::sync_channel::<Result<SocketAddr, String>>(1);
     let thread_name = name.to_owned();
     let address = format!("0.0.0.0:{port}");
     let server_thread = thread::Builder::new()
@@ -64,7 +65,7 @@ pub fn start(name: &str, app: axum::Router, port: Option<u16>) -> Result<(), Str
                     }
                 };
 
-                if ready.send(Ok(())).is_err() {
+                if ready.send(Ok(listener.local_addr().unwrap())).is_err() {
                     return;
                 }
 
@@ -83,7 +84,7 @@ pub fn start(name: &str, app: axum::Router, port: Option<u16>) -> Result<(), Str
         .map_err(|error| format!("failed to spawn server thread: {error}"))?;
 
     match ready_signal.recv() {
-        Ok(Ok(())) => {
+        Ok(Ok(adrr)) => {
             servers.insert(
                 name.to_owned(),
                 RunningServer {
@@ -91,7 +92,7 @@ pub fn start(name: &str, app: axum::Router, port: Option<u16>) -> Result<(), Str
                     thread: server_thread,
                 },
             );
-            Ok(())
+            Ok(adrr)
         }
         Ok(Err(error)) => {
             let _ = server_thread.join();

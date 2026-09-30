@@ -1,11 +1,15 @@
-use std::future::Future;
+use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use oauth2::{
     basic::BasicClient, reqwest, AccessToken, AuthUrl, AuthorizationCode, ClientId, ClientSecret,
     CsrfToken, PkceCodeChallenge, RedirectUrl, RefreshToken, Scope, TokenResponse, TokenUrl,
 };
-use url::Url;
+
+use crate::server::{
+    manager::{end, start},
+    oauth::server::get_server,
+};
 
 pub struct OAuthResult {
     pub access_token: AccessToken,
@@ -13,26 +17,40 @@ pub struct OAuthResult {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-type HostUrl<'a> = &'a str;
+fn get_server_name(client_id: &str) -> String {
+    format!("oauth-{client_id}")
+}
 
-pub async fn do_oauth_pkce<Fut>(
-    cliend_id: &str,
+pub async fn do_oauth_pkce(
+    client_id: &str,
     client_secret: Option<&str>,
     auth_endpoint: &str,
     token_endpoint: &str,
-    redirect_url: &str,
     scopes: &[String],
-    callback: impl Fn(&Url, &CsrfToken, HostUrl) -> Fut,
-) -> Result<OAuthResult, String>
-where
-    Fut: Future<Output = String>,
-{
-    let mut client = BasicClient::new(ClientId::new(cliend_id.to_string()))
+) -> Result<OAuthResult, String> {
+    let server_name = get_server_name(client_id);
+    let result = do_oauth_pkce_inner(
+        client_id,
+        client_secret,
+        auth_endpoint,
+        token_endpoint,
+        scopes,
+    )
+    .await;
+    let _ = end(&server_name);
+    result
+}
+
+async fn do_oauth_pkce_inner(
+    client_id: &str,
+    client_secret: Option<&str>,
+    auth_endpoint: &str,
+    token_endpoint: &str,
+    scopes: &[String],
+) -> Result<OAuthResult, String> {
+    let mut client = BasicClient::new(ClientId::new(client_id.to_string()))
         .set_auth_uri(AuthUrl::new(auth_endpoint.to_string()).map_err(|err| err.to_string())?)
-        .set_token_uri(TokenUrl::new(token_endpoint.to_string()).map_err(|err| err.to_string())?)
-        .set_redirect_uri(
-            RedirectUrl::new(redirect_url.to_string()).map_err(|err| err.to_string())?,
-        );
+        .set_token_uri(TokenUrl::new(token_endpoint.to_string()).map_err(|err| err.to_string())?);
 
     if let Some(v) = client_secret {
         client = client.set_client_secret(ClientSecret::new(v.to_string()));
@@ -47,7 +65,27 @@ where
         .set_pkce_challenge(pkce_challenge)
         .url();
 
-    let auth_code = callback(&auth_url, &csrf_token, redirect_url).await;
+    // start server
+    let (app, code_receiver) = get_server(&csrf_token);
+    let server_name = get_server_name(client_id);
+    let _end_result = end(&server_name);
+    let start_result = start(&server_name, app, None).map_err(|err| err.to_string())?;
+
+    let redirect_url = start_result.to_string() + "/callback";
+
+    client = client
+        .set_redirect_uri(RedirectUrl::new(redirect_url.clone()).map_err(|err| err.to_string())?);
+
+    webbrowser::open(&auth_url.to_string()).unwrap();
+
+    let timeout = Duration::from_secs(300);
+    let outcome = tokio::time::timeout(timeout.clone(), code_receiver).await;
+    let code = match outcome {
+        Err(_) => Err(format!("ログインがタイムアウトしました")),
+        Ok(Err(_)) => Err(format!("コールバック待ち受けが予期せず終了しました")),
+        Ok(Ok(Err(e))) => Err(format!("認可エラー: {e}")),
+        Ok(Ok(Ok(code))) => Ok(code),
+    }?;
 
     let http_client = reqwest::ClientBuilder::new()
         .redirect(reqwest::redirect::Policy::none())
@@ -55,12 +93,14 @@ where
         .expect("Client should build");
 
     let token_result = client
-        .exchange_code(AuthorizationCode::new(auth_code))
+        .exchange_code(AuthorizationCode::new(code))
         // Set the PKCE code verifier.
         .set_pkce_verifier(pkce_verifier)
         .request_async(&http_client)
         .await
         .map_err(|err| err.to_string())?;
+
+    let _end_result = end(&server_name);
 
     Ok(OAuthResult {
         access_token: token_result.access_token().clone(),
