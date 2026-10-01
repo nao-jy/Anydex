@@ -59,15 +59,9 @@ pub async fn create_empty_oauth_client(
 
 pub async fn load_oauth_client(
     database: &DatabaseConnection,
-    file_source_id: i32,
+    oauth_id: i32,
 ) -> Result<Option<OAuthClient>, DbErr> {
-    let Some(authentication) = models::oauth_authentication::Entity::find_by_id(file_source_id)
-        .one(database)
-        .await?
-    else {
-        return Ok(None);
-    };
-    let client = models::oauth_client::Entity::find_by_id(authentication.oauth_id)
+    let client = models::oauth_client::Entity::find_by_id(oauth_id)
         .one(database)
         .await?;
 

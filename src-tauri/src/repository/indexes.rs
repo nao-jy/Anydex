@@ -234,7 +234,11 @@ async fn load_indexer(
                     updated_at: file.updated_at,
                 })
                 .collect();
-            let oauth_client = load_oauth_client(database, file_source_some.id).await?;
+            let oauth_client = if let Some(oauth_id) = file_source_some.oauth_id {
+                load_oauth_client(database, oauth_id).await?
+            } else {
+                None
+            };
             Some(FileSource {
                 id: file_source_some.id,
                 indexer_id: file_source_some.indexer_id,
