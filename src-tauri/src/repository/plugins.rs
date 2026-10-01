@@ -105,6 +105,7 @@ pub async fn upsert_file_source(
     database: &DatabaseConnection,
     indexer_id: i32,
     file_source_name: String,
+    oauth_id: Option<i32>,
     params: serde_json::Value,
 ) -> Result<(), DbErr> {
     let transaction = database.begin().await?;
@@ -123,6 +124,7 @@ pub async fn upsert_file_source(
             name: Set(file_source_name),
             indexer_id: Set(indexer_id),
             params: Set(params),
+            oauth_id: Set(oauth_id),
             ..Default::default()
         }
         .insert(&transaction)

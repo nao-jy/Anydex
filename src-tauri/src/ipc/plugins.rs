@@ -136,6 +136,7 @@ pub async fn upsert_file_source(
     indexer_id: i32,
     file_source_name: String,
     params_json: String,
+    oauth_id: Option<i32>,
     database: State<'_, DatabaseConnection>,
 ) -> Result<(), String> {
     let _model = repository::models::indexer::Entity::find_by_id(indexer_id)
@@ -152,9 +153,15 @@ pub async fn upsert_file_source(
     let params: serde_json::Value =
         serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
 
-    repository::plugins::upsert_file_source(&database, indexer_id, file_source_name, params)
-        .await
-        .map_err(|err| err.to_string())?;
+    repository::plugins::upsert_file_source(
+        &database,
+        indexer_id,
+        file_source_name,
+        oauth_id,
+        params,
+    )
+    .await
+    .map_err(|err| err.to_string())?;
 
     Ok(())
 }

@@ -28,6 +28,7 @@ import {
   PluginType,
   Indexer as IndexerInfo,
   Schedule as ScheduleInfo,
+  OAuthClient,
 } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
 import { JsonSchemaForm } from "../components/JsonSchemaForm";
@@ -54,6 +55,17 @@ export const Index = () => {
     queryKey: ["indexes"],
     queryFn: async () => {
       const result = await commands.listIndexes();
+      if (result.status === "error") {
+        await showErrorDialog(result.error);
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+  });
+  const listOauthClient = useQuery({
+    queryKey: ["oauths"],
+    queryFn: async () => {
+      const result = await commands.listOauthClient();
       if (result.status === "error") {
         await showErrorDialog(result.error);
         throw new Error(result.error);
@@ -306,6 +318,7 @@ export const Index = () => {
                           </Group>
                           {index.indexers.map((v, idx) => (
                             <Indexer
+                              oauthClients={listOauthClient.data ?? []}
                               key={idx}
                               num={idx + 1}
                               indexer={v}
@@ -505,6 +518,7 @@ interface PluginSelectorProps {
     plugin_name: string,
   ) => void;
   initParams: any | null;
+  children?: React.ReactNode;
 }
 
 const PluginSelector = (props: PluginSelectorProps) => {
@@ -517,6 +531,7 @@ const PluginSelector = (props: PluginSelectorProps) => {
     plugin_type,
     onSubmit,
     initParams,
+    children,
   } = props;
   const [selecting, setSelecting] = useState(selected);
   const [paramSchema, setParamSchema] = useState<any | null>(null);
@@ -575,6 +590,7 @@ const PluginSelector = (props: PluginSelectorProps) => {
         </Group>
         {paramSchema !== null && (
           <>
+            {children}
             <Divider my="sm" />
             <JsonSchemaForm
               key={resetKey}
@@ -842,11 +858,16 @@ interface IndexerProps {
   indexer: IndexerInfo;
   fileSourceInfo: PluginInfo;
   fileExtractorInfo: PluginInfo;
+  oauthClients: OAuthClient[];
   num: number;
 }
 
 const Indexer = (params: IndexerProps) => {
-  const { indexer, fileSourceInfo, fileExtractorInfo, num } = params;
+  const { indexer, fileSourceInfo, fileExtractorInfo, num, oauthClients } =
+    params;
+  const [oauthId, setOauthId] = useState(
+    indexer.fileSource?.oauthClient?.id ?? null,
+  );
   const queryClient = useQueryClient();
   return (
     <Paper withBorder p="md" radius="md">
@@ -867,6 +888,7 @@ const Indexer = (params: IndexerProps) => {
               indexer.id,
               name,
               JSON.stringify(event.formData),
+              oauthId,
             );
             if (result.status === "error") {
               await showErrorDialog(result.error);
@@ -874,7 +896,17 @@ const Indexer = (params: IndexerProps) => {
             queryClient.invalidateQueries({ queryKey: ["indexes"] });
           }}
           initParams={indexer.fileSource?.params}
-        />
+        >
+          <Select
+            label={"OAuthクライアント"}
+            value={oauthId}
+            data={oauthClients.map((v) => ({ label: v.name, value: v.id }))}
+            clearable
+            onChange={(v) => {
+              setOauthId(v);
+            }}
+          />
+        </PluginSelector>
         <PluginSelector
           label="ファイル抽出：ファイルを抽出します"
           saving={false}
