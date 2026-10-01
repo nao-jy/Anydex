@@ -225,6 +225,23 @@ const OAuthContent = (props: OAuthContentProps) => {
         >
           保存
         </Button>
+        <Button
+          color="red"
+          onClick={async () => {
+            await showConfirmDialog(
+              "OAuthを削除します、よろしいですか？",
+              async (ok) => {
+                if (ok) {
+                  onDelete(data.id);
+                }
+              },
+            );
+          }}
+          disabled={isTesting}
+        >
+          削除
+        </Button>
+
         {isTesting ? (
           <Button
             variant="outline"
@@ -256,22 +273,6 @@ const OAuthContent = (props: OAuthContentProps) => {
             テスト
           </Button>
         )}
-        <Button
-          color="red"
-          onClick={async () => {
-            await showConfirmDialog(
-              "OAuthを削除します、よろしいですか？",
-              async (ok) => {
-                if (ok) {
-                  onDelete(data.id);
-                }
-              },
-            );
-          }}
-          disabled={isTesting}
-        >
-          削除
-        </Button>
       </Group>
     </Stack>
   );

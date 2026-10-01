@@ -60,14 +60,8 @@ async fn do_oauth_pkce_inner(
 
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
-    // Generate the full authorization URL.
-    let (auth_url, csrf_token) = client
-        .authorize_url(CsrfToken::new_random)
-        .add_scopes(scopes.iter().cloned().map(Scope::new))
-        .set_pkce_challenge(pkce_challenge)
-        .url();
+    let csrf_token = CsrfToken::new_random();
 
-    // start server
     let (app, code_receiver) = get_server(&csrf_token);
     let server_name = get_server_name(client_id);
     let _end_result = end(&server_name);
@@ -76,11 +70,18 @@ async fn do_oauth_pkce_inner(
 
     let redirect_url = format!("http://127.0.0.1:{port}{CALLBACK_PATH}");
     info!("redirect_url:{redirect_url}");
-
     client = client
         .set_redirect_uri(RedirectUrl::new(redirect_url.clone()).map_err(|err| err.to_string())?);
 
-    webbrowser::open(&auth_url.to_string()).unwrap();
+    // 4. redirect_uri がセットされた状態で認可URLを生成
+    //    CSRFトークンは事前生成したものを返す
+    let (auth_url, _) = client
+        .authorize_url(|| csrf_token.clone())
+        .add_scopes(scopes.iter().cloned().map(Scope::new))
+        .set_pkce_challenge(pkce_challenge)
+        .url();
+
+    webbrowser::open(auth_url.as_str()).map_err(|err| err.to_string())?;
 
     let timeout = Duration::from_secs(300);
     let outcome = tokio::time::timeout(timeout.clone(), code_receiver).await;
