@@ -19,7 +19,7 @@ import {
   Textarea,
   TextInput,
 } from "@mantine/core";
-import { DateTimePicker } from "@mantine/dates";
+import { Calendar, DateTimePicker } from "@mantine/dates";
 import { CaretDownIcon, WarningIcon } from "@phosphor-icons/react";
 import {
   commands,
@@ -682,6 +682,24 @@ const Schedule = (props: ScheduleProps) => {
   const [catchupWhenMissed, setCatchupWhenMissed] = useState(
     schedule?.catchupWhenMissed ?? false,
   );
+  const [month, setMonth] = useState(Temporal.Now.plainDateISO().toString());
+  const timeZone = rrule.options().dtstart.timeZoneId;
+  const selectedDates = useMemo(() => {
+    const first = Temporal.PlainDate.from(month).with({ day: 1 });
+
+    // 前後の月の日付も表示されるので、1週間ずつ余裕を持たせる
+    const after = first.subtract({ days: 7 }).toZonedDateTime({ timeZone });
+    const before = first
+      .add({ months: 1 })
+      .add({ days: 7 })
+      .toZonedDateTime({ timeZone });
+
+    return new Set(
+      rrule
+        .between(after, before, true) // true: 両端を含む
+        .map((v) => v.toPlainDate().toString()),
+    );
+  }, [rrule, month, timeZone]);
 
   useEffect(() => {
     setRruleText(rrule.toString());
@@ -799,6 +817,15 @@ const Schedule = (props: ScheduleProps) => {
             </Button>
           </Group>
         </Group>
+        <Input.Wrapper label={"実行予定日時プレビュー"}>
+          <Calendar
+            date={month}
+            onDateChange={setMonth}
+            getDayProps={(date) => ({
+              selected: selectedDates.has(date),
+            })}
+          />
+        </Input.Wrapper>
         <Group gap="xs" mt={24} wrap="nowrap">
           <Button
             size="sm"

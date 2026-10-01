@@ -117,6 +117,7 @@ pub async fn upsert_file_source(
         let mut active_model = vec_ent.into_active_model();
         active_model.name = Set(file_source_name);
         active_model.params = Set(params);
+        active_model.oauth_id = Set(oauth_id);
 
         active_model.update(&transaction).await?;
     } else {
