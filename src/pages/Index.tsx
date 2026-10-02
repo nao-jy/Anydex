@@ -848,10 +848,10 @@ const Schedule = (props: ScheduleProps) => {
             <Button
               variant="default"
               onClick={() => {
-                const rule = new RRuleTemporal({
+                const newRule = new RRuleTemporal({
                   rruleString: defaultRuleStr,
                 });
-                setRrule(rule);
+                setRrule(newRule);
               }}
             >
               リセット
