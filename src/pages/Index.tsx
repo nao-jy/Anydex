@@ -644,8 +644,10 @@ const PluginSelector = (props: PluginSelectorProps) => {
                               <Button
                                 variant="outline"
                                 onClick={() => {
-                                  const result = form.validateForm();
-                                  if (!result || selecting === null) return;
+                                  const result = form?.validateForm();
+                                  if (selecting === null) return;
+                                  if (form === undefined) return;
+                                  if (result !== true) return;
                                   onClickTest(selecting, form.state.formData);
                                 }}
                               >

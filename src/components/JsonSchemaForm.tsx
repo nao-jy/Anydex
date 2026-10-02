@@ -60,7 +60,7 @@ export interface JsonSchemaFormParams {
   onSubmit: (event: IChangeEvent<any, RJSFSchema, any>) => void;
   disabled?: boolean;
   submitButtonClosure?: (
-    form: Form<any, RJSFSchema, any>,
+    form?: Form<any, RJSFSchema, any>,
   ) => React.ComponentType<SubmitButtonProps>;
 }
 
@@ -88,9 +88,8 @@ export const JsonSchemaForm = (props: JsonSchemaFormParams) => {
       templates={{
         ButtonTemplates: {
           SubmitButton:
-            formRef.current === null
-              ? SubmitButtonDefault
-              : (submitButtonClosure?.(formRef.current) ?? SubmitButtonDefault),
+            submitButtonClosure?.(formRef.current ?? undefined) ??
+            SubmitButtonDefault,
         },
       }}
       onSubmit={(data) => {
