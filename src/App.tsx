@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router";
 
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
+import "@mantine/notifications/styles.css";
 import { Layout } from "./pages/Layout";
 import { Index } from "./pages/Index";
 import { Mcp } from "./pages/Mcp";
@@ -11,6 +12,7 @@ import { Search } from "./pages/Search";
 import { Settings } from "./pages/Settings";
 import { Tasks } from "./pages/Tasks";
 import { OAuth } from "./pages/OAuth";
+import { Notifications } from "@mantine/notifications";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +26,7 @@ function App() {
           fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
         }}
       >
+        <Notifications />
         <AppInner />
       </MantineProvider>
     </QueryClientProvider>

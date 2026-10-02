@@ -40,6 +40,7 @@ import { showConfirmDialog, showErrorDialog } from "../components/Dialogs";
 import { RRuleTemporal, TemporalZonedDateTime } from "rrule-temporal";
 import { Temporal } from "temporal-polyfill";
 import { PageHeader } from "../components/PageHeader";
+import { showInfoNotification } from "../components/Notifications";
 
 type SortKey = "name" | "createdAt" | "updatedAt";
 type Direction = "asc" | "desc";
@@ -81,13 +82,17 @@ export const Index = () => {
   });
   const createIndex = useMutation({
     mutationFn: () => unwrapCommandResult(commands.createEmptyIndex()),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["indexes"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["indexes"] });
+      showInfoNotification("空のインデクサを追加しました");
+    },
   });
   const renameIndex = useMutation({
     mutationFn: ({ indexId, name }: { indexId: number; name: string }) =>
       unwrapCommandResult(commands.renameIndex(indexId, name)),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["indexes"] });
+      queryClient.invalidateQueries({ queryKey: ["indexes"] });
+      showInfoNotification("インデックス名を変更しました");
     },
   });
   const putDescription = useMutation({
@@ -99,7 +104,8 @@ export const Index = () => {
       description: string;
     }) => unwrapCommandResult(commands.putDescription(indexId, description)),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["indexes"] });
+      queryClient.invalidateQueries({ queryKey: ["indexes"] });
+      showInfoNotification("インデックスの説明を変更しました");
     },
   });
   const sortedIndexes = useMemo(
@@ -196,6 +202,7 @@ export const Index = () => {
                   await showErrorDialog(result.error);
                 }
                 queryClient.invalidateQueries({ queryKey: ["indexes"] });
+                showInfoNotification("ベクトル化プラグインを変更しました");
               };
               const onSubmitVectorStore = async (
                 event: IChangeEvent<any, RJSFSchema, any>,
@@ -210,6 +217,7 @@ export const Index = () => {
                   await showErrorDialog(result.error);
                 }
                 queryClient.invalidateQueries({ queryKey: ["indexes"] });
+                showInfoNotification("ベクトルストアを変更しました");
               };
               const onAddIndexer = async () => {
                 const result = await commands.createEmptyIndexer(index.id);
@@ -217,6 +225,7 @@ export const Index = () => {
                   await showErrorDialog(result.error);
                 }
                 queryClient.invalidateQueries({ queryKey: ["indexes"] });
+                showInfoNotification("空のインデクサを追加しました");
               };
               return (
                 <Accordion.Item value={index.id.toString()} key={index.id}>
@@ -884,30 +893,34 @@ const Schedule = (props: ScheduleProps) => {
                 await showErrorDialog(result.error);
               }
               queryClient.invalidateQueries({ queryKey: ["indexes"] });
+              showInfoNotification("スケジュールを保存しました");
             }}
           >
             {"保存"}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              await showConfirmDialog(
-                "定期実行スケジュールを削除します、よろしいですか？",
-                async (ok) => {
-                  if (ok) {
-                    const result = await commands.deleteSchedule(indexer_id);
-                    if (result.status === "error") {
-                      await showErrorDialog(result.error);
+          {schedule !== null && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await showConfirmDialog(
+                  "定期実行スケジュールを削除します、よろしいですか？",
+                  async (ok) => {
+                    if (ok) {
+                      const result = await commands.deleteSchedule(indexer_id);
+                      if (result.status === "error") {
+                        await showErrorDialog(result.error);
+                      }
+                      queryClient.invalidateQueries({ queryKey: ["indexes"] });
+                      showInfoNotification("スケジュールを削除しました");
                     }
-                    queryClient.invalidateQueries({ queryKey: ["indexes"] });
-                  }
-                },
-              );
-            }}
-          >
-            {"削除"}
-          </Button>
+                  },
+                );
+              }}
+            >
+              {"削除"}
+            </Button>
+          )}
           {schedule === null && (
             <Alert
               color="yellow"
@@ -961,6 +974,7 @@ const Indexer = (params: IndexerProps) => {
               await showErrorDialog(result.error);
             }
             queryClient.invalidateQueries({ queryKey: ["indexes"] });
+            showInfoNotification("ファイルソースを保存しました");
           }}
           initParams={indexer.fileSource?.params}
           onReset={() => {
@@ -996,6 +1010,7 @@ const Indexer = (params: IndexerProps) => {
               await showErrorDialog(result.error);
             }
             queryClient.invalidateQueries({ queryKey: ["indexes"] });
+            showInfoNotification("ファイル抽出を変更しました");
           }}
           initParams={indexer.fileExtractor?.params}
         />
@@ -1014,6 +1029,7 @@ const Indexer = (params: IndexerProps) => {
                       await showErrorDialog(result.error);
                     }
                     queryClient.invalidateQueries({ queryKey: ["indexes"] });
+                    showInfoNotification("インデクサを削除しました");
                   }
                 },
               );

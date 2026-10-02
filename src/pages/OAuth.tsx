@@ -20,6 +20,7 @@ import {
   showErrorDialog,
   showInfoDialog,
 } from "../components/Dialogs";
+import { showInfoNotification } from "../components/Notifications";
 
 export const OAuth = () => {
   const [open, setOpen] = useState<string[]>([]);
@@ -44,7 +45,10 @@ export const OAuth = () => {
       }
       return result.data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["oauths"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["oauths"] });
+      showInfoNotification("空のOAuthを追加しました");
+    },
   });
   return (
     <Box bg="var(--mantine-color-body)" mih="calc(100vh - 60px)" py={40}>
@@ -96,6 +100,7 @@ export const OAuth = () => {
                         throw new Error(result.error);
                       }
                       queryClient.invalidateQueries({ queryKey: ["oauths"] });
+                      showInfoNotification("OAuthを更新しました");
                     }}
                     onDelete={async () => {
                       const result = await commands.deleteOauthClient(cl.id);
@@ -104,6 +109,7 @@ export const OAuth = () => {
                         throw new Error(result.error);
                       }
                       queryClient.invalidateQueries({ queryKey: ["oauths"] });
+                      showInfoNotification("OAuthを削除しました");
                     }}
                   />
                 </Accordion.Panel>
