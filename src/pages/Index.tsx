@@ -12,6 +12,7 @@ import {
   Divider,
   Group,
   Input,
+  Loader,
   NumberInput,
   Paper,
   Select,
@@ -520,6 +521,9 @@ interface PluginSelectorProps {
   ) => void;
   initParams: any | null;
   children?: React.ReactNode;
+  onTest?: (plugin_name: string, params: any) => void;
+  onAbortTest?: () => void;
+  onReset?: () => void;
 }
 
 const PluginSelector = (props: PluginSelectorProps) => {
@@ -533,13 +537,27 @@ const PluginSelector = (props: PluginSelectorProps) => {
     onSubmit,
     initParams,
     children,
+    onTest,
+    onAbortTest,
+    onReset,
   } = props;
   const [selecting, setSelecting] = useState(selected);
   const [paramSchema, setParamSchema] = useState<any | null>(null);
   const [resetKey, setResetKey] = useState(0);
+  const [isTesting, setIsTesting] = useState(false);
   const onCancel = () => {
     setSelecting(selected);
     setResetKey((prev) => prev + 1);
+    onReset?.();
+  };
+  const onClickTest = (plugin_name: string, params: any) => {
+    if (onTest === undefined) return;
+    setIsTesting(true);
+    try {
+      onTest(plugin_name, params);
+    } finally {
+      setIsTesting(false);
+    }
   };
   useEffect(() => {
     const asyncSchema = async () => {
@@ -579,12 +597,16 @@ const PluginSelector = (props: PluginSelectorProps) => {
               }
               setSelecting(value);
             }}
-            disabled={saving}
+            disabled={saving || isTesting}
             error={error && "保存できませんでした。"}
             style={{ flex: 1 }}
           />
           <Group gap="xs" mt={24} wrap="nowrap">
-            <Button variant="default" onClick={onCancel} disabled={saving}>
+            <Button
+              variant="default"
+              onClick={onCancel}
+              disabled={saving || isTesting}
+            >
               リセット
             </Button>
           </Group>
@@ -594,6 +616,7 @@ const PluginSelector = (props: PluginSelectorProps) => {
             {children}
             <Divider my="sm" />
             <JsonSchemaForm
+              disabled={saving || isTesting}
               key={resetKey}
               initParams={initParams}
               jsonSchema={paramSchema}
@@ -601,6 +624,39 @@ const PluginSelector = (props: PluginSelectorProps) => {
                 if (selecting === null) return;
                 onSubmit(event, selecting);
               }}
+              submitButtonClosure={
+                onTest === undefined
+                  ? undefined
+                  : (form) => {
+                      return (_) => {
+                        return (
+                          <Group gap="xs" mt={24} wrap="nowrap">
+                            <Button type="submit">保存</Button>
+                            {isTesting ? (
+                              <Button variant="outline" onClick={onAbortTest}>
+                                <Loader
+                                  size={"sm"}
+                                  style={{ marginRight: "10px" }}
+                                />
+                                {onAbortTest && "中断"}
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  const result = form.validateForm();
+                                  if (!result || selecting === null) return;
+                                  onClickTest(selecting, form.state.formData);
+                                }}
+                              >
+                                テスト
+                              </Button>
+                            )}
+                          </Group>
+                        );
+                      };
+                    }
+              }
             />
           </>
         )}
@@ -905,6 +961,11 @@ const Indexer = (params: IndexerProps) => {
             queryClient.invalidateQueries({ queryKey: ["indexes"] });
           }}
           initParams={indexer.fileSource?.params}
+          onReset={() => {
+            setOauthId(indexer.fileSource?.oauthClient?.id ?? null);
+          }}
+          onTest={() => {}}
+          onAbortTest={() => {}}
         >
           <Select
             label={"OAuthクライアント"}

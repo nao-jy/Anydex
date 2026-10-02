@@ -1,11 +1,12 @@
 import { Button, Input } from "@mantine/core";
-import { getDefaultRegistry, IChangeEvent, withTheme } from "@rjsf/core";
+import Form, { getDefaultRegistry, IChangeEvent, withTheme } from "@rjsf/core";
 import { Theme as MantineTheme } from "@rjsf/mantine";
 import { FieldProps, RJSFSchema, SubmitButtonProps } from "@rjsf/utils";
 import { customizeValidator } from "@rjsf/validator-ajv8";
 import { JsonEditor } from "json-edit-react";
 import Ajv2020 from "ajv/dist/2020";
 import Ajv2019 from "ajv/dist/2019";
+import { useRef } from "react";
 
 const DefaultObjectField = getDefaultRegistry().fields.ObjectField;
 
@@ -43,13 +44,13 @@ export const CustomObjectField = (props: FieldProps) => {
         data={formData ?? {}}
         setData={(newData) => onChange(newData as any, fieldPathId.path)}
         minWidth={"100%"}
-        restrictEdit={disabled || readonly}
+        allowEdit={!(disabled || readonly)}
       />
     </Input.Wrapper>
   );
 };
 
-const SubmitButton = (_: SubmitButtonProps) => {
+const SubmitButtonDefault = (_: SubmitButtonProps) => {
   return <Button type="submit">保存</Button>;
 };
 
@@ -57,19 +58,27 @@ export interface JsonSchemaFormParams {
   jsonSchema: any;
   initParams: any | null;
   onSubmit: (event: IChangeEvent<any, RJSFSchema, any>) => void;
+  disabled?: boolean;
+  submitButtonClosure?: (
+    form: Form<any, RJSFSchema, any>,
+  ) => React.ComponentType<SubmitButtonProps>;
 }
 
 export const JsonSchemaForm = (props: JsonSchemaFormParams) => {
-  const { jsonSchema, onSubmit, initParams } = props;
+  const { jsonSchema, onSubmit, initParams, submitButtonClosure, disabled } =
+    props;
   const Form = withTheme(MantineTheme);
   const validator = customizeValidator({
     AjvClass: String(jsonSchema.$schema).includes("draft/2020")
       ? Ajv2020
       : Ajv2019,
   });
+  const formRef = useRef<Form<any, RJSFSchema, any>>(null);
 
   return (
     <Form
+      ref={formRef}
+      disabled={disabled}
       formData={initParams ?? undefined}
       schema={jsonSchema}
       validator={validator}
@@ -78,7 +87,10 @@ export const JsonSchemaForm = (props: JsonSchemaFormParams) => {
       }}
       templates={{
         ButtonTemplates: {
-          SubmitButton: SubmitButton,
+          SubmitButton:
+            formRef.current === null
+              ? SubmitButtonDefault
+              : (submitButtonClosure?.(formRef.current) ?? SubmitButtonDefault),
         },
       }}
       onSubmit={(data) => {
