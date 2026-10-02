@@ -1,39 +1,69 @@
 import {
   ActionIcon,
   AppShell,
-  Button,
+  Burger,
   Group,
+  ScrollArea,
+  Stack,
+  Title,
   useMantineColorScheme,
 } from "@mantine/core";
-import { Link, Outlet, useLocation } from "react-router";
+import { Outlet } from "react-router";
+import { useDisclosure } from "@mantine/hooks";
+import {
+  IconGauge,
+  IconKey,
+  IconListCheck,
+  IconSearch,
+  IconServer,
+  IconSettings,
+} from "@tabler/icons-react";
+import { LinksGroup } from "../components/LinksGroup";
+
+const mockdata = [
+  { label: "インデックス", icon: IconGauge, link: "/index" },
+  { label: "検索", icon: IconSearch, link: "/search" },
+  { label: "OAuth", icon: IconKey, link: "/oauth" },
+  { label: "MCPサーバー", icon: IconServer, link: "/mcp" },
+  { label: "タスク", icon: IconListCheck, link: "/tasks" },
+  { label: "設定", icon: IconSettings, link: "/settings" },
+];
 
 export const Layout = () => {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
-  const location = useLocation();
-  const navButton = (to: string, label: string) => (
-    <Button
-      component={Link}
-      to={to}
-      variant={location.pathname === to ? "light" : "subtle"}
-      color="gray"
-      size="compact-sm"
-    >
-      {label}
-    </Button>
-  );
+  const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
+  const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
+  const links = mockdata.map((item) => (
+    <LinksGroup {...item} key={item.label} />
+  ));
   return (
-    <AppShell header={{ height: 60 }} padding={0}>
+    <AppShell
+      padding="md"
+      header={{ height: 60 }}
+      navbar={{
+        width: 300,
+        breakpoint: "sm",
+        collapsed: { mobile: !mobileOpened, desktop: !desktopOpened },
+      }}
+    >
       <AppShell.Header>
         <Group h="100%" px="xl" justify="space-between">
           <Group gap="xl">
-            <Group gap={4}>
-              {navButton("/index", "インデックス")}
-              {navButton("/search", "検索")}
-              {navButton("/oauth", "OAuth")}
-              {navButton("/mcp", "MCPサーバー")}
-              {navButton("/tasks", "タスク")}
-              {navButton("/settings", "設定")}
-            </Group>
+            <Burger
+              opened={mobileOpened}
+              onClick={toggleMobile}
+              hiddenFrom="sm"
+              size="sm"
+            />
+            <Burger
+              opened={desktopOpened}
+              onClick={toggleDesktop}
+              visibleFrom="sm"
+              size="sm"
+            />
+            <Title style={{ fontWeight: 200, userSelect: "none" }}>
+              Anydex
+            </Title>
           </Group>
           <Group gap="sm">
             <ActionIcon
@@ -47,6 +77,13 @@ export const Layout = () => {
           </Group>
         </Group>
       </AppShell.Header>
+      <AppShell.Navbar>
+        <Stack gap={10} my="md">
+          <ScrollArea>
+            <div>{links}</div>
+          </ScrollArea>
+        </Stack>
+      </AppShell.Navbar>
       <AppShell.Main>
         <Outlet />
       </AppShell.Main>
