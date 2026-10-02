@@ -72,6 +72,7 @@ impl FileSource for DynamicFileSource {
         &self,
         param: &serde_json::Value,
         last_indexed_files: &[InputFileInfo],
+        access_token: Option<String>,
         download_dir: &str,
     ) -> Result<Handler, String> {
         match self {
@@ -80,6 +81,10 @@ impl FileSource for DynamicFileSource {
                     CString::new(serde_json::to_string(param).map_err(|err| err.to_string())?)
                         .map_err(|err| err.to_string())?;
                 let download_dir = CString::new(download_dir).map_err(|err| err.to_string())?;
+                let access_token = match access_token {
+                    Some(token) => Some(CString::new(token).map_err(|err| err.to_string())?),
+                    None => None,
+                };
 
                 let mut cstrings = Vec::with_capacity(last_indexed_files.len());
                 let mut cfiles = Vec::with_capacity(last_indexed_files.len());
@@ -103,6 +108,7 @@ impl FileSource for DynamicFileSource {
                             ptr: cfiles.as_ptr(),
                             length: cfiles.len(),
                         },
+                        access_token.map(|t| t.as_ptr()).unwrap_or(std::ptr::null()),
                         download_dir.as_ptr(),
                     )
                 };

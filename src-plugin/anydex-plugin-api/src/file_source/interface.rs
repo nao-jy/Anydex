@@ -48,6 +48,7 @@ pub struct DynamicFileSourceV1 {
     pub get_handler: unsafe extern "C" fn(
         params: *const c_char,
         last_indexed_files: CSlice<CInputFileInfo>,
+        access_token: *const c_char,
         download_dir: *const c_char,
     ) -> Handler,
     pub free_handler: unsafe extern "C" fn(handler: Handler),

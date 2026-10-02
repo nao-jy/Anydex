@@ -126,6 +126,7 @@ fn rename_to_uuid(filename: &str) -> String {
 unsafe extern "C" fn get_handler(
     params: *const c_char,
     last_indexed_files: CSlice<CInputFileInfo>,
+    access_token: *const c_char,
     download_dir: *const c_char,
 ) -> Handler {
     let param_str = to_string(params);
@@ -147,11 +148,13 @@ unsafe extern "C" fn get_handler(
             .collect();
 
         let param_unwrapped = param_result.unwrap();
-
-        let operator_res = Operator::via_iter(
-            param_unwrapped.service_name.clone(),
-            object_to_list(serde_json::from_str(&param_str).unwrap()),
-        );
+        let mut args = object_to_list(serde_json::from_str(&param_str).unwrap());
+        if let Some(oauth_name) = param_unwrapped.oauth_conf_access_token_name {
+            if !access_token.is_null() {
+                args.push((oauth_name, to_string(access_token)));
+            }
+        }
+        let operator_res = Operator::via_iter(param_unwrapped.service_name.clone(), args);
         if operator_res.is_err() {
             log(LogLevel::Error, &operator_res.unwrap_err().to_string());
             return INVALID_HANDLE;

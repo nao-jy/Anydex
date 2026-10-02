@@ -34,6 +34,7 @@ pub trait FileSource {
         &self,
         param: &serde_json::Value,
         last_indexed_files: &[InputFileInfo],
+        access_token: Option<String>,
         download_dir: &str,
     ) -> Result<Handler, String>;
     fn free_handler(&self, handler: Handler) -> Result<(), String>;

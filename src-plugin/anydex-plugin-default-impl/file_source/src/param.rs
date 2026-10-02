@@ -21,14 +21,4 @@ pub struct Param {
         description = "OAuth access_token name in service_configurations"
     )]
     pub oauth_conf_access_token_name: Option<String>,
-    #[schemars(
-        title = "OAuth refresh_token Name",
-        description = "OAuth refresh_token name in service_configurations"
-    )]
-    pub oauth_conf_refresh_token_name: Option<String>,
-    #[schemars(
-        title = "OAuth cliend_id Name",
-        description = "OAuth cliend_id name in service_configurations"
-    )]
-    pub oauth_conf_cliend_id_name: Option<String>,
 }
