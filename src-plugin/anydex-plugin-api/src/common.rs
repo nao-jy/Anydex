@@ -22,6 +22,8 @@ pub struct CResult<T> {
     pub data: T,
 }
 
+pub type Handler = u64;
+
 pub fn to_string(cchar: *const c_char) -> String {
     unsafe { CStr::from_ptr(cchar).to_string_lossy().into_owned() }
 }

@@ -25,7 +25,7 @@ pub fn get_server_name(client_id: &str) -> String {
 
 pub async fn do_oauth_pkce(
     client_id: &str,
-    client_secret: Option<&str>,
+    client_secret: Option<String>,
     auth_endpoint: &str,
     token_endpoint: &str,
     scopes: &[String],
@@ -45,7 +45,7 @@ pub async fn do_oauth_pkce(
 
 async fn do_oauth_pkce_inner(
     client_id: &str,
-    client_secret: Option<&str>,
+    client_secret: Option<String>,
     auth_endpoint: &str,
     token_endpoint: &str,
     scopes: &[String],
@@ -55,7 +55,7 @@ async fn do_oauth_pkce_inner(
         .set_token_uri(TokenUrl::new(token_endpoint.to_string()).map_err(|err| err.to_string())?);
 
     if let Some(v) = client_secret {
-        client = client.set_client_secret(ClientSecret::new(v.to_string()));
+        client = client.set_client_secret(ClientSecret::new(v));
     }
 
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
@@ -120,7 +120,7 @@ async fn do_oauth_pkce_inner(
 
 async fn revoke_inner(
     client_id: &str,
-    client_secret: Option<&str>,
+    client_secret: Option<String>,
     token: &StandardRevocableToken,
     revocation_endtpoint: &str,
 ) -> Result<(), String> {
@@ -149,7 +149,7 @@ async fn revoke_inner(
 
 pub async fn revoke_access_token(
     client_id: &str,
-    client_secret: Option<&str>,
+    client_secret: Option<String>,
     access_token: &str,
     revocation_endtpoint: &str,
 ) -> Result<(), String> {
@@ -164,7 +164,7 @@ pub async fn revoke_access_token(
 
 pub async fn revoke_refresh_token(
     client_id: &str,
-    client_secret: Option<&str>,
+    client_secret: Option<String>,
     refresh_token: &str,
     revocation_endtpoint: &str,
 ) -> Result<(), String> {

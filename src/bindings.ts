@@ -25,6 +25,7 @@ export const commands = {
 	upsertVectorStore: (indexId: number, vectorStoreName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_vector_store", { indexId, vectorStoreName, paramsJson })),
 	upsertFileExtractor: (indexerId: number, fileExtractorName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_file_extractor", { indexerId, fileExtractorName, paramsJson })),
 	upsertFileSource: (indexerId: number, fileSourceName: string, paramsJson: string, oauthId: number | null) => typedError<null, string>(__TAURI_INVOKE("upsert_file_source", { indexerId, fileSourceName, paramsJson, oauthId })),
+	testFileSource: (fileSourceName: string, paramsJson: string, oauthId: number | null) => typedError<null, string>(__TAURI_INVOKE("test_file_source", { fileSourceName, paramsJson, oauthId })),
 	reloadPlugins: () => typedError<null, string>(__TAURI_INVOKE("reload_plugins")),
 	getParamSchema: (pluginType: PluginType, pluginName: string) => __TAURI_INVOKE<string | null>("get_param_schema", { pluginType, pluginName }),
 	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),

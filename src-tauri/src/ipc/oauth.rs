@@ -124,7 +124,7 @@ pub async fn test_oauth(client: OAuthClient) -> Result<(), String> {
         .collect();
     let result = do_oauth_pkce(
         &client.client_id,
-        client.client_secret.as_deref(),
+        client.client_secret.clone(),
         &client.authorization_endpoint,
         &client.token_endpoint,
         &scopes,
@@ -134,19 +134,15 @@ pub async fn test_oauth(client: OAuthClient) -> Result<(), String> {
     if let Some(rev) = client.revocation_endpoint {
         let _ = revoke_access_token(
             &client.client_id,
-            client.client_secret.as_deref(),
+            client.client_secret.clone(),
             result.access_token.secret(),
             &rev,
         )
         .await;
         if let Some(rfr) = result.refresh_token {
-            let _ = revoke_refresh_token(
-                &client.client_id,
-                client.client_secret.as_deref(),
-                rfr.secret(),
-                &rev,
-            )
-            .await;
+            let _ =
+                revoke_refresh_token(&client.client_id, client.client_secret, rfr.secret(), &rev)
+                    .await;
         }
     }
 

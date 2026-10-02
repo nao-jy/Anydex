@@ -7,9 +7,9 @@ use std::{
 };
 
 use anydex_plugin_api_lib::{
-    common::{to_string, CSlice, LogLevel},
+    common::{to_string, CSlice, Handler, LogLevel},
     file_extractor::interface::{
-        DynamicFileExtractorV1, Handler, DYNAMIC_FILE_EXTRACTOR_ABI_VERSION_V1, INVALID_HANDLE,
+        DynamicFileExtractorV1, DYNAMIC_FILE_EXTRACTOR_ABI_VERSION_V1, INVALID_HANDLE,
     },
     interface::PluginInit,
 };

@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use std::ffi::{c_char, c_void, CString};
 use std::sync::{LazyLock, Mutex};
 
-use anydex_plugin_api_lib::common::{to_string, CResult, CSlice, LogLevel};
+use anydex_plugin_api_lib::common::{to_string, CResult, CSlice, Handler, LogLevel};
 use anydex_plugin_api_lib::interface::PluginInit;
 use anydex_plugin_api_lib::vector_store::interface::{
-    CChunk, CSearchHit, CSearchRequest, DynamicVectorStoreV1, FileId, Handler, IndexId, IndexerId,
+    CChunk, CSearchHit, CSearchRequest, DynamicVectorStoreV1, FileId, IndexId, IndexerId,
     DYNAMIC_VECTOR_STORE_ABI_VERSION_V1, INVALID_HANDLE,
 };
 use schemars::schema_for;

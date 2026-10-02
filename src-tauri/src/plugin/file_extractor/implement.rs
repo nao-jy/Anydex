@@ -1,13 +1,12 @@
 use crate::plugin::{
-    common::get_plugin,
+    common::{get_plugin, DisposableHnandler},
     file_extractor::interface::{ExtractedFileRelativePath, FileExtractor},
     manager::LibraryLoader,
 };
 use anydex_plugin_api_lib::{
-    common::to_string,
+    common::{to_string, Handler},
     file_extractor::interface::{
-        DynamicFileExtractor, DynamicFileExtractorV1, Handler,
-        DYNAMIC_FILE_EXTRACTOR_ABI_VERSION_V1,
+        DynamicFileExtractor, DynamicFileExtractorV1, DYNAMIC_FILE_EXTRACTOR_ABI_VERSION_V1,
     },
     interface::DynamicPluginHeader,
 };
@@ -53,21 +52,25 @@ impl FileExtractor for DynamicFileExtractor {
         }
     }
 
-    fn get_handler(&self, param: &serde_json::Value, base_dir: &str) -> Result<Handler, String> {
+    fn get_handler(
+        &self,
+        param: &serde_json::Value,
+        base_dir: &str,
+    ) -> Result<DisposableHnandler, String> {
         match self {
             DynamicFileExtractor::V1(plugin_v1) => {
                 let params =
                     CString::new(serde_json::to_string(param).map_err(|err| err.to_string())?)
                         .map_err(|err| err.to_string())?;
                 let base_dir = CString::new(base_dir).map_err(|err| err.to_string())?;
-                Ok(unsafe { (plugin_v1.get_handler)(params.as_ptr(), base_dir.as_ptr()) })
+                let handler =
+                    unsafe { (plugin_v1.get_handler)(params.as_ptr(), base_dir.as_ptr()) };
+                let free_handler = plugin_v1.free_handler;
+                Ok(DisposableHnandler {
+                    handler,
+                    free_fn: Box::new(move |h| unsafe { free_handler(h) }),
+                })
             }
-        }
-    }
-
-    fn free_handler(&self, handler: Handler) -> Result<(), String> {
-        match self {
-            DynamicFileExtractor::V1(plugin_v1) => Ok(unsafe { (plugin_v1.free_handler)(handler) }),
         }
     }
 

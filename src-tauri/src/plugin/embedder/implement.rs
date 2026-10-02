@@ -1,15 +1,17 @@
 use std::ffi::{c_void, CString};
 
 use anydex_plugin_api_lib::{
-    common::to_string,
-    embedder::interface::{
-        DynamicEmbedder, DynamicEmbedderV1, Handler, DYNAMIC_EMBEDDER_ABI_VERSION_V1,
-    },
+    common::{to_string, Handler},
+    embedder::interface::{DynamicEmbedder, DynamicEmbedderV1, DYNAMIC_EMBEDDER_ABI_VERSION_V1},
     interface::DynamicPluginHeader,
 };
 use libloading::Library;
 
-use crate::plugin::{common::get_plugin, embedder::interface::Embedder, manager::LibraryLoader};
+use crate::plugin::{
+    common::{get_plugin, DisposableHnandler},
+    embedder::interface::Embedder,
+    manager::LibraryLoader,
+};
 
 impl LibraryLoader for DynamicEmbedder {
     fn load_library(library: &Library) -> Result<Self, String> {
@@ -50,20 +52,19 @@ impl Embedder for DynamicEmbedder {
         }
     }
 
-    fn get_handler(&self, param: &serde_json::Value) -> Result<Handler, String> {
+    fn get_handler(&self, param: &serde_json::Value) -> Result<DisposableHnandler, String> {
         match self {
             DynamicEmbedder::V1(plugin_v1) => {
                 let params =
                     CString::new(serde_json::to_string(param).map_err(|err| err.to_string())?)
                         .map_err(|err| err.to_string())?;
-                Ok(unsafe { (plugin_v1.get_handler)(params.as_ptr()) })
+                let handler = unsafe { (plugin_v1.get_handler)(params.as_ptr()) };
+                let free_handler = plugin_v1.free_handler;
+                Ok(DisposableHnandler {
+                    handler,
+                    free_fn: Box::new(move |h| unsafe { free_handler(h) }),
+                })
             }
-        }
-    }
-
-    fn free_handler(&self, handler: Handler) -> Result<(), String> {
-        match self {
-            DynamicEmbedder::V1(plugin_v1) => Ok(unsafe { (plugin_v1.free_handler)(handler) }),
         }
     }
 

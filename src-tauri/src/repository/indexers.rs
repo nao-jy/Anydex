@@ -104,7 +104,7 @@ pub async fn delete_indexer(
                     .get_handler(&vector_store_some.params, indexer_some.index_id)
                     .map_err(|err| DbErr::Custom(err.to_string()))?;
                 let _ = plugin_some
-                    .delete_chunk_indexer(handler, indexer_some.id)
+                    .delete_chunk_indexer(handler.handler, indexer_some.id)
                     .map_err(|err| DbErr::Custom(err.to_string()));
             }
         }

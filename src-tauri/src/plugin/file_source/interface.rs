@@ -1,6 +1,8 @@
-use anydex_plugin_api_lib::file_source::interface::Handler;
+use anydex_plugin_api_lib::common::Handler;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
+
+use crate::plugin::common::DisposableHnandler;
 
 pub type FileId = String;
 
@@ -23,7 +25,7 @@ pub struct OutputFileInfo {
 }
 
 pub enum FileIterationInfo {
-    AddedOrDeleted(OutputFileInfo),
+    AddedOrUpdated(OutputFileInfo),
     Deleted(FileId),
 }
 
@@ -36,8 +38,6 @@ pub trait FileSource {
         last_indexed_files: &[InputFileInfo],
         access_token: Option<String>,
         download_dir: &str,
-    ) -> Result<Handler, String>;
-    fn free_handler(&self, handler: Handler) -> Result<(), String>;
-
+    ) -> Result<DisposableHnandler, String>;
     fn next(&self, handler: Handler) -> Result<Option<FileIterationInfo>, String>;
 }

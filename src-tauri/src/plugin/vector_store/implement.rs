@@ -1,14 +1,14 @@
 use crate::plugin::{
-    common::get_plugin,
+    common::{get_plugin, DisposableHnandler},
     manager::LibraryLoader,
     vector_store::interface::{Chunk, SearchHit, SearchRequest, VectorStore},
 };
 use anydex_plugin_api_lib::{
-    common::{to_string, CSlice},
+    common::{to_string, CSlice, Handler},
     interface::DynamicPluginHeader,
     vector_store::interface::{
         CChunk, CSearchHit, CSearchRequest, DynamicVectorStore, DynamicVectorStoreV1, FileId,
-        Handler, IndexId, IndexerId, DYNAMIC_VECTOR_STORE_ABI_VERSION_V1,
+        IndexId, IndexerId, DYNAMIC_VECTOR_STORE_ABI_VERSION_V1,
     },
 };
 use chrono::{DateTime, Utc};
@@ -54,20 +54,23 @@ impl VectorStore for DynamicVectorStore {
         }
     }
 
-    fn get_handler(&self, param: &serde_json::Value, index_id: IndexId) -> Result<Handler, String> {
+    fn get_handler(
+        &self,
+        param: &serde_json::Value,
+        index_id: IndexId,
+    ) -> Result<DisposableHnandler, String> {
         match self {
             DynamicVectorStore::V1(plugin_v1) => {
                 let params =
                     CString::new(serde_json::to_string(param).map_err(|err| err.to_string())?)
                         .map_err(|err| err.to_string())?;
-                Ok(unsafe { (plugin_v1.get_handler)(params.as_ptr(), index_id) })
+                let handler = unsafe { (plugin_v1.get_handler)(params.as_ptr(), index_id) };
+                let free_handler = plugin_v1.free_handler;
+                Ok(DisposableHnandler {
+                    handler,
+                    free_fn: Box::new(move |h| unsafe { free_handler(h) }),
+                })
             }
-        }
-    }
-
-    fn free_handler(&self, handler: Handler) -> Result<(), String> {
-        match self {
-            DynamicVectorStore::V1(plugin_v1) => Ok(unsafe { (plugin_v1.free_handler)(handler) }),
         }
     }
 

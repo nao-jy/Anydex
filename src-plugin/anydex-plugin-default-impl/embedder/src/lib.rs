@@ -7,10 +7,8 @@ use std::{
 };
 
 use anydex_plugin_api_lib::{
-    common::{to_string, CSlice, LogLevel},
-    embedder::interface::{
-        DynamicEmbedderV1, Handler, DYNAMIC_EMBEDDER_ABI_VERSION_V1, INVALID_HANDLE,
-    },
+    common::{to_string, CSlice, Handler, LogLevel},
+    embedder::interface::{DynamicEmbedderV1, DYNAMIC_EMBEDDER_ABI_VERSION_V1, INVALID_HANDLE},
     interface::PluginInit,
 };
 use base64::prelude::*;

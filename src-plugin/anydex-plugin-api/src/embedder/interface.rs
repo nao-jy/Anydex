@@ -1,8 +1,7 @@
-use crate::common::CSlice;
+use crate::common::{CSlice, Handler};
 use std::ffi::{c_char, c_void};
 
 pub const INVALID_HANDLE: u64 = u64::MAX;
-pub type Handler = u64;
 
 /// ABI version implemented by this host.
 pub const DYNAMIC_EMBEDDER_ABI_VERSION_V1: i32 = 1;

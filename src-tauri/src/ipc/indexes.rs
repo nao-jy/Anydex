@@ -152,7 +152,7 @@ pub async fn delete_index(
             let plugin = mgr.get_plugin(&vector_store_some.name);
             if let Some(plugin_some) = plugin {
                 let handler = plugin_some.get_handler(&vector_store_some.params, index_id)?;
-                plugin_some.clear_chunk(handler)?
+                plugin_some.clear_chunk(handler.handler)?
             }
         }
         None => {}

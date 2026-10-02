@@ -1,8 +1,7 @@
 use anydex_plugin_api_lib::{
-    common::{to_string, CSlice},
+    common::{to_string, CSlice, Handler},
     file_source::interface::{
-        CInputFileInfo, DynamicFileSource, DynamicFileSourceV1, Handler,
-        DYNAMIC_FILE_SOURCE_ABI_VERSION_V1,
+        CInputFileInfo, DynamicFileSource, DynamicFileSourceV1, DYNAMIC_FILE_SOURCE_ABI_VERSION_V1,
     },
     interface::DynamicPluginHeader,
 };
@@ -14,7 +13,7 @@ use std::{
 };
 
 use crate::plugin::{
-    common::get_plugin,
+    common::{get_plugin, DisposableHnandler},
     file_source::interface::{FileIterationInfo, FileSource, InputFileInfo, OutputFileInfo},
     manager::LibraryLoader,
 };
@@ -74,7 +73,7 @@ impl FileSource for DynamicFileSource {
         last_indexed_files: &[InputFileInfo],
         access_token: Option<String>,
         download_dir: &str,
-    ) -> Result<Handler, String> {
+    ) -> Result<DisposableHnandler, String> {
         match self {
             DynamicFileSource::V1(plugin_v1) => {
                 let params =
@@ -112,14 +111,12 @@ impl FileSource for DynamicFileSource {
                         download_dir.as_ptr(),
                     )
                 };
-                Ok(handler)
+                let free_handler = plugin_v1.free_handler;
+                Ok(DisposableHnandler {
+                    handler,
+                    free_fn: Box::new(move |h| unsafe { free_handler(h) }),
+                })
             }
-        }
-    }
-
-    fn free_handler(&self, handler: Handler) -> Result<(), String> {
-        match self {
-            DynamicFileSource::V1(plugin_v1) => Ok(unsafe { (plugin_v1.free_handler)(handler) }),
         }
     }
 
@@ -151,7 +148,7 @@ impl FileSource for DynamicFileSource {
                         metadata: object_to_hash_map(metadata),
                         file_hash: cfile.file_hash,
                     };
-                    ret = Ok(Some(FileIterationInfo::AddedOrDeleted(added_or_updated)));
+                    ret = Ok(Some(FileIterationInfo::AddedOrUpdated(added_or_updated)));
                 }
                 // deleted
                 if !result.data.deleted.is_null() {

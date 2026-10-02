@@ -1,7 +1,7 @@
 use std::ffi::c_char;
 
 use anydex_plugin_api_lib::{
-    common::{to_string, LogLevel},
+    common::{to_string, Handler, LogLevel},
     interface::{GetPlugin, PluginInit},
 };
 use libloading::{Library, Symbol};
@@ -15,6 +15,18 @@ pub unsafe extern "C" fn host_log(log_level: LogLevel, message: *const c_char) {
         LogLevel::Info => info!("{}", message),
         LogLevel::Debug => debug!("{}", message),
         LogLevel::Trace => trace!("{}", message),
+    }
+}
+
+pub struct DisposableHnandler {
+    pub handler: Handler,
+    pub free_fn: Box<dyn FnOnce(Handler)>,
+}
+
+impl Drop for DisposableHnandler {
+    fn drop(&mut self) {
+        let free_fn = std::mem::replace(&mut self.free_fn, Box::new(|_| {}));
+        free_fn(self.handler);
     }
 }
 

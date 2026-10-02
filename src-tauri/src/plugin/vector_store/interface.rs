@@ -1,5 +1,10 @@
-use anydex_plugin_api_lib::vector_store::interface::{FileId, Handler, IndexId, IndexerId};
+use anydex_plugin_api_lib::{
+    common::Handler,
+    vector_store::interface::{FileId, IndexId, IndexerId},
+};
 use chrono::{DateTime, Utc};
+
+use crate::plugin::common::DisposableHnandler;
 
 pub struct Chunk {
     pub id: i32,
@@ -30,8 +35,11 @@ pub struct SearchRequest {
 pub trait VectorStore {
     // Return JSON Schema
     fn get_param_schema(&self) -> Result<serde_json::Value, String>;
-    fn get_handler(&self, param: &serde_json::Value, index_id: IndexId) -> Result<Handler, String>;
-    fn free_handler(&self, handler: Handler) -> Result<(), String>;
+    fn get_handler(
+        &self,
+        param: &serde_json::Value,
+        index_id: IndexId,
+    ) -> Result<DisposableHnandler, String>;
 
     fn delete_chunk_file(&self, handler: Handler, fild_id: FileId) -> Result<(), String>;
     fn delete_chunk_indexer(&self, handler: Handler, indexer_id: IndexerId) -> Result<(), String>;
