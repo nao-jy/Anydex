@@ -81,6 +81,8 @@ struct HandleInfo {
     pub entries: VecDeque<Entry>,
     pub delete_entries: HashSet<String>,
     pub operator: Operator,
+    pub gdrive_access_token: Option<String>,
+    pub gdrive_root: String,
 }
 
 static STR_REF: LazyLock<Mutex<HashMap<usize, Box<CString>>>> =
@@ -88,6 +90,8 @@ static STR_REF: LazyLock<Mutex<HashMap<usize, Box<CString>>>> =
 
 static HANDLERS: LazyLock<Mutex<HashMap<Handler, HandleInfo>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+
+static HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
 
 static HANDLER_COUNTER: Mutex<u64> = Mutex::new(0);
 
@@ -101,14 +105,187 @@ unsafe extern "C" fn get_param_schema() -> *const c_char {
     return ptr;
 }
 
-fn object_to_list(value: serde_json::Value) -> Vec<(String, String)> {
+fn config_value_to_string(value: &serde_json::Value) -> Option<String> {
     match value {
-        serde_json::Value::Object(map) => map
-            .into_iter()
-            .filter_map(|(key, value)| value.as_str().map(|value| (key, value.to_owned())))
-            .collect(),
-        _ => Vec::new(),
+        serde_json::Value::Null => Some(String::new()),
+        serde_json::Value::Bool(_) | serde_json::Value::Number(_) => Some(value.to_string()),
+        serde_json::Value::String(value) => Some(value.clone()),
+        serde_json::Value::Array(values) => values
+            .iter()
+            .map(|value| match value {
+                serde_json::Value::Bool(_)
+                | serde_json::Value::Number(_)
+                | serde_json::Value::String(_) => Some(
+                    value
+                        .as_str()
+                        .map_or_else(|| value.to_string(), str::to_owned),
+                ),
+                serde_json::Value::Null
+                | serde_json::Value::Array(_)
+                | serde_json::Value::Object(_) => None,
+            })
+            .collect::<Option<Vec<_>>>()
+            .map(|values| values.join(",")),
+        serde_json::Value::Object(_) => None,
     }
+}
+
+fn service_config_to_args(
+    param: &Param,
+    access_token: Option<&str>,
+) -> Result<Vec<(String, String)>, String> {
+    let mut args = param
+        .service_configurations
+        .iter()
+        .map(|(key, value)| {
+            config_value_to_string(value)
+                .map(|value| (key.clone(), value))
+                .ok_or_else(|| format!("invalid service configuration value for '{key}'"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    if let Some(access_token) = access_token {
+        let oauth_name = param
+            .oauth_conf_access_token_name
+            .as_deref()
+            .unwrap_or("access_token");
+        if let Some((_, value)) = args.iter_mut().find(|(key, _)| key == oauth_name) {
+            value.clear();
+            value.push_str(access_token);
+        } else {
+            args.push((oauth_name.to_owned(), access_token.to_owned()));
+        }
+    }
+
+    Ok(args)
+}
+
+fn native_export_format(content_type: &str) -> Option<(&'static str, &'static str)> {
+    match content_type {
+        "application/vnd.google-apps.document" => Some((
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "docx",
+        )),
+        "application/vnd.google-apps.spreadsheet" => Some((
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "xlsx",
+        )),
+        "application/vnd.google-apps.presentation" => Some((
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "pptx",
+        )),
+        _ => None,
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct GdriveFileId {
+    id: String,
+    #[serde(rename = "mimeType")]
+    mime_type: String,
+}
+
+#[derive(serde::Deserialize)]
+struct GdriveFileIdList {
+    files: Vec<GdriveFileId>,
+}
+
+async fn find_gdrive_file_id(access_token: &str, root: &str, path: &str) -> Result<String, String> {
+    let segments: Vec<_> = root
+        .split('/')
+        .chain(path.split('/'))
+        .filter(|segment| !segment.is_empty())
+        .collect();
+    if segments.is_empty() {
+        return Err("cannot export a Google Drive file with an empty path".into());
+    }
+
+    let mut parent_id = "root".to_owned();
+    for (index, segment) in segments.iter().enumerate() {
+        let escaped_name = segment.replace('\\', "\\\\").replace('\'', "\\'");
+        let query =
+            format!("name = '{escaped_name}' and '{parent_id}' in parents and trashed = false");
+        let response = HTTP_CLIENT
+            .get("https://www.googleapis.com/drive/v3/files")
+            .bearer_auth(access_token)
+            .query(&[
+                ("q", query.as_str()),
+                ("pageSize", "1000"),
+                ("orderBy", "modifiedTime desc,createdTime desc"),
+                ("fields", "files(id,mimeType)"),
+            ])
+            .send()
+            .await
+            .map_err(|err| format!("Google Drive file lookup failed: {err}"))?;
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            return Err(format!(
+                "Google Drive file lookup returned {status}: {body}"
+            ));
+        }
+        let files: GdriveFileIdList = response
+            .json()
+            .await
+            .map_err(|err| format!("invalid Google Drive file lookup response: {err}"))?;
+        let file = files
+            .files
+            .into_iter()
+            .next()
+            .ok_or_else(|| format!("Google Drive path segment '{segment}' was not found"))?;
+
+        if index + 1 < segments.len() {
+            if file.mime_type != "application/vnd.google-apps.folder" {
+                return Err(format!(
+                    "Google Drive path segment '{segment}' is not a folder"
+                ));
+            }
+            parent_id = file.id;
+        } else {
+            return Ok(file.id);
+        }
+    }
+
+    Err("Google Drive file path could not be resolved".into())
+}
+
+async fn export_gdrive_file(
+    access_token: &str,
+    root: &str,
+    path: &str,
+    content_type: &str,
+) -> Result<(Vec<u8>, String, String), String> {
+    let (export_mime_type, extension) = native_export_format(content_type)
+        .ok_or_else(|| format!("unsupported Google Drive native file type: {content_type}"))?;
+    let file_id = find_gdrive_file_id(access_token, root, path).await?;
+    let url = format!("https://www.googleapis.com/drive/v3/files/{file_id}/export");
+    let response = HTTP_CLIENT
+        .get(url)
+        .bearer_auth(access_token)
+        .query(&[("mimeType", export_mime_type)])
+        .send()
+        .await
+        .map_err(|err| format!("Google Drive export request failed: {err}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("Google Drive export returned {status}: {body}"));
+    }
+    let content = response
+        .bytes()
+        .await
+        .map_err(|err| format!("failed to read Google Drive export: {err}"))?
+        .to_vec();
+    let filename = Path::new(path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(path);
+    let exported_name = Path::new(filename)
+        .with_extension(extension)
+        .to_string_lossy()
+        .into_owned();
+
+    Ok((content, export_mime_type.to_owned(), exported_name))
 }
 
 fn rename_to_uuid(filename: &str) -> String {
@@ -130,63 +307,100 @@ unsafe extern "C" fn get_handler(
     download_dir: *const c_char,
 ) -> Handler {
     let param_str = to_string(params);
-    let param_result = serde_json::from_str::<Param>(&param_str).map_err(|err| err.to_string());
-    if param_result.is_ok() {
-        let mut handler_mtx = HANDLER_COUNTER.lock().unwrap();
-        let handler = (*handler_mtx).clone();
-        (*handler_mtx) += 1;
-
-        let cfiles_vec: Vec<CInputFileInfo> = last_indexed_files.into();
-        let files_vec: Vec<InputFileInfo> = cfiles_vec
-            .iter()
-            .map(|f| InputFileInfo {
-                file_id: to_string(f.file_id),
-                size: f.size,
-                updated_at_utc: f.updated_at_utc,
-                file_hash: f.file_hash,
-            })
-            .collect();
-
-        let param_unwrapped = param_result.unwrap();
-        let mut args = object_to_list(serde_json::from_str(&param_str).unwrap());
-        if !access_token.is_null() {
-            let oauth_name = param_unwrapped
-                .oauth_conf_access_token_name
-                .unwrap_or("access_token".to_string());
-            args.push((oauth_name, to_string(access_token)));
-        }
-        let operator_res = Operator::via_iter(param_unwrapped.service_name.clone(), args);
-        if operator_res.is_err() {
-            log(LogLevel::Error, &operator_res.unwrap_err().to_string());
+    let param = match serde_json::from_str::<Param>(&param_str) {
+        Ok(param) => param,
+        Err(err) => {
+            log(LogLevel::Error, &err.to_string());
             return INVALID_HANDLE;
         }
-        let operator = operator_res.unwrap();
-        let rt = Runtime::new().unwrap();
-        let lister = rt.block_on(async { operator.list_with("").recursive(true).await });
-        if lister.is_err() {
-            log(LogLevel::Error, &lister.unwrap_err().to_string());
+    };
+    let access_token = (!access_token.is_null()).then(|| to_string(access_token));
+    let args = match service_config_to_args(&param, access_token.as_deref()) {
+        Ok(args) => args,
+        Err(err) => {
+            log(LogLevel::Error, &err);
             return INVALID_HANDLE;
         }
+    };
 
-        let info = HandleInfo {
-            last_indexed_files: files_vec
-                .iter()
-                .enumerate()
-                .map(|(_, value)| (value.file_id.clone(), value.clone()))
-                .collect(),
-            download_dir: to_string(download_dir),
-            entries: lister.unwrap().into(),
-            operator: operator,
-            rt: rt,
-            delete_entries: files_vec.iter().map(|v| v.file_id.clone()).collect(),
+    let cfiles_vec: Vec<CInputFileInfo> = last_indexed_files.into();
+    let files_vec: Vec<InputFileInfo> = cfiles_vec
+        .iter()
+        .map(|f| InputFileInfo {
+            file_id: to_string(f.file_id),
+            size: f.size,
+            updated_at_utc: f.updated_at_utc,
+            file_hash: f.file_hash,
+        })
+        .collect();
+
+    let gdrive = param.service_name.eq_ignore_ascii_case("gdrive");
+    let gdrive_root = param
+        .service_configurations
+        .get("root")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    let oauth_name = param
+        .oauth_conf_access_token_name
+        .as_deref()
+        .unwrap_or("access_token");
+    let gdrive_access_token = if gdrive {
+        access_token.clone().or_else(|| {
+            param
+                .service_configurations
+                .get(oauth_name)
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned)
+        })
+    } else {
+        None
+    };
+    let operator = match Operator::via_iter(param.service_name, args) {
+        Ok(operator) => operator,
+        Err(err) => {
+            log(LogLevel::Error, &err.to_string());
+            return INVALID_HANDLE;
+        }
+    };
+    let rt = match tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    {
+        Ok(rt) => rt,
+        Err(err) => {
+            log(LogLevel::Error, &err.to_string());
+            return INVALID_HANDLE;
+        }
+    };
+    let entries =
+        match rt.block_on(async { operator.list_with("").recursive(param.is_recursive).await }) {
+            Ok(entries) => entries.into(),
+            Err(err) => {
+                log(LogLevel::Error, &err.to_string());
+                return INVALID_HANDLE;
+            }
         };
 
-        HANDLERS.lock().unwrap().insert(handler, info);
-        handler
-    } else {
-        log(LogLevel::Error, &param_result.unwrap_err());
-        INVALID_HANDLE
-    }
+    let mut handler_mtx = HANDLER_COUNTER.lock().unwrap();
+    let handler = (*handler_mtx).clone();
+    (*handler_mtx) += 1;
+    let info = HandleInfo {
+        last_indexed_files: files_vec
+            .iter()
+            .map(|value| (value.file_id.clone(), value.clone()))
+            .collect(),
+        download_dir: to_string(download_dir),
+        entries,
+        operator,
+        rt,
+        delete_entries: files_vec.iter().map(|v| v.file_id.clone()).collect(),
+        gdrive_access_token,
+        gdrive_root,
+    };
+
+    HANDLERS.lock().unwrap().insert(handler, info);
+    handler
 }
 
 unsafe extern "C" fn free_handler(handler: Handler) {
@@ -227,29 +441,27 @@ unsafe extern "C" fn next(handler: Handler) -> *const CResult<CFileIterationInfo
         let operator = &mut info.operator;
         let rt = &info.rt;
 
-        if info.entries.is_empty() || delete_entries.is_empty() {
-            nex_ref.result.success = true;
-        }
+        let mut failed = false;
         while let Some(entry) = info.entries.pop_front() {
+            if entry.metadata().mode().is_dir() {
+                continue;
+            }
+
             let uri = entry.path();
             let last_modified = entry
                 .metadata()
                 .last_modified()
                 .map_or(-1, |value| value.into_inner().as_second());
-            let size = entry.metadata().content_length() as usize;
-            let name = entry.name();
-            let content_type = entry.metadata().content_type().map_or(
+            let mut size = entry.metadata().content_length() as usize;
+            let mut name = entry.name().to_owned();
+            let mut content_type = entry.metadata().content_type().map_or(
                 mime_guess::from_path(&name)
                     .first_or_octet_stream()
                     .to_string(),
                 |f| f.to_string(),
             );
             let metadata = serde_json::Value::Null.to_string();
-            let dl_filename = rename_to_uuid(name);
-            let download_path = Path::new(dl_dir)
-                .join(dl_filename)
-                .to_string_lossy()
-                .to_string();
+            let is_gdrive_native = native_export_format(&content_type).is_some();
             let mut prev_file_hash: Option<u64> = None;
 
             delete_entries.remove(uri);
@@ -263,32 +475,80 @@ unsafe extern "C" fn next(handler: Handler) -> *const CResult<CFileIterationInfo
                 // updated
                 let prev_entry_unwrapped = prev_entry.unwrap();
                 prev_file_hash = Some(prev_entry_unwrapped.file_hash);
-                prev_entry_unwrapped.size != size
+                (!is_gdrive_native && prev_entry_unwrapped.size != size)
                     || (prev_entry_unwrapped.updated_at_utc < last_modified || last_modified < 0)
             };
             if added_or_updated {
+                let file_blob_content = if is_gdrive_native {
+                    let Some(access_token) = info.gdrive_access_token.as_deref() else {
+                        log(
+                            LogLevel::Error,
+                            "Google Drive native document export requires an OAuth access token",
+                        );
+                        failed = true;
+                        break;
+                    };
+                    match rt.block_on(export_gdrive_file(
+                        access_token,
+                        &info.gdrive_root,
+                        uri,
+                        &content_type,
+                    )) {
+                        Ok((content, exported_content_type, exported_name)) => {
+                            size = content.len();
+                            content_type = exported_content_type;
+                            name = exported_name;
+                            content
+                        }
+                        Err(err) => {
+                            log(LogLevel::Error, &err);
+                            failed = true;
+                            break;
+                        }
+                    }
+                } else {
+                    match rt.block_on(async { operator.read(uri).await }) {
+                        Ok(content) => content.to_vec(),
+                        Err(err) => {
+                            log(LogLevel::Error, &err.to_string());
+                            failed = true;
+                            break;
+                        }
+                    }
+                };
+
+                // check file hash
+                let file_hash = xxh3_64(&file_blob_content);
+                if prev_file_hash == Some(file_hash) {
+                    continue;
+                }
+
                 let file_id = Box::new(CString::new(uri).unwrap());
                 let name = Box::new(CString::new(name).unwrap());
                 let contet_type = Box::new(CString::new(content_type).unwrap());
                 let metadata = Box::new(CString::new(metadata).unwrap());
+                let dl_filename = rename_to_uuid(name.to_str().unwrap());
+                let download_path = Path::new(dl_dir)
+                    .join(dl_filename)
+                    .to_string_lossy()
+                    .to_string();
                 let file_path = Box::new(CString::new(download_path.clone()).unwrap());
 
-                let file_blob_res = rt.block_on(async { operator.read(&uri).await });
-                if file_blob_res.is_err() {
-                    log(LogLevel::Debug, &file_blob_res.unwrap_err().to_string());
+                if let Err(err) = fs::create_dir_all(dl_dir) {
+                    log(
+                        LogLevel::Error,
+                        &format!("failed to create download directory '{dl_dir}': {err}"),
+                    );
+                    failed = true;
                     break;
                 }
-                let file_blob_content = file_blob_res.unwrap().to_vec();
 
-                // check file hash
-                let file_hash = xxh3_64(&file_blob_content);
-                if prev_file_hash.is_none_or(|f| file_hash == f) {
-                    continue;
-                }
-
-                let fs_result = fs::write(&download_path, file_blob_content);
-                if fs_result.is_err() {
-                    log(LogLevel::Debug, &fs_result.unwrap_err().to_string());
+                if let Err(err) = fs::write(&download_path, file_blob_content) {
+                    log(
+                        LogLevel::Error,
+                        &format!("failed to write downloaded file '{download_path}': {err}"),
+                    );
+                    failed = true;
                     break;
                 };
 
@@ -314,13 +574,17 @@ unsafe extern "C" fn next(handler: Handler) -> *const CResult<CFileIterationInfo
                 break;
             }
         }
-        if nex_ref.added_or_updated.is_none() {
-            while let Some(entry) = info.delete_entries.iter().next() {
+        if nex_ref.added_or_updated.is_none() && !failed {
+            if let Some(entry) = delete_entries.iter().next().cloned() {
+                delete_entries.remove(&entry);
                 let file_id = Box::new(CString::new(entry.clone()).unwrap());
                 nex_ref.result.data.deleted = file_id.as_ptr();
                 nex_ref.chars.push(file_id);
                 nex_ref.result.success = true;
             }
+        }
+        if !failed && nex_ref.added_or_updated.is_none() && nex_ref.result.data.deleted.is_null() {
+            nex_ref.result.success = true;
         }
     }
 
@@ -332,4 +596,72 @@ unsafe extern "C" fn next(handler: Handler) -> *const CResult<CFileIterationInfo
 unsafe extern "C" fn free(value: *const c_void) {
     STR_REF.lock().unwrap().remove(&(value as usize));
     NEXT_REF.lock().unwrap().remove(&(value as usize));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn service_configurations_are_flattened_and_oauth_token_overrides_config() {
+        let param = serde_json::from_value(serde_json::json!({
+            "service_name": "gdrive",
+            "service_configurations": {
+                "root": "/documents",
+                "access_token": "stale-token"
+            },
+            "oauth_conf_access_token_name": null
+        }))
+        .unwrap();
+
+        let args = service_config_to_args(&param, Some("fresh-token")).unwrap();
+
+        assert_eq!(
+            args,
+            vec![
+                ("root".to_owned(), "/documents".to_owned()),
+                ("access_token".to_owned(), "fresh-token".to_owned())
+            ]
+        );
+    }
+
+    #[test]
+    fn service_configurations_reject_nested_objects() {
+        let param = serde_json::from_value(serde_json::json!({
+            "service_name": "gdrive",
+            "service_configurations": {
+                "root": { "unexpected": "object" }
+            },
+            "oauth_conf_access_token_name": null
+        }))
+        .unwrap();
+
+        assert!(service_config_to_args(&param, None).is_err());
+    }
+
+    #[test]
+    fn google_workspace_files_use_office_export_formats() {
+        assert_eq!(
+            native_export_format("application/vnd.google-apps.document"),
+            Some((
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "docx"
+            ))
+        );
+        assert_eq!(
+            native_export_format("application/vnd.google-apps.spreadsheet"),
+            Some((
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "xlsx"
+            ))
+        );
+        assert_eq!(
+            native_export_format("application/vnd.google-apps.presentation"),
+            Some((
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                "pptx"
+            ))
+        );
+        assert_eq!(native_export_format("application/pdf"), None);
+    }
 }

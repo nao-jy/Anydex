@@ -2,6 +2,7 @@ use anydex_plugin_api_lib::{
     common::{to_string, CSlice, Handler},
     file_source::interface::{
         CInputFileInfo, DynamicFileSource, DynamicFileSourceV1, DYNAMIC_FILE_SOURCE_ABI_VERSION_V1,
+        INVALID_HANDLE,
     },
     interface::DynamicPluginHeader,
 };
@@ -10,6 +11,7 @@ use libloading::Library;
 use std::{
     collections::HashMap,
     ffi::{c_void, CStr, CString},
+    fs,
 };
 
 use crate::plugin::{
@@ -79,7 +81,9 @@ impl FileSource for DynamicFileSource {
                 let params =
                     CString::new(serde_json::to_string(param).map_err(|err| err.to_string())?)
                         .map_err(|err| err.to_string())?;
+                fs::create_dir_all(&download_dir).map_err(|err| err.to_string())?;
                 let download_dir = CString::new(download_dir).map_err(|err| err.to_string())?;
+
                 let access_token = match access_token {
                     Some(token) => Some(CString::new(token).map_err(|err| err.to_string())?),
                     None => None,
@@ -107,10 +111,18 @@ impl FileSource for DynamicFileSource {
                             ptr: cfiles.as_ptr(),
                             length: cfiles.len(),
                         },
-                        access_token.map(|t| t.as_ptr()).unwrap_or(std::ptr::null()),
+                        access_token
+                            .as_ref()
+                            .map(|t| t.as_ptr())
+                            .unwrap_or(std::ptr::null()),
                         download_dir.as_ptr(),
                     )
                 };
+                if handler == INVALID_HANDLE {
+                    return Err(
+                        "file source plugin failed to create a handler; see plugin logs".into(),
+                    );
+                }
                 let free_handler = plugin_v1.free_handler;
                 Ok(DisposableHnandler {
                     handler,
@@ -124,16 +136,16 @@ impl FileSource for DynamicFileSource {
         match self {
             DynamicFileSource::V1(plugin_v1) => {
                 let result_ptr = unsafe { (plugin_v1.next)(handler) };
+                if result_ptr.is_null() {
+                    return Err("file source plugin returned a null result".into());
+                }
                 let result = unsafe { result_ptr.read() };
-                let mut ret: Result<Option<FileIterationInfo>, String> = Ok(None);
-                if !result.success {
-                    ret = Err("next_added_or_changed failed".into());
-                }
-                if result.data.added_or_updated.is_null() && result.data.deleted.is_null() {
-                    ret = Ok(None);
-                }
-                // added or updated
-                if !result.data.added_or_updated.is_null() {
+                let ret = if !result.success {
+                    Err(
+                        "file source plugin failed while reading the next entry; see plugin logs"
+                            .into(),
+                    )
+                } else if !result.data.added_or_updated.is_null() {
                     let cfile = unsafe { result.data.added_or_updated.read() };
                     let metadata = serde_json::Value::from(to_string(cfile.metadata));
 
@@ -148,13 +160,13 @@ impl FileSource for DynamicFileSource {
                         metadata: object_to_hash_map(metadata),
                         file_hash: cfile.file_hash,
                     };
-                    ret = Ok(Some(FileIterationInfo::AddedOrUpdated(added_or_updated)));
-                }
-                // deleted
-                if !result.data.deleted.is_null() {
-                    let deleted: String = to_string(result.data.deleted);
-                    ret = Ok(Some(FileIterationInfo::Deleted(deleted)));
-                }
+                    Ok(Some(FileIterationInfo::AddedOrUpdated(added_or_updated)))
+                } else if !result.data.deleted.is_null() {
+                    let deleted = to_string(result.data.deleted);
+                    Ok(Some(FileIterationInfo::Deleted(deleted)))
+                } else {
+                    Ok(None)
+                };
                 unsafe { (plugin_v1.free)(result_ptr as *mut c_void) };
                 ret
             }

@@ -13,7 +13,8 @@ name = "anydex_plugin_default_impl_file_source_lib"
 crate-type = ["cdylib"]
 
 [dependencies]
-opendal = "0.59.2"
+opendal = { version = "0.59.2", features = ["services-gdrive"] }
+reqwest = { version = "0.13.5", features = ["json", "query"] }
 mime_guess.workspace = true
 uuid.workspace = true
 anydex-plugin-api.workspace = true

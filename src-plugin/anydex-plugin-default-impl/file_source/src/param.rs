@@ -14,6 +14,8 @@ pub struct Param {
         description = "Service configurations from https://opendal.apache.org/services/"
     )]
     pub service_configurations: serde_json::Map<String, serde_json::Value>,
+    #[schemars(title = "Recursive")]
+    pub is_recursive: bool,
 
     // following definitions will be used to automatically map OAuth credentials
     #[schemars(
