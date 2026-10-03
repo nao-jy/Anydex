@@ -980,8 +980,27 @@ const Indexer = (params: IndexerProps) => {
           onReset={() => {
             setOauthId(indexer.fileSource?.oauthClient?.id ?? null);
           }}
-          onTest={() => {}}
-          onAbortTest={() => {}}
+          onTest={async (name, params) => {
+            const result = await commands.testFileSource(
+              name,
+              JSON.stringify(params),
+              oauthId,
+            );
+            if (result.status === "error") {
+              await showErrorDialog(result.error);
+            }
+          }}
+          onAbortTest={
+            oauthId === null
+              ? undefined
+              : () => {
+                  const oauthClient = oauthClients.find(
+                    (v) => v.id === oauthId,
+                  )?.clientId;
+                  if (oauthClient === undefined) return;
+                  commands.abortOauth(oauthClient);
+                }
+          }
         >
           <Select
             label={"OAuthクライアント"}

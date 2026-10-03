@@ -15,11 +15,7 @@ import {
 } from "@mantine/core";
 import { commands, OAuthClient } from "../bindings";
 import { PageHeader } from "../components/PageHeader";
-import {
-  showConfirmDialog,
-  showErrorDialog,
-  showInfoDialog,
-} from "../components/Dialogs";
+import { showConfirmDialog, showErrorDialog } from "../components/Dialogs";
 import { showInfoNotification } from "../components/Notifications";
 
 export const OAuth = () => {
@@ -267,7 +263,7 @@ const OAuthContent = (props: OAuthContentProps) => {
                 const newData = get_current_info();
                 const result = await commands.testOauth(newData);
                 if (result.status === "ok") {
-                  await showInfoDialog("認証に成功しました");
+                  showInfoNotification("認証に成功しました");
                 } else {
                   await showErrorDialog(result.error);
                 }

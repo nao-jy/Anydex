@@ -149,10 +149,11 @@ unsafe extern "C" fn get_handler(
 
         let param_unwrapped = param_result.unwrap();
         let mut args = object_to_list(serde_json::from_str(&param_str).unwrap());
-        if let Some(oauth_name) = param_unwrapped.oauth_conf_access_token_name {
-            if !access_token.is_null() {
-                args.push((oauth_name, to_string(access_token)));
-            }
+        if !access_token.is_null() {
+            let oauth_name = param_unwrapped
+                .oauth_conf_access_token_name
+                .unwrap_or("access_token".to_string());
+            args.push((oauth_name, to_string(access_token)));
         }
         let operator_res = Operator::via_iter(param_unwrapped.service_name.clone(), args);
         if operator_res.is_err() {

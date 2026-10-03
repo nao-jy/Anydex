@@ -1,6 +1,6 @@
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { MantineProvider } from "@mantine/core";
-import { BrowserRouter, Routes, Route } from "react-router";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
@@ -38,7 +38,7 @@ function AppInner() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
-          <Route index element={<Index />} />
+          <Route index element={<Navigate to="/index" replace />} />
           <Route path="index" element={<Index />} />
           <Route path="search" element={<Search />} />
           <Route path="oauth" element={<OAuth />} />
