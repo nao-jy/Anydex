@@ -220,43 +220,66 @@ pub async fn test_file_source(
         }
         None => None,
     };
-    let auth_result_clone = auth_result.as_ref().map_or(None, |v| Some(v.clone()));
-    scopeguard::defer! {
-        tauri::async_runtime::block_on(async {
-            if let Some(auth_result) = auth_result_clone {
-                if let Some(mdl) = &oauth {
-                    if let Some(revoke) = mdl.revocation_endpoint.as_ref(){
-                        let _result = revoke_access_token(&mdl.client_id, mdl.client_sercret.clone(), &auth_result.access_token.secret(), &revoke).await;
-                        if let Some(refr) = auth_result.refresh_token.as_ref() {
-                            let _result = revoke_refresh_token(&mdl.client_id, mdl.client_sercret.clone(), refr.secret(), &revoke).await;
-                        }
-                    }
-                }
-            }
-        });
-    };
-    let access_token = match auth_result {
-        Some(token) => Some(token.access_token.secret().to_string()),
-        None => None,
-    };
+    let access_token = auth_result
+        .as_ref()
+        .map(|token| token.access_token.secret().to_string());
     let download_dir = std::env::temp_dir()
         .join(Uuid::new_v4().to_string())
         .to_string_lossy()
         .to_string();
-    // Acquire the synchronous mutex only after all awaits, so its guard is
-    // never held across an await point in this Send future.
-    let mut mgr_mtx = FILE_SOURCE_MGR.lock().unwrap();
-    let mgr = mgr_mtx.as_mut().unwrap();
-    let plugin = mgr.get_plugin(&file_source_name).ok_or_else(|| {
-        format!("File Source plugin {file_source_name} was not found in the plugin manager")
-    })?;
-    let handler = plugin
-        .get_handler(&param, &[], access_token, &download_dir)
-        .map_err(|err| err.to_string())?;
-    let _file = plugin
-        .next(handler.handler)
-        .map_err(|err| err.to_string())?
-        .ok_or_else(|| format!("File not found"))?;
-    fs::remove_dir_all(download_dir).map_err(|err| err.to_string())?;
-    Ok(())
+    let plugin_download_dir = download_dir.clone();
+    let plugin_result = tauri::async_runtime::spawn_blocking(move || {
+        let mut mgr_mtx = FILE_SOURCE_MGR.lock().unwrap();
+        let mgr = mgr_mtx
+            .as_mut()
+            .ok_or_else(|| "file source plugin manager is not initialized".to_owned())?;
+        let plugin = mgr.get_plugin(&file_source_name).ok_or_else(|| {
+            format!("File Source plugin {file_source_name} was not found in the plugin manager")
+        })?;
+        let handler = plugin
+            .get_handler(&param, &[], access_token, &plugin_download_dir)
+            .map_err(|err| err.to_string())?;
+        let _file = plugin
+            .next(handler.handler)
+            .map_err(|err| err.to_string())?
+            .ok_or_else(|| "File not found".to_owned())?;
+        Ok::<(), String>(())
+    })
+    .await
+    .map_err(|err| format!("file source test task failed: {err}"))
+    .and_then(|result| result);
+
+    let cleanup_result = fs::remove_dir_all(&download_dir).map_err(|err| err.to_string());
+    let result = match (plugin_result, cleanup_result) {
+        (Err(err), Err(cleanup_err)) => {
+            tracing::warn!("failed to remove file source test directory: {cleanup_err}");
+            Err(err)
+        }
+        (Err(err), _) => Err(err),
+        (Ok(()), Err(err)) => Err(err),
+        (Ok(()), Ok(())) => Ok(()),
+    };
+
+    if let (Some(auth_result), Some(model)) = (auth_result, oauth.as_ref()) {
+        if let Some(revoke) = model.revocation_endpoint.as_ref() {
+            let _result = revoke_access_token(
+                &model.client_id,
+                model.client_sercret.clone(),
+                auth_result.access_token.secret(),
+                revoke,
+            )
+            .await;
+            if let Some(refresh_token) = auth_result.refresh_token.as_ref() {
+                let _result = revoke_refresh_token(
+                    &model.client_id,
+                    model.client_sercret.clone(),
+                    refresh_token.secret(),
+                    revoke,
+                )
+                .await;
+            }
+        }
+    }
+
+    result
 }

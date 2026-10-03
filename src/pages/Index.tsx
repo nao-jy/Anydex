@@ -636,7 +636,7 @@ const PluginSelector = (props: PluginSelectorProps) => {
               submitButtonClosure={
                 onTest === undefined
                   ? undefined
-                  : (form) => {
+                  : (getForm) => {
                       return (_) => {
                         return (
                           <Group gap="xs" mt={24} wrap="nowrap">
@@ -653,9 +653,10 @@ const PluginSelector = (props: PluginSelectorProps) => {
                               <Button
                                 variant="outline"
                                 onClick={() => {
-                                  const result = form?.validateForm();
                                   if (selecting === null) return;
-                                  if (form === undefined) return;
+                                  const form = getForm();
+                                  if (form === null) return;
+                                  const result = form.validateForm();
                                   if (result !== true) return;
                                   onClickTest(selecting, form.state.formData);
                                 }}

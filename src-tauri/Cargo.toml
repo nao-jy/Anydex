@@ -53,7 +53,6 @@ oauth2 = "5.0.0"
 webbrowser = "1.2.4"
 subtle = "2.6.1"
 uuid = { version = "1.26.1", features = ["v4", "v7", "serde"] }
-scopeguard = "1.2.0"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

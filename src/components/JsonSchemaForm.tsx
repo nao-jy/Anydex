@@ -6,7 +6,7 @@ import { customizeValidator } from "@rjsf/validator-ajv8";
 import { JsonEditor } from "json-edit-react";
 import Ajv2020 from "ajv/dist/2020";
 import Ajv2019 from "ajv/dist/2019";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 
 const DefaultObjectField = getDefaultRegistry().fields.ObjectField;
 
@@ -60,7 +60,7 @@ export interface JsonSchemaFormParams {
   onSubmit: (event: IChangeEvent<any, RJSFSchema, any>) => void;
   disabled?: boolean;
   submitButtonClosure?: (
-    form?: Form<any, RJSFSchema, any>,
+    getForm: () => Form<any, RJSFSchema, any> | null,
   ) => React.ComponentType<SubmitButtonProps>;
 }
 
@@ -74,6 +74,16 @@ export const JsonSchemaForm = (props: JsonSchemaFormParams) => {
       : Ajv2019,
   });
   const formRef = useRef<Form<any, RJSFSchema, any>>(null);
+  const submitButtonClosureRef = useRef(submitButtonClosure);
+  submitButtonClosureRef.current = submitButtonClosure;
+  const CustomSubmitButton = useMemo(() => {
+    const getForm = () => formRef.current;
+    return (buttonProps: SubmitButtonProps) => {
+      const SubmitButton =
+        submitButtonClosureRef.current?.(getForm) ?? SubmitButtonDefault;
+      return <SubmitButton {...buttonProps} />;
+    };
+  }, []);
 
   return (
     <Form
@@ -87,9 +97,7 @@ export const JsonSchemaForm = (props: JsonSchemaFormParams) => {
       }}
       templates={{
         ButtonTemplates: {
-          SubmitButton:
-            submitButtonClosure?.(formRef.current ?? undefined) ??
-            SubmitButtonDefault,
+          SubmitButton: CustomSubmitButton,
         },
       }}
       onSubmit={(data) => {
