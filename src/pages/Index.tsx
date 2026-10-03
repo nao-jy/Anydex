@@ -988,6 +988,8 @@ const Indexer = (params: IndexerProps) => {
             );
             if (result.status === "error") {
               await showErrorDialog(result.error);
+            } else {
+              showInfoNotification("ファイルソースのテストに成功しました");
             }
           }}
           onAbortTest={

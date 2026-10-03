@@ -12,7 +12,7 @@ use crate::{
         file_source::interface::FileSource,
     },
     repository,
-    server::oauth::client::do_oauth_pkce,
+    server::oauth::client::{do_oauth_pkce, revoke_access_token, revoke_refresh_token},
 };
 
 #[tauri::command]
@@ -187,14 +187,20 @@ pub async fn test_file_source(
     database: State<'_, DatabaseConnection>,
 ) -> Result<(), String> {
     let param = serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
-    let auth_result = match oauth_id {
-        Some(id) => {
-            let oauth = repository::models::oauth_client::Entity::find_by_id(id)
+    let oauth = if let Some(id) = oauth_id {
+        Some(
+            repository::models::oauth_client::Entity::find_by_id(id)
                 .one(database.inner())
                 .await
                 .map_err(|err| err.to_string())?
-                .ok_or_else(|| format!("OAuth client {id} was not found"))?;
-            let scopes: Vec<String> = oauth
+                .ok_or_else(|| format!("OAuth client {id} was not found"))?,
+        )
+    } else {
+        None
+    };
+    let auth_result = match oauth.as_ref() {
+        Some(model) => {
+            let scopes: Vec<String> = model
                 .scopes
                 .as_array()
                 .unwrap()
@@ -202,10 +208,10 @@ pub async fn test_file_source(
                 .map(|v| v.as_str().unwrap().to_string())
                 .collect();
             let access_token = do_oauth_pkce(
-                &oauth.client_id,
-                oauth.client_sercret,
-                &oauth.authorization_endpoint,
-                &oauth.token_endpoint,
+                &model.client_id,
+                model.client_sercret.clone(),
+                &model.authorization_endpoint,
+                &model.token_endpoint,
                 &scopes,
             )
             .await
@@ -213,6 +219,21 @@ pub async fn test_file_source(
             Some(access_token)
         }
         None => None,
+    };
+    let auth_result_clone = auth_result.as_ref().map_or(None, |v| Some(v.clone()));
+    scopeguard::defer! {
+        tauri::async_runtime::block_on(async {
+            if let Some(auth_result) = auth_result_clone {
+                if let Some(mdl) = &oauth {
+                    if let Some(revoke) = mdl.revocation_endpoint.as_ref(){
+                        let _result = revoke_access_token(&mdl.client_id, mdl.client_sercret.clone(), &auth_result.access_token.secret(), &revoke).await;
+                        if let Some(refr) = auth_result.refresh_token.as_ref() {
+                            let _result = revoke_refresh_token(&mdl.client_id, mdl.client_sercret.clone(), refr.secret(), &revoke).await;
+                        }
+                    }
+                }
+            }
+        });
     };
     let access_token = match auth_result {
         Some(token) => Some(token.access_token.secret().to_string()),

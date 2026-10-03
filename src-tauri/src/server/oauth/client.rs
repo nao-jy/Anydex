@@ -13,6 +13,7 @@ use crate::server::{
     oauth::server::{get_server, CALLBACK_PATH},
 };
 
+#[derive(Debug, Clone)]
 pub struct OAuthResult {
     pub access_token: AccessToken,
     pub refresh_token: Option<RefreshToken>,

@@ -83,6 +83,7 @@ dependencies = [
  "enum-iterator",
  "libloading 0.9.0",
  "oauth2",
+ "scopeguard",
  "sea-orm",
  "serde",
  "serde_json",
