@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::ffi::{c_char, CString};
 use std::sync::{LazyLock, Mutex};
 
+use crate::repository::*;
 use anydex_plugin_api_lib::common::{
     result_to_api_result, to_string, APIResult, APIResultSerialized, LogLevel,
 };
@@ -13,7 +14,7 @@ use anydex_plugin_api_lib::vector_store::params::*;
 
 pub mod inner;
 pub mod param;
-pub mod sqlite;
+pub mod repository;
 
 static PLUGIN: Mutex<Option<DynamicVectorStoreV1>> = Mutex::new(None);
 static PLUGIN_INIT: Mutex<Option<PluginInit>> = Mutex::new(None);
@@ -37,7 +38,7 @@ pub unsafe extern "C" fn get_plugin(init: *const PluginInit) -> *const DynamicVe
         std::ptr::write(std::ptr::addr_of_mut!(LOGGER), Some(plugin_read.log));
     }
 
-    let init_result = sqlite::init_sqlite();
+    let init_result = init_db();
     if let Err(err) = init_result {
         log(LogLevel::Error, &err);
         return std::ptr::null();

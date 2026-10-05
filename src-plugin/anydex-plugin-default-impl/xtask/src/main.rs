@@ -118,7 +118,7 @@ fn get_plugin_path(conf: &Config, original_path: &PathBuf) -> Option<PathBuf> {
         ("embedder", "web-json-api"),
         ("file_extractor", "xberg"),
         ("file_source", "opendal"),
-        ("vector_store", "sqlite-vector"),
+        ("vector_store", "lancedb"),
     ]);
     let mut file_name: Option<String> = None;
     let mut dir_name: Option<String> = None;
