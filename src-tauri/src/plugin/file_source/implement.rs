@@ -4,7 +4,6 @@ use anydex_plugin_api_lib::{
     interface::DynamicPluginHeader,
 };
 use libloading::Library;
-use std::collections::HashMap;
 use tracing::error;
 
 use crate::plugin::{
@@ -33,16 +32,6 @@ impl LibraryLoader for DynamicFileSource {
             }
             version => Err(format!("unsupported version: {version}")),
         }
-    }
-}
-
-fn object_to_hash_map(value: serde_json::Value) -> HashMap<String, String> {
-    match value {
-        serde_json::Value::Object(map) => map
-            .into_iter()
-            .filter_map(|(key, value)| value.as_str().map(|value| (key, value.to_owned())))
-            .collect(),
-        _ => HashMap::new(),
     }
 }
 
