@@ -65,10 +65,8 @@ macro_rules! define_api_callback {
             let args_str = to_string(args_serialized);
             let ret = match serde_json::de::from_str::<$args>(&args_str) {
                 Ok(args_ok) => result_to_api_result(inner::$name(args_ok)),
-                Err(err) => APIResult {
-                    success: false,
-                    error: Some(err.to_string()),
-                    data: None,
+                Err(err) => APIResult::Err {
+                    error: err.to_string(),
                 },
             };
             let ret_ser = serde_json::to_string(&ret).unwrap();

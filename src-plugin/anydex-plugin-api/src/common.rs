@@ -4,19 +4,17 @@ use std::ffi::{c_char, CStr, CString};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct APIResult<T> {
-    pub success: bool,
-    pub error: Option<String>,
-    pub data: Option<T>,
+pub enum APIResult<T> {
+    Ok { data: T },
+    Err { error: String },
 }
 
 pub type APIResultSerialized = *const c_char;
 
 pub fn result_to_api_result<T: Clone>(result: Result<T, String>) -> APIResult<T> {
-    APIResult {
-        success: result.is_ok(),
-        error: result.as_ref().err().cloned(),
-        data: result.as_ref().ok().cloned(),
+    match result {
+        Ok(data) => APIResult::Ok { data },
+        Err(err) => APIResult::Err { error: err },
     }
 }
 
@@ -35,10 +33,9 @@ pub fn apply_and_unwrap<T: Serialize, U: for<'a> Deserialize<'a>>(
     let result = serde_json::de::from_str::<APIResult<U>>(&to_string(raw_result))
         .map_err(|err| err.to_string())?;
     unsafe { (f_free)(raw_result) };
-    if result.success {
-        return Ok(result.data.ok_or("data not found")?);
-    } else {
-        return Err(result.error.ok_or("something went wrong")?);
+    match result {
+        APIResult::Ok { data } => Ok(data),
+        APIResult::Err { error } => Err(error),
     }
 }
 
