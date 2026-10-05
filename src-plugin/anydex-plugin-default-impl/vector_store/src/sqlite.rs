@@ -2,7 +2,7 @@ use std::{str::FromStr, sync::Mutex};
 
 use anydex_plugin_api_lib::{
     common::resolve_dylib_name,
-    vector_store::interface::{FileId, IndexId, IndexerId},
+    vector_store::interface::{Chunk, FileId, FilterCondition, IndexId, IndexerId},
 };
 use process_path::get_dylib_path;
 use rusqlite::Connection;
@@ -10,20 +10,6 @@ use rusqlite::Connection;
 use crate::param::Param;
 
 static DB: Mutex<Option<Connection>> = Mutex::new(None);
-
-pub struct Chunk {
-    pub id: i32,
-    pub index_id: i32,
-    pub indexer_id: i32,
-    pub file_id: i32,
-    pub uri: String,
-    pub content_type: String,
-    pub content: Option<String>,
-    pub content_vector: Option<Vec<f32>>,
-    pub metadata: serde_json::Value,
-    pub created_at_utc: i64,
-    pub updated_at_utc: i64,
-}
 
 pub fn init_sqlite() -> Result<(), String> {
     let this_dir = get_dylib_path().unwrap().parent().map(|p| p.to_path_buf());
@@ -159,7 +145,7 @@ pub fn insert(index_id: IndexId, chunk: Chunk) -> Result<(), String> {
 pub fn search(
     index_id: IndexId,
     vec: &Vec<f32>,
-    additional_cond_sql: &str,
+    filter_cond: &FilterCondition,
     offset: i32,
     limit: i32,
 ) -> Result<Vec<(Chunk, f32)>, String> {

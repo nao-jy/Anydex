@@ -4,14 +4,12 @@ use crate::plugin::{
     manager::LibraryLoader,
 };
 use anydex_plugin_api_lib::{
-    common::{to_string, Handler},
-    file_extractor::interface::{
-        DynamicFileExtractor, DynamicFileExtractorV1, DYNAMIC_FILE_EXTRACTOR_ABI_VERSION_V1,
-    },
+    common::{apply_and_unwrap, Handler},
+    file_extractor::{interface::*, params::*},
     interface::DynamicPluginHeader,
 };
 use libloading::Library;
-use std::ffi::{c_char, c_void, CString};
+use tracing::error;
 
 impl LibraryLoader for DynamicFileExtractor {
     fn load_library(library: &Library) -> Result<Self, String> {
@@ -40,14 +38,10 @@ impl FileExtractor for DynamicFileExtractor {
     fn get_param_schema(&self) -> Result<serde_json::Value, String> {
         match self {
             DynamicFileExtractor::V1(plugin_v1) => {
-                let raw_schema = unsafe { (plugin_v1.get_param_schema)() };
-                if raw_schema.is_null() {
-                    return Err("get_param_schema returns null".into());
-                }
-
-                let schema = to_string(raw_schema);
-                unsafe { (plugin_v1.free)(raw_schema as *mut c_void) };
-                serde_json::from_str(&schema).map_err(|err| err.to_string())
+                let args = GetParamSchemaArgs {};
+                let result: GetParamSchemaData =
+                    apply_and_unwrap(args, plugin_v1.get_param_schema, plugin_v1.free)?;
+                return Ok(result.schema);
             }
         }
     }
@@ -59,16 +53,26 @@ impl FileExtractor for DynamicFileExtractor {
     ) -> Result<DisposableHnandler, String> {
         match self {
             DynamicFileExtractor::V1(plugin_v1) => {
-                let params =
-                    CString::new(serde_json::to_string(param).map_err(|err| err.to_string())?)
-                        .map_err(|err| err.to_string())?;
-                let base_dir = CString::new(base_dir).map_err(|err| err.to_string())?;
-                let handler =
-                    unsafe { (plugin_v1.get_handler)(params.as_ptr(), base_dir.as_ptr()) };
-                let free_handler = plugin_v1.free_handler;
+                let args = GetHandlerArgs {
+                    params: param.clone(),
+                    base_dir: base_dir.to_string(),
+                };
+                let result: GetHandlerData =
+                    apply_and_unwrap(args, plugin_v1.get_handler, plugin_v1.free)?;
+
+                let free_handler_fn = plugin_v1.free_handler;
+                let free_fn = plugin_v1.free;
+                let free_handler = move |h| {
+                    let args = FreeHandlerArgs { handler: h };
+                    let result: Result<FreeHandlerData, String> =
+                        apply_and_unwrap(args, free_handler_fn, free_fn);
+                    if let Err(err) = result {
+                        error!("{err}");
+                    }
+                };
                 Ok(DisposableHnandler {
-                    handler,
-                    free_fn: Box::new(move |h| unsafe { free_handler(h) }),
+                    handler: result.handler,
+                    free_fn: Box::new(free_handler),
                 })
             }
         }
@@ -81,15 +85,13 @@ impl FileExtractor for DynamicFileExtractor {
     ) -> Result<Vec<ExtractedFileRelativePath>, String> {
         match self {
             DynamicFileExtractor::V1(plugin_v1) => {
-                let file_abs_path = CString::new(file_abs_path).map_err(|err| err.to_string())?;
-                let extracted_ptr = unsafe { (plugin_v1.extract)(handler, file_abs_path.as_ptr()) };
-                let extracted = unsafe { extracted_ptr.read() };
-                let path_vec: Vec<*const c_char> = extracted.into();
-
-                let ret: Vec<String> = path_vec.iter().map(|&c| to_string(c)).collect();
-
-                unsafe { (plugin_v1.free)(extracted_ptr as *const c_void) };
-                Ok(ret)
+                let args = ExtractArgs {
+                    handler: handler,
+                    file_path: file_abs_path.to_string(),
+                };
+                let result: ExtractData =
+                    apply_and_unwrap(args, plugin_v1.extract, plugin_v1.free)?;
+                return Ok(result.extracted_file_paths);
             }
         }
     }

@@ -1,25 +1,45 @@
 use std::env::consts::{ARCH, DLL_SUFFIX, OS};
-use std::ffi::{c_char, CStr};
+use std::ffi::{c_char, CStr, CString};
 
-// common type
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CSlice<T> {
-    pub ptr: *const T,
-    pub length: usize,
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct APIResult<T> {
+    pub success: bool,
+    pub error: Option<String>,
+    pub data: Option<T>,
 }
 
-impl<T: Clone> Into<Vec<T>> for CSlice<T> {
-    fn into(self) -> Vec<T> {
-        unsafe { std::slice::from_raw_parts(self.ptr, self.length).to_vec() }
+pub type APIResultSerialized = *const c_char;
+
+pub fn result_to_api_result<T: Clone>(result: Result<T, String>) -> APIResult<T> {
+    APIResult {
+        success: result.is_ok(),
+        error: result.as_ref().err().cloned(),
+        data: result.as_ref().ok().cloned(),
     }
 }
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CResult<T> {
-    pub success: bool,
-    pub data: T,
+pub fn apply_and_unwrap<T: Serialize, U: for<'a> Deserialize<'a>>(
+    args: T,
+    f: unsafe extern "C" fn(*const i8) -> *const i8,
+    f_free: unsafe extern "C" fn(*const i8),
+) -> Result<U, String> {
+    let args_str = serde_json::to_string(&args).map_err(|err| err.to_string())?;
+    let args_cstr = CString::new(args_str).map_err(|err| err.to_string())?;
+    let raw_result = unsafe { (f)(args_cstr.as_ptr()) };
+    if raw_result.is_null() {
+        return Err("get_param_schema returns null".into());
+    }
+
+    let result = serde_json::de::from_str::<APIResult<U>>(&to_string(raw_result))
+        .map_err(|err| err.to_string())?;
+    unsafe { (f_free)(raw_result) };
+    if result.success {
+        return Ok(result.data.ok_or("data not found")?);
+    } else {
+        return Err(result.error.ok_or("something went wrong")?);
+    }
 }
 
 pub type Handler = u64;

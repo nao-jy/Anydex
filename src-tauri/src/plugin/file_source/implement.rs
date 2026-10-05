@@ -1,22 +1,15 @@
 use anydex_plugin_api_lib::{
-    common::{to_string, CSlice, Handler},
-    file_source::interface::{
-        CInputFileInfo, DynamicFileSource, DynamicFileSourceV1, DYNAMIC_FILE_SOURCE_ABI_VERSION_V1,
-        INVALID_HANDLE,
-    },
+    common::{apply_and_unwrap, Handler},
+    file_source::{interface::*, params::*},
     interface::DynamicPluginHeader,
 };
-use chrono::{DateTime, Utc};
 use libloading::Library;
-use std::{
-    collections::HashMap,
-    ffi::{c_void, CStr, CString},
-    fs,
-};
+use std::collections::HashMap;
+use tracing::error;
 
 use crate::plugin::{
     common::{get_plugin, DisposableHnandler},
-    file_source::interface::{FileIterationInfo, FileSource, InputFileInfo, OutputFileInfo},
+    file_source::interface::FileSource,
     manager::LibraryLoader,
 };
 
@@ -57,14 +50,10 @@ impl FileSource for DynamicFileSource {
     fn get_param_schema(&self) -> Result<serde_json::Value, String> {
         match self {
             DynamicFileSource::V1(plugin_v1) => {
-                let raw_schema = unsafe { (plugin_v1.get_param_schema)() };
-                if raw_schema.is_null() {
-                    return Err("get_param_schema returns null".into());
-                }
-
-                let schema = unsafe { CStr::from_ptr(raw_schema).to_string_lossy().into_owned() };
-                unsafe { (plugin_v1.free)(raw_schema as *mut c_void) };
-                serde_json::from_str(&schema).map_err(|err| err.to_string())
+                let args = GetParamSchemaArgs {};
+                let result: GetParamSchemaData =
+                    apply_and_unwrap(args, plugin_v1.get_param_schema, plugin_v1.free)?;
+                return Ok(result.schema);
             }
         }
     }
@@ -78,55 +67,28 @@ impl FileSource for DynamicFileSource {
     ) -> Result<DisposableHnandler, String> {
         match self {
             DynamicFileSource::V1(plugin_v1) => {
-                let params =
-                    CString::new(serde_json::to_string(param).map_err(|err| err.to_string())?)
-                        .map_err(|err| err.to_string())?;
-                fs::create_dir_all(&download_dir).map_err(|err| err.to_string())?;
-                let download_dir = CString::new(download_dir).map_err(|err| err.to_string())?;
-
-                let access_token = match access_token {
-                    Some(token) => Some(CString::new(token).map_err(|err| err.to_string())?),
-                    None => None,
+                let args = GetHandlerArgs {
+                    params: param.clone(),
+                    access_token: access_token,
+                    last_indexed_files: last_indexed_files.to_vec(),
+                    download_dir: download_dir.to_string(),
                 };
+                let result: GetHandlerData =
+                    apply_and_unwrap(args, plugin_v1.get_handler, plugin_v1.free)?;
 
-                let mut cstrings = Vec::with_capacity(last_indexed_files.len());
-                let mut cfiles = Vec::with_capacity(last_indexed_files.len());
-
-                for info in last_indexed_files {
-                    let fid = CString::new(info.file_id.clone()).map_err(|err| err.to_string())?;
-
-                    cfiles.push(CInputFileInfo {
-                        file_id: fid.as_ptr(),
-                        size: info.size,
-                        updated_at_utc: info.updated_at.timestamp(),
-                        file_hash: info.file_hash,
-                    });
-
-                    cstrings.push(fid);
-                }
-                let handler = unsafe {
-                    (plugin_v1.get_handler)(
-                        params.as_ptr(),
-                        CSlice {
-                            ptr: cfiles.as_ptr(),
-                            length: cfiles.len(),
-                        },
-                        access_token
-                            .as_ref()
-                            .map(|t| t.as_ptr())
-                            .unwrap_or(std::ptr::null()),
-                        download_dir.as_ptr(),
-                    )
+                let free_handler_fn = plugin_v1.free_handler;
+                let free_fn = plugin_v1.free;
+                let free_handler = move |h| {
+                    let args = FreeHandlerArgs { handler: h };
+                    let result: Result<FreeHandlerData, String> =
+                        apply_and_unwrap(args, free_handler_fn, free_fn);
+                    if let Err(err) = result {
+                        error!("{err}");
+                    }
                 };
-                if handler == INVALID_HANDLE {
-                    return Err(
-                        "file source plugin failed to create a handler; see plugin logs".into(),
-                    );
-                }
-                let free_handler = plugin_v1.free_handler;
                 Ok(DisposableHnandler {
-                    handler,
-                    free_fn: Box::new(move |h| unsafe { free_handler(h) }),
+                    handler: result.handler,
+                    free_fn: Box::new(free_handler),
                 })
             }
         }
@@ -135,40 +97,9 @@ impl FileSource for DynamicFileSource {
     fn next(&self, handler: Handler) -> Result<Option<FileIterationInfo>, String> {
         match self {
             DynamicFileSource::V1(plugin_v1) => {
-                let result_ptr = unsafe { (plugin_v1.next)(handler) };
-                if result_ptr.is_null() {
-                    return Err("file source plugin returned a null result".into());
-                }
-                let result = unsafe { result_ptr.read() };
-                let ret = if !result.success {
-                    Err(
-                        "file source plugin failed while reading the next entry; see plugin logs"
-                            .into(),
-                    )
-                } else if !result.data.added_or_updated.is_null() {
-                    let cfile = unsafe { result.data.added_or_updated.read() };
-                    let metadata = serde_json::Value::from(to_string(cfile.metadata));
-
-                    let added_or_updated = OutputFileInfo {
-                        file_id: to_string(cfile.file_id),
-                        name: to_string(cfile.name),
-                        file_path: to_string(cfile.file_path),
-                        content_type: to_string(cfile.content_type),
-                        size: cfile.size,
-                        updated_at: DateTime::from_timestamp(cfile.updated_at_utc, 0)
-                            .unwrap_or(Utc::now()),
-                        metadata: object_to_hash_map(metadata),
-                        file_hash: cfile.file_hash,
-                    };
-                    Ok(Some(FileIterationInfo::AddedOrUpdated(added_or_updated)))
-                } else if !result.data.deleted.is_null() {
-                    let deleted = to_string(result.data.deleted);
-                    Ok(Some(FileIterationInfo::Deleted(deleted)))
-                } else {
-                    Ok(None)
-                };
-                unsafe { (plugin_v1.free)(result_ptr as *mut c_void) };
-                ret
+                let args = NextArgs { handler: handler };
+                let result: NextData = apply_and_unwrap(args, plugin_v1.next, plugin_v1.free)?;
+                return Ok(result.info);
             }
         }
     }

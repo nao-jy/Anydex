@@ -1,18 +1,17 @@
-use param::Param;
 use std::collections::HashMap;
-use std::ffi::{c_char, c_void, CString};
+use std::ffi::{c_char, CString};
 use std::sync::{LazyLock, Mutex};
 
-use anydex_plugin_api_lib::common::{to_string, CResult, CSlice, Handler, LogLevel};
+use anydex_plugin_api_lib::common::{
+    result_to_api_result, to_string, APIResult, APIResultSerialized, LogLevel,
+};
 use anydex_plugin_api_lib::interface::PluginInit;
 use anydex_plugin_api_lib::vector_store::interface::{
-    CChunk, CSearchHit, CSearchRequest, DynamicVectorStoreV1, FileId, IndexId, IndexerId,
-    DYNAMIC_VECTOR_STORE_ABI_VERSION_V1, INVALID_HANDLE,
+    DynamicVectorStoreV1, DYNAMIC_VECTOR_STORE_ABI_VERSION_V1,
 };
-use schemars::schema_for;
+use anydex_plugin_api_lib::vector_store::params::*;
 
-use crate::sqlite::Chunk;
-
+pub mod inner;
 pub mod param;
 pub mod sqlite;
 
@@ -55,10 +54,9 @@ pub unsafe extern "C" fn get_plugin(init: *const PluginInit) -> *const DynamicVe
             get_param_schema,
             get_handler,
             free_handler,
-            delete_chunk_file,
-            delete_chunk_indexer,
-            insert_chunk,
-            clear_chunk,
+            delete_chunks,
+            insert_chunks,
+            clear_chunks,
             search,
             free,
         };
@@ -69,212 +67,39 @@ pub unsafe extern "C" fn get_plugin(init: *const PluginInit) -> *const DynamicVe
     return &raw const *ret;
 }
 
-struct HandleInfo {
-    pub param: Param,
-    pub index_id: IndexId,
-}
-
 static STR_REF: LazyLock<Mutex<HashMap<usize, Box<CString>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-static HANDLERS: LazyLock<Mutex<HashMap<Handler, HandleInfo>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+macro_rules! define_api_callback {
+    ($name:ident, $args:ty) => {
+        unsafe extern "C" fn $name(args_serialized: *const c_char) -> APIResultSerialized {
+            let args_str = to_string(args_serialized);
+            let ret = match serde_json::de::from_str::<$args>(&args_str) {
+                Ok(args_ok) => result_to_api_result(inner::$name(args_ok)),
+                Err(err) => APIResult {
+                    success: false,
+                    error: Some(err.to_string()),
+                    data: None,
+                },
+            };
+            let ret_ser = serde_json::to_string(&ret).unwrap();
+            let ret_ptr: Box<CString> = Box::from(CString::new(ret_ser).unwrap());
+            let ptr = ret_ptr.as_ptr();
+            STR_REF.lock().unwrap().insert(ptr as usize, ret_ptr);
 
-static HANDLER_COUNTER: Mutex<u64> = Mutex::new(0);
-
-unsafe extern "C" fn get_param_schema() -> *const c_char {
-    let schema = schema_for!(Param);
-    let schema_str: Box<CString> =
-        Box::from(CString::new(serde_json::to_string_pretty(&schema).unwrap()).unwrap());
-    let ptr = schema_str.as_ptr();
-    STR_REF.lock().unwrap().insert(ptr as usize, schema_str);
-
-    return ptr;
-}
-
-unsafe extern "C" fn get_handler(params: *const c_char, index_id: IndexId) -> Handler {
-    let schema_str = to_string(params);
-    let schema = serde_json::from_str::<Param>(&schema_str).map_err(|err| err.to_string());
-    if schema.is_ok() {
-        let mut handler_mtx = HANDLER_COUNTER.lock().unwrap();
-        let handler = (*handler_mtx).clone();
-        (*handler_mtx) += 1;
-
-        let info = HandleInfo {
-            index_id,
-            param: schema.unwrap(),
-        };
-        sqlite::init_table(index_id, &info.param).unwrap_or_else(|err| log(LogLevel::Error, &err));
-        HANDLERS.lock().unwrap().insert(handler, info);
-        handler
-    } else {
-        log(LogLevel::Error, &schema.unwrap_err());
-        INVALID_HANDLE
-    }
-}
-
-unsafe extern "C" fn free_handler(handler: Handler) {
-    HANDLERS.lock().unwrap().remove(&handler);
-}
-
-unsafe extern "C" fn delete_chunk_file(handler: Handler, file_id: FileId) {
-    let info_mtx = HANDLERS.lock().unwrap();
-    let info_opt = (*info_mtx).get(&handler);
-    if let Some(info) = info_opt {
-        let _ =
-            sqlite::delete_file(info.index_id, file_id).map_err(|err| log(LogLevel::Error, &err));
-    }
-}
-
-unsafe extern "C" fn delete_chunk_indexer(handler: Handler, indexer_id: IndexerId) {
-    let info_mtx = HANDLERS.lock().unwrap();
-    let info_opt = (*info_mtx).get(&handler);
-    if let Some(info) = info_opt {
-        let _ = sqlite::delete_indexer(info.index_id, indexer_id)
-            .map_err(|err| log(LogLevel::Error, &err));
-    }
-}
-
-unsafe extern "C" fn clear_chunk(handler: Handler) {
-    let info_mtx = HANDLERS.lock().unwrap();
-    let info_opt = (*info_mtx).get(&handler);
-    if let Some(info) = info_opt {
-        sqlite::clear(info.index_id).unwrap_or_else(|err| log(LogLevel::Error, &err));
-    }
-}
-
-unsafe extern "C" fn insert_chunk(handler: Handler, cchunk: CChunk) {
-    let info_mtx = HANDLERS.lock().unwrap();
-    let info_opt = (*info_mtx).get(&handler);
-    if let Some(info) = info_opt {
-        let chunk = Chunk {
-            id: cchunk.id,
-            index_id: cchunk.index_id,
-            indexer_id: cchunk.indexer_id,
-            file_id: cchunk.file_id,
-            uri: to_string(cchunk.uri),
-            content_type: to_string(cchunk.content_type),
-            content: if cchunk.content.is_null() {
-                None
-            } else {
-                Some(to_string(cchunk.content))
-            },
-            content_vector: if cchunk.content_vector.is_null() {
-                None
-            } else {
-                let cslice = unsafe { cchunk.content_vector.read() };
-                Some(cslice.into())
-            },
-            metadata: serde_json::Value::from(to_string(cchunk.metadata)),
-            created_at_utc: cchunk.created_at_utc,
-            updated_at_utc: cchunk.updated_at_utc,
-        };
-        sqlite::insert(info.index_id, chunk).unwrap_or_else(|err| log(LogLevel::Error, &err));
-    }
-}
-
-struct SearchResultRef {
-    pub str_ref: Vec<Box<CString>>,
-    pub search_hits: Vec<CSearchHit>,
-    pub result: CResult<CSlice<CSearchHit>>,
-}
-
-// These FFI-backed values carry raw pointers and therefore are not automatically
-// `Send`/`Sync` across threads. The shared static is intentionally used as a
-// process-global registry, so the pointer-bearing payloads must be treated as
-// thread-safe by the FFI boundary contract.
-unsafe impl Send for SearchResultRef {}
-unsafe impl Sync for SearchResultRef {}
-
-static SEARCH_RESULT_REF: LazyLock<Mutex<HashMap<usize, Box<SearchResultRef>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
-
-unsafe extern "C" fn search(
-    handler: Handler,
-    search_request: CSearchRequest,
-) -> *const CResult<CSlice<CSearchHit>> {
-    let info_mtx = HANDLERS.lock().unwrap();
-    let info_opt = (*info_mtx).get(&handler);
-
-    let mut ret_info = Box::new(SearchResultRef {
-        str_ref: Vec::new(),
-        search_hits: Vec::new(),
-        result: CResult {
-            success: false,
-            data: CSlice {
-                ptr: std::ptr::null(),
-                length: 0,
-            },
-        },
-    });
-    if let Some(info) = info_opt {
-        let vec: Vec<f32> = search_request.embedding.into();
-        let cond = to_string(search_request.additional_cond_sql);
-        let result_res = sqlite::search(
-            info.index_id,
-            &vec,
-            &cond,
-            search_request.offset,
-            search_request.limit,
-        );
-        if let Ok(result) = result_res {
-            ret_info.search_hits.reserve(result.len());
-            for (chunk, score) in result {
-                let uri: Box<CString> = Box::from(CString::new(chunk.uri).unwrap());
-                let content_type: Box<CString> =
-                    Box::from(CString::new(chunk.content_type).unwrap());
-                let content: Option<Box<CString>> = if let Some(c) = chunk.content {
-                    Some(Box::from(CString::new(c).unwrap()))
-                } else {
-                    None
-                };
-                let metadata: Box<CString> =
-                    Box::new(CString::new(chunk.metadata.to_string()).unwrap());
-                let cchunk = CChunk {
-                    id: chunk.id,
-                    index_id: chunk.index_id,
-                    indexer_id: chunk.indexer_id,
-                    file_id: chunk.file_id,
-                    uri: uri.as_ptr(),
-                    content_type: content_type.as_ptr(),
-                    content: if let Some(c) = &content {
-                        c.as_ptr()
-                    } else {
-                        std::ptr::null()
-                    },
-                    content_vector: std::ptr::null(),
-                    metadata: metadata.as_ptr(),
-                    created_at_utc: chunk.created_at_utc,
-                    updated_at_utc: chunk.updated_at_utc,
-                };
-                let search_hit = CSearchHit {
-                    chunk: cchunk,
-                    score,
-                };
-                ret_info.str_ref.push(uri);
-                ret_info.str_ref.push(content_type);
-                ret_info.str_ref.push(metadata);
-                if let Some(c) = content {
-                    ret_info.str_ref.push(c);
-                }
-                ret_info.search_hits.push(search_hit);
-            }
-            ret_info.result.data.ptr = ret_info.search_hits.as_ptr();
-            ret_info.result.data.length = ret_info.search_hits.len();
-            ret_info.result.success = true;
-        } else if let Err(err) = result_res {
-            log(LogLevel::Error, &err)
+            ptr
         }
-    }
-    let ret_ptr = &raw const ret_info.result;
-    SEARCH_RESULT_REF
-        .lock()
-        .unwrap()
-        .insert(ret_ptr as usize, ret_info);
-    return ret_ptr;
+    };
 }
 
-unsafe extern "C" fn free(value: *const c_void) {
+define_api_callback!(get_param_schema, GetParamSchemaArgs);
+define_api_callback!(get_handler, GetHandlerArgs);
+define_api_callback!(free_handler, FreeHandlerArgs);
+define_api_callback!(delete_chunks, DeleteChunksArgs);
+define_api_callback!(insert_chunks, InsertChunksArgs);
+define_api_callback!(clear_chunks, ClearChunksArgs);
+define_api_callback!(search, SearchArgs);
+
+unsafe extern "C" fn free(value: APIResultSerialized) {
     STR_REF.lock().unwrap().remove(&(value as usize));
-    SEARCH_RESULT_REF.lock().unwrap().remove(&(value as usize));
 }

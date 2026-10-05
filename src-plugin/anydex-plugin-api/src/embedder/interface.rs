@@ -1,7 +1,5 @@
-use crate::common::{CSlice, Handler};
-use std::ffi::{c_char, c_void};
-
-pub const INVALID_HANDLE: u64 = u64::MAX;
+use crate::common::APIResultSerialized;
+use std::ffi::c_char;
 
 /// ABI version implemented by this host.
 pub const DYNAMIC_EMBEDDER_ABI_VERSION_V1: i32 = 1;
@@ -14,13 +12,13 @@ pub struct DynamicEmbedderV1 {
     pub abi_version: i32,
     /// Size in bytes of the ABI table allocated by the plugin.
     pub struct_size: usize,
-    pub get_param_schema: unsafe extern "C" fn() -> *const c_char,
-    pub get_handler: unsafe extern "C" fn(params: *const c_char) -> Handler,
-    pub free_handler: unsafe extern "C" fn(handler: Handler),
-    pub embed:
-        unsafe extern "C" fn(handler: Handler, file_path: *const c_char) -> *const CSlice<f32>,
-    /// Releases allocations returned by this plugin's ABI functions.
-    pub free: unsafe extern "C" fn(value: *const c_void),
+    pub get_param_schema:
+        unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
+    pub get_handler: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
+    pub free_handler: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
+    pub embed: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
+
+    pub free: unsafe extern "C" fn(value: APIResultSerialized),
 }
 
 pub enum DynamicEmbedder {
