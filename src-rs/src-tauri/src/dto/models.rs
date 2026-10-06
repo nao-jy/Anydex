@@ -96,7 +96,10 @@ pub struct File {
     pub id: i32,
     pub file_source_id: i32,
     pub name: String,
-    pub uri: String,
+    pub file_uri: String,
+    pub file_path: String,
+    pub file_dir: String,
+    pub file_name: String,
     pub content_type: String,
     /// Byte count serialized as a decimal string to avoid JavaScript integer
     /// precision loss. Convert from the repository model with `to_string()`.

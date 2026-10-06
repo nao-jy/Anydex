@@ -114,6 +114,26 @@ fn rename_to_uuid(filename: &str) -> String {
     format!("{}{}", Uuid::new_v4(), ext)
 }
 
+fn uri_to_path_dir_name(uri: &str) -> Result<(String, String, String), String> {
+    if uri.is_empty() || uri.starts_with('/') {
+        return Err(format!("invalid storage URI: {uri}"));
+    }
+
+    let (parent, file_name) = uri.rsplit_once('/').unwrap_or(("", uri));
+    if file_name.is_empty() {
+        return Err(format!("storage URI has no file name: {uri}"));
+    }
+
+    let file_path = format!("/{uri}");
+    let file_dir = if parent.is_empty() {
+        "/".to_owned()
+    } else {
+        format!("/{parent}")
+    };
+
+    Ok((file_path, file_dir, file_name.to_owned()))
+}
+
 pub fn get_handler(args: GetHandlerArgs) -> Result<GetHandlerData, String> {
     let param = serde_json::from_value::<Param>(args.params).map_err(|err| err.to_string())?;
     let access_token = args.access_token;
@@ -161,13 +181,13 @@ pub fn get_handler(args: GetHandlerArgs) -> Result<GetHandlerData, String> {
     let info = HandleInfo {
         last_indexed_files: files_vec
             .iter()
-            .map(|value| (value.file_id.clone(), value.clone()))
+            .map(|value| (value.file_uri.clone(), value.clone()))
             .collect(),
         download_dir: args.download_dir,
         entries,
         operator,
         rt,
-        delete_entries: files_vec.iter().map(|v| v.file_id.clone()).collect(),
+        delete_entries: files_vec.iter().map(|v| v.file_uri.clone()).collect(),
         gdrive_access_token,
         gdrive_root,
     };
@@ -200,14 +220,14 @@ pub fn next(args: NextArgs) -> Result<NextData, String> {
         }
 
         let uri = entry.path();
+        let (file_path, file_dir, file_name) = uri_to_path_dir_name(uri)?;
         let last_modified = entry.metadata().last_modified().map(|value| {
             let jiff = value.into_inner();
             DateTime::from_timestamp(jiff.as_second(), jiff.subsec_nanosecond() as u32).unwrap()
         });
-        let mut size = entry.metadata().content_length() as usize;
-        let mut name = entry.name().to_owned();
-        let mut content_type = entry.metadata().content_type().map_or(
-            mime_guess::from_path(&name)
+        let size = entry.metadata().content_length() as usize;
+        let content_type = entry.metadata().content_type().map_or(
+            mime_guess::from_path(&file_name)
                 .first_or_octet_stream()
                 .to_string(),
             |f| f.to_string(),
@@ -215,9 +235,9 @@ pub fn next(args: NextArgs) -> Result<NextData, String> {
         let is_gdrive_native = native_export_format(&content_type).is_some();
         let mut prev_file_hash: Option<u64> = None;
 
-        delete_entries.remove(uri);
+        delete_entries.remove(&file_path);
 
-        let prev_entry = last_indexed_files.get(uri);
+        let prev_entry = last_indexed_files.get(&file_path);
 
         // added
         let added_or_updated = match prev_entry {
@@ -242,12 +262,7 @@ pub fn next(args: NextArgs) -> Result<NextData, String> {
                     uri,
                     &content_type,
                 ))
-                .map(|(content, exported_content_type, exported_name)| {
-                    size = content.len();
-                    content_type = exported_content_type;
-                    name = exported_name;
-                    content
-                })?
+                .map(|(content, _exported_content_type, _exported_name)| content)?
             } else {
                 rt.block_on(async { operator.read(uri).await })
                     .map(|v| v.to_vec())
@@ -260,7 +275,7 @@ pub fn next(args: NextArgs) -> Result<NextData, String> {
                 continue;
             }
 
-            let dl_filename = rename_to_uuid(&name);
+            let dl_filename = rename_to_uuid(&file_name);
             let download_path = Path::new(dl_dir)
                 .join(dl_filename)
                 .to_string_lossy()
@@ -269,8 +284,10 @@ pub fn next(args: NextArgs) -> Result<NextData, String> {
             fs::create_dir_all(dl_dir).map_err(|err| err.to_string())?;
 
             let added = OutputFileInfo {
-                file_id: uri.to_string(),
-                name: name,
+                file_uri: uri.to_string(),
+                file_path,
+                file_dir,
+                file_name: file_name,
                 downloaded_file_path: download_path,
                 content_type: content_type,
                 size: size,
@@ -297,6 +314,33 @@ mod tests {
     use super::*;
 
     #[test]
+    fn uri_is_converted_to_pseudo_path_directory_and_file_name() {
+        assert_eq!(
+            uri_to_path_dir_name("hoge/fuga/file.ext").unwrap(),
+            (
+                "/hoge/fuga/file.ext".to_owned(),
+                "/hoge/fuga".to_owned(),
+                "file.ext".to_owned()
+            )
+        );
+        assert_eq!(
+            uri_to_path_dir_name("file.ext").unwrap(),
+            (
+                "/file.ext".to_owned(),
+                "/".to_owned(),
+                "file.ext".to_owned()
+            )
+        );
+    }
+
+    #[test]
+    fn uri_without_a_file_name_is_rejected() {
+        assert!(uri_to_path_dir_name("").is_err());
+        assert!(uri_to_path_dir_name("hoge/fuga/").is_err());
+        assert!(uri_to_path_dir_name("/hoge/fuga/file.ext").is_err());
+    }
+
+    #[test]
     fn service_configurations_are_flattened_and_oauth_token_overrides_config() {
         let param = serde_json::from_value(serde_json::json!({
             "service_name": "gdrive",
@@ -304,7 +348,8 @@ mod tests {
                 "root": "/documents",
                 "access_token": "stale-token"
             },
-            "oauth_conf_access_token_name": null
+            "oauth_conf_access_token_name": null,
+            "is_recursive": false
         }))
         .unwrap();
 
@@ -314,7 +359,7 @@ mod tests {
             args,
             vec![
                 ("root".to_owned(), "/documents".to_owned()),
-                ("access_token".to_owned(), "fresh-token".to_owned())
+                ("access_token".to_owned(), "fresh-token".to_owned()),
             ]
         );
     }
@@ -326,7 +371,8 @@ mod tests {
             "service_configurations": {
                 "root": { "unexpected": "object" }
             },
-            "oauth_conf_access_token_name": null
+            "oauth_conf_access_token_name": null,
+            "is_recursive": false
         }))
         .unwrap();
 

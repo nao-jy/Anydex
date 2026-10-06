@@ -243,7 +243,10 @@ pub mod file {
         pub name: String,
         /// Canonical URI in the file-source namespace. It is unique per source.
         #[sea_orm(unique_key = "file_source_uri")]
-        pub uri: String,
+        pub file_uri: String,
+        pub file_path: String,
+        pub file_dir: String,
+        pub file_name: String,
         pub content_type: String,
         pub size: u64,
         pub updated_at: DateTimeUtc,
