@@ -1,6 +1,6 @@
 use anydex_plugin_api_lib::{
     common::Handler,
-    file_source::interface::{FileIterationInfo, InputFileInfo},
+    file_source::types::{FileIterationInfo, InputFileInfo},
 };
 
 use crate::plugin::common::DisposableHnandler;

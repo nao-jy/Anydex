@@ -4,6 +4,7 @@ use std::ffi::{c_char, CStr, CString};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum APIResult<T> {
     Ok { data: T },
     Err { error: String },

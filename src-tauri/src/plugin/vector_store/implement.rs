@@ -6,7 +6,7 @@ use crate::plugin::{
 use anydex_plugin_api_lib::{
     common::{Handler, PluginFn},
     interface::DynamicPluginHeader,
-    vector_store::{interface::*, params::*},
+    vector_store::{interface::*, params::*, types::*},
 };
 use libloading::Library;
 use tracing::error;

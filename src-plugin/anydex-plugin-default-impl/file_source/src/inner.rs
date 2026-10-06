@@ -8,8 +8,8 @@ use std::{
 use anydex_plugin_api_lib::{
     common::Handler,
     file_source::{
-        interface::{FileIterationInfo, InputFileInfo, OutputFileInfo},
         params::*,
+        types::{FileIterationInfo, InputFileInfo, OutputFileInfo},
     },
 };
 use chrono::DateTime;

@@ -1,6 +1,6 @@
 use anydex_plugin_api_lib::{
     common::Handler,
-    vector_store::interface::{Chunk, FileId, IndexId, IndexerId, SearchHit, SearchRequest},
+    vector_store::types::{Chunk, FileId, IndexId, IndexerId, SearchHit, SearchRequest},
 };
 
 use crate::plugin::common::DisposableHnandler;

@@ -1,6 +1,6 @@
 use anydex_plugin_api_lib::{
     common::{Handler, PluginFn},
-    file_source::{interface::*, params::*},
+    file_source::{interface::*, params::*, types::*},
     interface::DynamicPluginHeader,
 };
 use libloading::Library;

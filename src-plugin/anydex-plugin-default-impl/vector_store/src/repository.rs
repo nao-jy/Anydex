@@ -1,4 +1,4 @@
-use anydex_plugin_api_lib::vector_store::interface::{
+use anydex_plugin_api_lib::vector_store::types::{
     Chunk, FileId, FilterCondition, IndexId, IndexerId, SearchHit,
 };
 
