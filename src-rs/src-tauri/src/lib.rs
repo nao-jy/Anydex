@@ -64,7 +64,7 @@ pub fn run() {
 
     #[cfg(debug_assertions)]
     exporter
-        .export(Typescript::default(), "../src/bindings.ts")
+        .export(Typescript::default(), "../../src/bindings.ts")
         .expect("Failed to export typescript bindings");
 
     let mut builder = tauri::Builder::default();
@@ -121,7 +121,7 @@ mod tests {
 
     #[test]
     fn exports_typescript_bindings() {
-        let output = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/bindings.ts");
+        let output = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src/bindings.ts");
         let builder: Builder<tauri::Wry> = Builder::new()
             .commands(app_commands!(collect_commands))
             .events(collect_events![]);

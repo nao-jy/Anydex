@@ -167,8 +167,9 @@ Rust の Tauri command/event を境界とし、UI がストレージ接続やプ
 
 ```text
 src/                 React + Mantine フロントエンド
-src-tauri/src/       Rust 常駐コア、Tauri commands、設定モデル
-src-tauri/Cargo.toml Rust 依存（OpenDAL、SQLite vector 等）
+src-rs/src-tauri/    Rust 常駐コア、Tauri commands、設定モデル
+src-rs/src-plugin/   Rust プラグイン API と実装
+src-rs/src-tauri/Cargo.toml Rust 依存（OpenDAL、SQLite vector 等）
 ```
 
 ## 開発
@@ -177,7 +178,7 @@ src-tauri/Cargo.toml Rust 依存（OpenDAL、SQLite vector 等）
 
 ```bash
 npm install
-npm run tauri dev
+npm run tauri:dev
 ```
 
-フロントエンドのみを確認する場合は `npm run dev`、配布用ビルドは `npm run tauri build` を使用します。
+フロントエンドのみを確認する場合は `npm run dev`、配布用ビルドは `npm run tauri:build` を使用します。

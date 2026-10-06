@@ -14,7 +14,7 @@
     "editor.formatOnSave": true
   },
   "rust-analyzer.linkedProjects": [
-    "src-tauri/Cargo.toml",
-    "src-plugin/anydex-plugin-default-impl/Cargo.toml"
+    "src-rs/src-tauri/Cargo.toml",
+    "src-rs/src-plugin/anydex-plugin-default-impl/Cargo.toml"
   ]
 }
