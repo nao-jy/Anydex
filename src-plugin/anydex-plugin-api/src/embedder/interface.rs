@@ -1,4 +1,7 @@
-use crate::common::APIResultSerialized;
+use crate::{
+    common::{APIResultSerialized, PluginFn},
+    embedder::params::*,
+};
 use std::ffi::c_char;
 
 /// ABI version implemented by this host.
@@ -19,6 +22,30 @@ pub struct DynamicEmbedderV1 {
     pub embed: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
 
     pub free: unsafe extern "C" fn(value: APIResultSerialized),
+}
+
+impl PluginFn<GetParamSchemaArgs, GetParamSchemaData> for DynamicEmbedderV1 {
+    fn apply_and_unwrap(&self, args: GetParamSchemaArgs) -> Result<GetParamSchemaData, String> {
+        super::super::common::apply_and_unwrap(args, self.get_param_schema, self.free)
+    }
+}
+
+impl PluginFn<GetHandlerArgs, GetHandlerData> for DynamicEmbedderV1 {
+    fn apply_and_unwrap(&self, args: GetHandlerArgs) -> Result<GetHandlerData, String> {
+        super::super::common::apply_and_unwrap(args, self.get_handler, self.free)
+    }
+}
+
+impl PluginFn<FreeHandlerArgs, FreeHandlerData> for DynamicEmbedderV1 {
+    fn apply_and_unwrap(&self, args: FreeHandlerArgs) -> Result<FreeHandlerData, String> {
+        super::super::common::apply_and_unwrap(args, self.free_handler, self.free)
+    }
+}
+
+impl PluginFn<EmbedArgs, EmbedData> for DynamicEmbedderV1 {
+    fn apply_and_unwrap(&self, args: EmbedArgs) -> Result<EmbedData, String> {
+        super::super::common::apply_and_unwrap(args, self.embed, self.free)
+    }
 }
 
 pub enum DynamicEmbedder {

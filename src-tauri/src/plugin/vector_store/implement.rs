@@ -4,7 +4,7 @@ use crate::plugin::{
     vector_store::interface::VectorStore,
 };
 use anydex_plugin_api_lib::{
-    common::{apply_and_unwrap, Handler},
+    common::{Handler, PluginFn},
     interface::DynamicPluginHeader,
     vector_store::{interface::*, params::*},
 };
@@ -39,8 +39,7 @@ impl VectorStore for DynamicVectorStore {
         match self {
             DynamicVectorStore::V1(plugin_v1) => {
                 let args = GetParamSchemaArgs {};
-                let result: GetParamSchemaData =
-                    apply_and_unwrap(args, plugin_v1.get_param_schema, plugin_v1.free)?;
+                let result = plugin_v1.apply_and_unwrap(args)?;
                 return Ok(result.schema);
             }
         }
@@ -57,15 +56,12 @@ impl VectorStore for DynamicVectorStore {
                     params: param.clone(),
                     index_id: index_id,
                 };
-                let result: GetHandlerData =
-                    apply_and_unwrap(args, plugin_v1.get_handler, plugin_v1.free)?;
+                let result = plugin_v1.apply_and_unwrap(args)?;
 
-                let free_handler_fn = plugin_v1.free_handler;
-                let free_fn = plugin_v1.free;
+                let plugin_v1 = *plugin_v1;
                 let free_handler = move |h| {
                     let args = FreeHandlerArgs { handler: h };
-                    let result: Result<FreeHandlerData, String> =
-                        apply_and_unwrap(args, free_handler_fn, free_fn);
+                    let result: Result<FreeHandlerData, String> = plugin_v1.apply_and_unwrap(args);
                     if let Err(err) = result {
                         error!("{err}");
                     }
@@ -85,8 +81,7 @@ impl VectorStore for DynamicVectorStore {
                     handler,
                     condition: DeleteCond::ByFileId(fild_id),
                 };
-                let _result: DeleteChunksData =
-                    apply_and_unwrap(args, plugin_v1.delete_chunks, plugin_v1.free)?;
+                let _result = plugin_v1.apply_and_unwrap(args)?;
                 return Ok(());
             }
         }
@@ -99,8 +94,7 @@ impl VectorStore for DynamicVectorStore {
                     handler,
                     condition: DeleteCond::ByIndexerId(indexer_id),
                 };
-                let _result: DeleteChunksData =
-                    apply_and_unwrap(args, plugin_v1.delete_chunks, plugin_v1.free)?;
+                let _result = plugin_v1.apply_and_unwrap(args)?;
                 return Ok(());
             }
         }
@@ -110,8 +104,7 @@ impl VectorStore for DynamicVectorStore {
         match self {
             DynamicVectorStore::V1(plugin_v1) => {
                 let args = ClearChunksArgs { handler };
-                let _result: DeleteChunksData =
-                    apply_and_unwrap(args, plugin_v1.clear_chunks, plugin_v1.free)?;
+                let _result = plugin_v1.apply_and_unwrap(args)?;
                 return Ok(());
             }
         }
@@ -124,8 +117,7 @@ impl VectorStore for DynamicVectorStore {
                     handler,
                     chunks: chunks.to_vec(),
                 };
-                let _result: InsertChunksData =
-                    apply_and_unwrap(args, plugin_v1.insert_chunks, plugin_v1.free)?;
+                let _result = plugin_v1.apply_and_unwrap(args)?;
                 return Ok(());
             }
         }
@@ -141,7 +133,7 @@ impl VectorStore for DynamicVectorStore {
                     handler,
                     search_request: search_request.clone(),
                 };
-                let result: SearchData = apply_and_unwrap(args, plugin_v1.search, plugin_v1.free)?;
+                let result = plugin_v1.apply_and_unwrap(args)?;
                 return Ok(result.results);
             }
         }

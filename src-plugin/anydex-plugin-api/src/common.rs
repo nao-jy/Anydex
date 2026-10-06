@@ -18,21 +18,26 @@ pub fn result_to_api_result<T: Clone>(result: Result<T, String>) -> APIResult<T>
     }
 }
 
-pub fn apply_and_unwrap<T: Serialize, U: for<'a> Deserialize<'a>>(
+pub trait PluginFn<T: Serialize, U: for<'a> Deserialize<'a>> {
+    fn apply_and_unwrap(&self, args: T) -> Result<U, String>;
+}
+
+pub(crate) fn apply_and_unwrap<T: Serialize, U: for<'a> Deserialize<'a>>(
     args: T,
-    f: unsafe extern "C" fn(*const i8) -> *const i8,
-    f_free: unsafe extern "C" fn(*const i8),
+    f: unsafe extern "C" fn(*const c_char) -> APIResultSerialized,
+    f_free: unsafe extern "C" fn(APIResultSerialized),
 ) -> Result<U, String> {
     let args_str = serde_json::to_string(&args).map_err(|err| err.to_string())?;
     let args_cstr = CString::new(args_str).map_err(|err| err.to_string())?;
-    let raw_result = unsafe { (f)(args_cstr.as_ptr()) };
+    let raw_result = unsafe { f(args_cstr.as_ptr()) };
     if raw_result.is_null() {
-        return Err("get_param_schema returns null".into());
+        return Err("plugin function returned null".into());
     }
 
-    let result = serde_json::de::from_str::<APIResult<U>>(&to_string(raw_result))
-        .map_err(|err| err.to_string())?;
-    unsafe { (f_free)(raw_result) };
+    let result_str = to_string(raw_result);
+    unsafe { f_free(raw_result) };
+    let result =
+        serde_json::de::from_str::<APIResult<U>>(&result_str).map_err(|err| err.to_string())?;
     match result {
         APIResult::Ok { data } => Ok(data),
         APIResult::Err { error } => Err(error),

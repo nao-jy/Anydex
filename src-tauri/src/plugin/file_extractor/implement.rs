@@ -4,7 +4,7 @@ use crate::plugin::{
     manager::LibraryLoader,
 };
 use anydex_plugin_api_lib::{
-    common::{apply_and_unwrap, Handler},
+    common::{Handler, PluginFn},
     file_extractor::{interface::*, params::*},
     interface::DynamicPluginHeader,
 };
@@ -39,8 +39,7 @@ impl FileExtractor for DynamicFileExtractor {
         match self {
             DynamicFileExtractor::V1(plugin_v1) => {
                 let args = GetParamSchemaArgs {};
-                let result: GetParamSchemaData =
-                    apply_and_unwrap(args, plugin_v1.get_param_schema, plugin_v1.free)?;
+                let result = plugin_v1.apply_and_unwrap(args)?;
                 return Ok(result.schema);
             }
         }
@@ -57,15 +56,12 @@ impl FileExtractor for DynamicFileExtractor {
                     params: param.clone(),
                     base_dir: base_dir.to_string(),
                 };
-                let result: GetHandlerData =
-                    apply_and_unwrap(args, plugin_v1.get_handler, plugin_v1.free)?;
+                let result = plugin_v1.apply_and_unwrap(args)?;
 
-                let free_handler_fn = plugin_v1.free_handler;
-                let free_fn = plugin_v1.free;
+                let plugin_v1 = *plugin_v1;
                 let free_handler = move |h| {
                     let args = FreeHandlerArgs { handler: h };
-                    let result: Result<FreeHandlerData, String> =
-                        apply_and_unwrap(args, free_handler_fn, free_fn);
+                    let result = plugin_v1.apply_and_unwrap(args);
                     if let Err(err) = result {
                         error!("{err}");
                     }
@@ -89,8 +85,7 @@ impl FileExtractor for DynamicFileExtractor {
                     handler: handler,
                     file_path: file_abs_path.to_string(),
                 };
-                let result: ExtractData =
-                    apply_and_unwrap(args, plugin_v1.extract, plugin_v1.free)?;
+                let result = plugin_v1.apply_and_unwrap(args)?;
                 return Ok(result.extracted_file_paths);
             }
         }

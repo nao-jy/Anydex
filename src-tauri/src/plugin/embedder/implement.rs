@@ -1,5 +1,5 @@
 use anydex_plugin_api_lib::{
-    common::{apply_and_unwrap, Handler},
+    common::{Handler, PluginFn},
     embedder::{interface::*, params::*},
     interface::DynamicPluginHeader,
 };
@@ -40,8 +40,7 @@ impl Embedder for DynamicEmbedder {
         match self {
             DynamicEmbedder::V1(plugin_v1) => {
                 let args = GetParamSchemaArgs {};
-                let result: GetParamSchemaData =
-                    apply_and_unwrap(args, plugin_v1.get_param_schema, plugin_v1.free)?;
+                let result = plugin_v1.apply_and_unwrap(args)?;
                 return Ok(result.schema);
             }
         }
@@ -53,15 +52,12 @@ impl Embedder for DynamicEmbedder {
                 let args = GetHandlerArgs {
                     params: param.clone(),
                 };
-                let result: GetHandlerData =
-                    apply_and_unwrap(args, plugin_v1.get_handler, plugin_v1.free)?;
+                let result = plugin_v1.apply_and_unwrap(args)?;
 
-                let free_handler_fn = plugin_v1.free_handler;
-                let free_fn = plugin_v1.free;
+                let plugin_v1 = *plugin_v1;
                 let free_handler = move |h| {
                     let args = FreeHandlerArgs { handler: h };
-                    let result: Result<FreeHandlerData, String> =
-                        apply_and_unwrap(args, free_handler_fn, free_fn);
+                    let result = plugin_v1.apply_and_unwrap(args);
                     if let Err(err) = result {
                         error!("{err}");
                     }
@@ -81,7 +77,7 @@ impl Embedder for DynamicEmbedder {
                     handler: handler,
                     file_path: file_path.to_string(),
                 };
-                let result: EmbedData = apply_and_unwrap(args, plugin_v1.embed, plugin_v1.free)?;
+                let result = plugin_v1.apply_and_unwrap(args)?;
                 return Ok(result.embeddings);
             }
         }

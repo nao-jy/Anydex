@@ -1,5 +1,5 @@
 use anydex_plugin_api_lib::{
-    common::{apply_and_unwrap, Handler},
+    common::{Handler, PluginFn},
     file_source::{interface::*, params::*},
     interface::DynamicPluginHeader,
 };
@@ -40,8 +40,7 @@ impl FileSource for DynamicFileSource {
         match self {
             DynamicFileSource::V1(plugin_v1) => {
                 let args = GetParamSchemaArgs {};
-                let result: GetParamSchemaData =
-                    apply_and_unwrap(args, plugin_v1.get_param_schema, plugin_v1.free)?;
+                let result = plugin_v1.apply_and_unwrap(args)?;
                 return Ok(result.schema);
             }
         }
@@ -62,15 +61,12 @@ impl FileSource for DynamicFileSource {
                     last_indexed_files: last_indexed_files.to_vec(),
                     download_dir: download_dir.to_string(),
                 };
-                let result: GetHandlerData =
-                    apply_and_unwrap(args, plugin_v1.get_handler, plugin_v1.free)?;
+                let result = plugin_v1.apply_and_unwrap(args)?;
 
-                let free_handler_fn = plugin_v1.free_handler;
-                let free_fn = plugin_v1.free;
+                let plugin_v1 = *plugin_v1;
                 let free_handler = move |h| {
                     let args = FreeHandlerArgs { handler: h };
-                    let result: Result<FreeHandlerData, String> =
-                        apply_and_unwrap(args, free_handler_fn, free_fn);
+                    let result = plugin_v1.apply_and_unwrap(args);
                     if let Err(err) = result {
                         error!("{err}");
                     }
@@ -87,7 +83,7 @@ impl FileSource for DynamicFileSource {
         match self {
             DynamicFileSource::V1(plugin_v1) => {
                 let args = NextArgs { handler: handler };
-                let result: NextData = apply_and_unwrap(args, plugin_v1.next, plugin_v1.free)?;
+                let result = plugin_v1.apply_and_unwrap(args)?;
                 return Ok(result.info);
             }
         }

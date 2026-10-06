@@ -1,7 +1,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::common::APIResultSerialized;
+use crate::{
+    common::{APIResultSerialized, PluginFn},
+    vector_store::params::*,
+};
 use std::ffi::c_char;
 
 pub type IndexId = i32;
@@ -72,6 +75,48 @@ pub struct DynamicVectorStoreV1 {
 
     /// Releases allocations returned by this plugin's ABI functions.
     pub free: unsafe extern "C" fn(value: APIResultSerialized),
+}
+
+impl PluginFn<GetParamSchemaArgs, GetParamSchemaData> for DynamicVectorStoreV1 {
+    fn apply_and_unwrap(&self, args: GetParamSchemaArgs) -> Result<GetParamSchemaData, String> {
+        super::super::common::apply_and_unwrap(args, self.get_param_schema, self.free)
+    }
+}
+
+impl PluginFn<GetHandlerArgs, GetHandlerData> for DynamicVectorStoreV1 {
+    fn apply_and_unwrap(&self, args: GetHandlerArgs) -> Result<GetHandlerData, String> {
+        super::super::common::apply_and_unwrap(args, self.get_handler, self.free)
+    }
+}
+
+impl PluginFn<FreeHandlerArgs, FreeHandlerData> for DynamicVectorStoreV1 {
+    fn apply_and_unwrap(&self, args: FreeHandlerArgs) -> Result<FreeHandlerData, String> {
+        super::super::common::apply_and_unwrap(args, self.free_handler, self.free)
+    }
+}
+
+impl PluginFn<DeleteChunksArgs, DeleteChunksData> for DynamicVectorStoreV1 {
+    fn apply_and_unwrap(&self, args: DeleteChunksArgs) -> Result<DeleteChunksData, String> {
+        super::super::common::apply_and_unwrap(args, self.delete_chunks, self.free)
+    }
+}
+
+impl PluginFn<InsertChunksArgs, InsertChunksData> for DynamicVectorStoreV1 {
+    fn apply_and_unwrap(&self, args: InsertChunksArgs) -> Result<InsertChunksData, String> {
+        super::super::common::apply_and_unwrap(args, self.insert_chunks, self.free)
+    }
+}
+
+impl PluginFn<ClearChunksArgs, ClearChunksData> for DynamicVectorStoreV1 {
+    fn apply_and_unwrap(&self, args: ClearChunksArgs) -> Result<ClearChunksData, String> {
+        super::super::common::apply_and_unwrap(args, self.clear_chunks, self.free)
+    }
+}
+
+impl PluginFn<SearchArgs, SearchData> for DynamicVectorStoreV1 {
+    fn apply_and_unwrap(&self, args: SearchArgs) -> Result<SearchData, String> {
+        super::super::common::apply_and_unwrap(args, self.search, self.free)
+    }
 }
 
 pub enum DynamicVectorStore {
