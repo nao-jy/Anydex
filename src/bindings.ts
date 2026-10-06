@@ -15,9 +15,11 @@ export const commands = {
 	deleteIndexer: (indexerId: number) => typedError<null, string>(__TAURI_INVOKE("delete_indexer", { indexerId })),
 	upsertSchedule: (indexerId: number, schedule: Schedule) => typedError<null, string>(__TAURI_INVOKE("upsert_schedule", { indexerId, schedule })),
 	deleteSchedule: (indexerId: number) => typedError<null, string>(__TAURI_INVOKE("delete_schedule", { indexerId })),
-	listMcpServers: () => typedError<McpServer[], string>(__TAURI_INVOKE("list_mcp_servers")),
-	setMcpServerPort: (port: number) => __TAURI_INVOKE<void>("set_mcp_server_port", { port }),
-	setMcpServerRunning: (running: boolean) => __TAURI_INVOKE<void>("set_mcp_server_running", { running }),
+	getMcpServerState: () => typedError<{
+	port: number,
+	startedAt: string,
+} | null, string>(__TAURI_INVOKE("get_mcp_server_state")),
+	setMcpServerStatus: (running: boolean) => typedError<null, string>(__TAURI_INVOKE("set_mcp_server_status", { running })),
 	listActiveTasks: () => typedError<Task[], string>(__TAURI_INVOKE("list_active_tasks")),
 	getApplicationSettings: () => __TAURI_INVOKE<ApplicationSettings>("get_application_settings"),
 	getPluginInfo: () => typedError<PluginInfo[], string>(__TAURI_INVOKE("get_plugin_info")),
@@ -116,12 +118,8 @@ export type Indexer = {
 
 /**  Status of the local MCP server exposed by the application. */
 export type McpServer = {
-	name: string,
-	host: string,
 	port: number,
-	status: string,
-	startedAt: string | null,
-	enabledIndexCount: number,
+	startedAt: string,
 };
 
 /**
