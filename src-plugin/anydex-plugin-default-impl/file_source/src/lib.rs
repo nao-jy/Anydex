@@ -13,6 +13,7 @@ use anydex_plugin_api_lib::{
     interface::PluginInit,
 };
 
+pub mod gdrive;
 pub mod inner;
 pub mod param;
 
