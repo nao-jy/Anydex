@@ -9,13 +9,13 @@ use crate::{
     window::task_tray::{init_task_tray, prevent_close},
 };
 
+pub mod consts;
 pub mod dto;
 pub mod ipc;
 pub mod logging;
 pub mod plugin;
 pub mod repository;
 pub mod server;
-pub mod state;
 pub mod usecase;
 pub mod window;
 
@@ -33,9 +33,8 @@ macro_rules! app_commands {
             ipc::indexers::delete_indexer,
             ipc::indexers::upsert_schedule,
             ipc::indexers::delete_schedule,
-            ipc::mcp::list_mcp_servers,
-            ipc::mcp::set_mcp_server_port,
-            ipc::mcp::set_mcp_server_running,
+            ipc::mcp::get_mcp_server_state,
+            ipc::mcp::set_mcp_server_status,
             ipc::tasks::list_active_tasks,
             ipc::settings::get_application_settings,
             ipc::plugins::get_plugin_info,
@@ -79,7 +78,6 @@ pub fn run() {
     builder
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            app.manage(state::McpServerState::default());
             let (log_guard, log_dir) = logging::init(app)?;
             app.manage(log_guard);
             tracing::info!(path = %log_dir.display(), "file logging initialized");

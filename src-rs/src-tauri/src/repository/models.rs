@@ -125,7 +125,10 @@ pub mod file_source {
 /// `file_source_id` is the primary key, so a file source can have zero or one
 /// authentication record and can never have more than one.
 pub mod oauth_authentication {
+    use keyring::Entry;
     use sea_orm::entity::prelude::*;
+
+    use crate::consts;
 
     #[sea_orm::model]
     #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
@@ -141,6 +144,30 @@ pub mod oauth_authentication {
         pub file_source: BelongsTo<super::file_source::Entity>,
         #[sea_orm(belongs_to, from = "oauth_id", to = "id")]
         pub oauth_client: BelongsTo<super::oauth_client::Entity>,
+    }
+
+    impl Model {
+        pub fn load_access_token(&self) -> Option<String> {
+            let entry = Entry::new(consts::APP_NAME, &self.access_token).unwrap();
+            entry.get_password().map_or(None, |v| Some(v))
+        }
+        pub fn load_refresh_token(&self) -> Option<String> {
+            match &self.refresh_token {
+                Some(refr) => {
+                    let entry = Entry::new(consts::APP_NAME, refr).unwrap();
+                    entry.get_password().map_or(None, |v| Some(v))
+                }
+                None => None,
+            }
+        }
+        pub fn save_token(token: String) -> Result<String, String> {
+            let username = Uuid::new_v4().to_string();
+            let entry = Entry::new(consts::APP_NAME, &username).unwrap();
+            entry
+                .set_password(&token)
+                .map(|_| username)
+                .map_err(|err| err.to_string())
+        }
     }
 
     impl ActiveModelBehavior for ActiveModel {}

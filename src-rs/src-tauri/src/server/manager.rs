@@ -5,11 +5,14 @@ use std::{
     thread::{self, JoinHandle},
 };
 
+use chrono::{DateTime, Utc};
 use tokio::sync::oneshot;
 
 struct RunningServer {
     shutdown: oneshot::Sender<()>,
     thread: JoinHandle<()>,
+    started_at: DateTime<Utc>,
+    hosted_at: SocketAddr,
 }
 
 fn servers() -> &'static Mutex<HashMap<String, RunningServer>> {
@@ -90,6 +93,8 @@ pub fn start(name: &str, app: axum::Router, port: Option<u16>) -> Result<SocketA
                 RunningServer {
                     shutdown,
                     thread: server_thread,
+                    started_at: Utc::now(),
+                    hosted_at: adrr,
                 },
             );
             Ok(adrr)
@@ -123,6 +128,18 @@ pub fn end(name: &str) -> Result<(), String> {
         .thread
         .join()
         .map_err(|_| format!("server '{name}' thread panicked"))
+}
+
+pub fn get_info(name: &str) -> Result<(DateTime<Utc>, SocketAddr), String> {
+    let server = {
+        let mut servers = servers()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        servers
+            .remove(name)
+            .ok_or_else(|| format!("server '{name}' is not running"))?
+    };
+    Ok((server.started_at, server.hosted_at))
 }
 
 #[cfg(test)]

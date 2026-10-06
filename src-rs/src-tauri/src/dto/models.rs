@@ -150,12 +150,8 @@ pub struct SearchResult {
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct McpServer {
-    pub name: String,
-    pub host: String,
     pub port: u16,
-    pub status: String,
-    pub started_at: Option<DateTime<Utc>>,
-    pub enabled_index_count: i32,
+    pub started_at: DateTime<Utc>,
 }
 
 /// Locations and plugin discovery settings displayed by the settings screen.
