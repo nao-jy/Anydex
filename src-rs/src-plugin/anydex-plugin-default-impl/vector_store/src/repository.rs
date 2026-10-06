@@ -1,6 +1,4 @@
-use anydex_plugin_api_lib::vector_store::types::{
-    Chunk, FileId, FilterCondition, IndexId, IndexerId, SearchHit,
-};
+use anydex_plugin_api_lib::vector_store::types::{Chunk, FileId, IndexId, IndexerId, SearchHit};
 
 use futures::StreamExt;
 use lancedb::arrow::arrow_array::{
@@ -12,7 +10,6 @@ use lancedb::connect;
 use lancedb::connection::Connection;
 use lancedb::query::{ExecutableQuery, QueryBase};
 use lancedb::{DistanceType, Table};
-use std::path::Path;
 use std::sync::Arc;
 use tokio::runtime::Runtime;
 
@@ -54,11 +51,6 @@ impl DB {
                 Field::new("chunk_json", DataType::Utf8, false),
                 Field::new("indexer_id", DataType::Int32, false),
                 Field::new("file_id", DataType::Int32, false),
-                Field::new("file_dir", DataType::Utf8, false),
-                Field::new("file_name", DataType::Utf8, false),
-                Field::new("content_type", DataType::Utf8, false),
-                Field::new("file_ext", DataType::Utf8, false),
-                Field::new("created_at_millis", DataType::Int64, false),
                 Field::new(
                     VECTOR_COLUMN,
                     DataType::FixedSizeList(
@@ -128,32 +120,6 @@ impl DB {
             .map(|chunk| chunk.indexer_id)
             .collect::<Vec<_>>();
         let file_ids = chunks.iter().map(|chunk| chunk.file_id).collect::<Vec<_>>();
-        let file_dirs = chunks
-            .iter()
-            .map(|chunk| chunk.file_dir.clone())
-            .collect::<Vec<_>>();
-        let file_names = chunks
-            .iter()
-            .map(|chunk| chunk.file_name.clone())
-            .collect::<Vec<_>>();
-        let content_types = chunks
-            .iter()
-            .map(|chunk| chunk.content_type.clone())
-            .collect::<Vec<_>>();
-        let file_exts = chunks
-            .iter()
-            .map(|chunk| {
-                Path::new(&chunk.file_name)
-                    .extension()
-                    .and_then(|ext| ext.to_str())
-                    .unwrap_or_default()
-                    .to_lowercase()
-            })
-            .collect::<Vec<_>>();
-        let created_at_millis = chunks
-            .iter()
-            .map(|chunk| chunk.created_at.timestamp_millis())
-            .collect::<Vec<_>>();
         let vectors = FixedSizeListArray::from_iter_primitive::<Float32Type, _, _>(
             chunks.iter().map(|chunk| {
                 Some(
@@ -166,21 +132,32 @@ impl DB {
             }),
             self.param.dimensions,
         );
-        let columns: Vec<ArrayRef> = vec![
-            Arc::new(StringArray::from(chunk_json)),
-            Arc::new(Int32Array::from(indexer_ids)),
-            Arc::new(Int32Array::from(file_ids)),
-            Arc::new(StringArray::from(file_dirs)),
-            Arc::new(StringArray::from(file_names)),
-            Arc::new(StringArray::from(content_types)),
-            Arc::new(StringArray::from(file_exts)),
-            Arc::new(Int64Array::from(created_at_millis)),
-            Arc::new(vectors),
-        ];
         let schema = self
             .rt
             .block_on(self.table.schema())
             .map_err(|err| err.to_string())?;
+        let columns = schema
+            .fields()
+            .iter()
+            .map(|field| -> Result<ArrayRef, String> {
+                match field.name().as_str() {
+                    "chunk_json" => Ok(Arc::new(StringArray::from(chunk_json.clone()))),
+                    "indexer_id" => Ok(Arc::new(Int32Array::from(indexer_ids.clone()))),
+                    "file_id" => Ok(Arc::new(Int32Array::from(file_ids.clone()))),
+                    VECTOR_COLUMN => Ok(Arc::new(vectors.clone())),
+                    // Older table schemas stored metadata used by plugin-side filtering.
+                    // Those columns are no longer queried, but must be populated on insert.
+                    "file_dir" | "file_name" | "content_type" | "file_ext" => {
+                        Ok(Arc::new(StringArray::from(vec![
+                            String::new();
+                            chunks.len()
+                        ])))
+                    }
+                    "created_at_millis" => Ok(Arc::new(Int64Array::from(vec![0; chunks.len()]))),
+                    name => Err(format!("unsupported vector-store column: {name}")),
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let batch = RecordBatch::try_new(schema, columns).map_err(|err| err.to_string())?;
         self.rt
             .block_on(self.table.add(batch).execute())
@@ -191,7 +168,7 @@ impl DB {
     pub fn search(
         &self,
         vec: &[f32],
-        cond: &FilterCondition,
+        target_file_ids: &[FileId],
         offset: i32,
         limit: i32,
     ) -> Result<Vec<SearchHit>, String> {
@@ -208,44 +185,18 @@ impl DB {
         if limit == 0 {
             return Ok(Vec::new());
         }
-
-        let mut filters = vec![
-            format!("created_at_millis >= {}", cond.from.timestamp_millis()),
-            format!("created_at_millis <= {}", cond.to.timestamp_millis()),
-        ];
-        if !cond.dirs.is_empty() {
-            filters.push(format!(
-                "file_dir IN ({})",
-                sql_string_values(cond.dirs.iter().map(String::as_str))
-            ));
-        }
-        if !cond.content_type.is_empty() {
-            filters.push(format!(
-                "content_type IN ({})",
-                sql_string_values(cond.content_type.iter().map(String::as_str))
-            ));
-        }
-        if !cond.file_name.is_empty() {
-            filters.push(format!(
-                "file_name IN ({})",
-                sql_string_values(cond.file_name.iter().map(String::as_str))
-            ));
-        }
-        if !cond.file_ext.is_empty() {
-            filters.push(format!(
-                "file_ext IN ({})",
-                sql_string_values(
-                    cond.file_ext
-                        .iter()
-                        .map(|ext| ext.trim_start_matches('.').to_lowercase())
-                        .collect::<Vec<_>>()
-                        .iter()
-                        .map(String::as_str)
-                )
-            ));
+        if target_file_ids.is_empty() {
+            return Ok(Vec::new());
         }
 
-        let filter = filters.join(" AND ");
+        let filter = format!(
+            "file_id IN ({})",
+            target_file_ids
+                .iter()
+                .map(FileId::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
         let batches = self.rt.block_on(async {
             self.table
                 .query()
@@ -291,17 +242,11 @@ impl DB {
     }
 }
 
-fn sql_string_values<'a>(values: impl Iterator<Item = &'a str>) -> String {
-    values
-        .map(|value| format!("'{}'", value.replace('\'', "''")))
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::path::Path;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     struct TestDatabasePath(String);
@@ -312,39 +257,19 @@ mod tests {
         }
     }
 
-    fn test_chunk(id: i32, indexer_id: i32, file_id: i32, directory: &str) -> Chunk {
+    fn test_chunk(id: i32, indexer_id: i32, file_id: i32) -> Chunk {
         serde_json::from_value(json!({
             "id": id,
-            "index_id": 731,
-            "indexer_id": indexer_id,
-            "file_id": file_id,
-            "uri": format!("file:///{directory}/file-{id}.txt"),
-            "file_name": format!("file-{id}.txt"),
-            "file_dir": directory,
-            "content_type": "text/plain",
+            "fileId": file_id,
+            "indexerId": indexer_id,
             "content": format!("chunk {id}"),
-            "content_vector": [1.0, 0.0],
-            "metadata": {},
-            "created_at": "2026-01-01T00:00:00Z",
-            "updated_at": "2026-01-01T00:00:00Z"
-        }))
-        .unwrap()
-    }
-
-    fn test_filter() -> FilterCondition {
-        serde_json::from_value(json!({
-            "dirs": [],
-            "content_type": [],
-            "file_name": [],
-            "file_ext": [],
-            "from": "2025-01-01T00:00:00Z",
-            "to": "2027-01-01T00:00:00Z"
+            "contentVector": [1.0, 0.0],
         }))
         .unwrap()
     }
 
     #[test]
-    fn supports_insert_search_and_deletion() {
+    fn searches_only_target_files_and_supports_deletion() {
         init_db().unwrap();
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -359,40 +284,35 @@ mod tests {
         let _cleanup = TestDatabasePath(path);
 
         let db = DB::init_table(index_id, &Param { dimensions: 2 }).unwrap();
-        let mut aligned = test_chunk(1, 10, 100, "/docs");
+        let mut aligned = test_chunk(1, 10, 100);
         aligned.content_vector = vec![10.0, 0.0];
-        let mut closer_by_l2 = test_chunk(2, 20, 200, "/notes");
-        closer_by_l2.content_vector = vec![1.0, 1.0];
-        db.insert(vec![aligned, closer_by_l2]).unwrap();
+        let mut other_file = test_chunk(2, 20, 200);
+        other_file.content_vector = vec![1.0, 1.0];
+        db.insert(vec![aligned, other_file]).unwrap();
 
-        let nearest = db.search(&[1.0, 0.0], &test_filter(), 0, 1).unwrap();
+        let nearest = db.search(&[1.0, 0.0], &[100, 200], 0, 1).unwrap();
         assert_eq!(nearest[0].chunk.id, 1);
 
-        let mut filter = test_filter();
-        filter.dirs = vec!["/docs".into()];
-        filter.file_ext = vec![".TXT".into()];
-        let results = db.search(&[1.0, 0.0], &filter, 0, 10).unwrap();
+        let results = db.search(&[1.0, 0.0], &[200], 0, 10).unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].chunk.id, 1);
+        assert_eq!(results[0].chunk.id, 2);
+        assert!(db.search(&[1.0, 0.0], &[], 0, 10).unwrap().is_empty());
 
         db.delete_by_file(100).unwrap();
         assert!(db
-            .search(&[1.0, 0.0], &test_filter(), 0, 10)
+            .search(&[1.0, 0.0], &[100, 200], 0, 10)
             .unwrap()
             .iter()
             .all(|hit| hit.chunk.id != 1));
 
         db.delete_by_indexer(20).unwrap();
         assert!(db
-            .search(&[1.0, 0.0], &test_filter(), 0, 10)
+            .search(&[1.0, 0.0], &[100, 200], 0, 10)
             .unwrap()
             .is_empty());
 
-        db.insert(vec![test_chunk(3, 30, 300, "/docs")]).unwrap();
+        db.insert(vec![test_chunk(3, 30, 300)]).unwrap();
         db.clear().unwrap();
-        assert!(db
-            .search(&[1.0, 0.0], &test_filter(), 0, 10)
-            .unwrap()
-            .is_empty());
+        assert!(db.search(&[1.0, 0.0], &[300], 0, 10).unwrap().is_empty());
     }
 }

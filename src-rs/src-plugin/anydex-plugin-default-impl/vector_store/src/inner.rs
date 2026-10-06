@@ -88,7 +88,7 @@ pub fn search(args: SearchArgs) -> Result<SearchData, String> {
     let db = &info.db;
 
     let vec: Vec<f32> = args.search_request.embedding;
-    let cond = args.search_request.filter_condition;
+    let cond = args.search_request.target_file_ids;
     let result = db.search(
         &vec,
         &cond,
