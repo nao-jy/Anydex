@@ -16,6 +16,7 @@ pub mod plugin;
 pub mod repository;
 pub mod server;
 pub mod state;
+pub mod usecase;
 pub mod window;
 
 macro_rules! app_commands {
