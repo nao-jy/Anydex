@@ -12,10 +12,10 @@
     "tauri:build": "tauri build --config src-rs/src-tauri/tauri.conf.json"
   },
   "dependencies": {
-    "@mantine/core": "^9.6.3",
-    "@mantine/dates": "^9.6.3",
-    "@mantine/hooks": "^9.6.3",
-    "@mantine/notifications": "^9.6.3",
+    "@mantine/core": "^9.7.1",
+    "@mantine/dates": "^9.7.1",
+    "@mantine/hooks": "^9.7.1",
+    "@mantine/notifications": "^9.7.1",
     "@phosphor-icons/react": "^2.1.10",
     "@rjsf/core": "^6.11.0",
     "@rjsf/mantine": "^6.11.0",
