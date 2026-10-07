@@ -54,6 +54,12 @@ webbrowser = "1.2.4"
 subtle = "2.6.1"
 uuid = { version = "1.26.1", features = ["v4", "v7", "serde"] }
 keyring = "4.2.0"
+rmcp = { version = "3.5.1", features = [
+    "server",
+    "macros",
+    "transport-streamable-http-server",
+] }
+schemars = "1.2.2"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

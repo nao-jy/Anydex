@@ -59,7 +59,7 @@ async fn callback(
     let response = match &result {
         Ok(_) => (
             StatusCode::OK,
-            page("ログイン完了", "このタブは閉じて構いません。"),
+            page("ログイン完了", "タブを閉じてください。"),
         ),
         Err(e) => (StatusCode::BAD_REQUEST, page("ログイン失敗", e)),
     };
