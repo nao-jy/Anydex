@@ -48,15 +48,9 @@ export const Mcp = () => {
       void queryClient.invalidateQueries({ queryKey: ["mcpServer"] });
     },
   });
-  const setPort = useMutation({
-    mutationFn: (port: number) =>
-      commands.setMcpServerStatus(server !== null, port),
-    onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ["mcpServer"] }),
-  });
   const setServerRunning = useMutation({
     mutationFn: (running: boolean) =>
-      commands.setMcpServerStatus(running, null),
+      commands.setMcpServerStatus(running, Number(selectedPort)),
     onSuccess: () =>
       void queryClient.invalidateQueries({ queryKey: ["mcpServer"] }),
   });
@@ -84,7 +78,7 @@ export const Mcp = () => {
           <ErrorMessage text="MCP サーバーの情報を取得できませんでした。" />
         )}
 
-        {!isLoading && !isError && server && (
+        {!isLoading && !isError && (
           <Stack gap="lg">
             <Card withBorder radius="md" padding="lg">
               <Group justify="space-between" align="flex-start">
@@ -106,17 +100,19 @@ export const Mcp = () => {
                         {isRunning ? "稼働中" : "停止中"}
                       </Badge>
                     </Group>
-                    <Text size="sm" c="dimmed" mt={4}>
-                      {`localhost:${server.port}`}
-                    </Text>
+                    {server && (
+                      <Text size="sm" c="dimmed" mt={4}>
+                        {`localhost:${server.port}`}
+                      </Text>
+                    )}
                   </Box>
                 </Group>
                 <Text size="sm" c="dimmed">
                   起動:{" "}
-                  {server.startedAt ? formatDateTime(server.startedAt) : "-"}
+                  {server?.startedAt ? formatDateTime(server.startedAt) : "-"}
                 </Text>
               </Group>
-              <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg">
+              <SimpleGrid cols={{ base: 1, sm: 2 }} mt="lg">
                 <Metric
                   label="公開中のインデックス"
                   value={`${indexes.filter((v) => v.useMcpServer).length} 件`}
@@ -153,17 +149,6 @@ export const Mcp = () => {
                   disabled={isRunning}
                   w={180}
                 />
-                <Button
-                  onClick={() =>
-                    selectedPort && setPort.mutate(Number(selectedPort))
-                  }
-                  loading={setPort.isPending}
-                  disabled={
-                    !selectedPort || selectedPort === server.port.toString()
-                  }
-                >
-                  ポートを保存
-                </Button>
               </Group>
             </Card>
 

@@ -307,29 +307,16 @@ export const Index = () => {
                           </Group>
                         </Stack>
                       </Paper>
-                      <Paper withBorder p="md" radius="md">
-                        <Stack gap={"md"}>
-                          <Group justify="space-between">
-                            <Text size="xs" c="dimmed">
-                              {`${"インデクサ"}：${"ファイルソースからデータを抽出します"}`}
-                            </Text>
-                          </Group>
-                          <Indexer
-                            oauthClients={listOauthClient.data ?? []}
-                            index={index}
-                            fileSourceInfo={
-                              plugins.find(
-                                (v) => v.pluginType === "fileSource",
-                              )!
-                            }
-                            fileExtractorInfo={
-                              plugins.find(
-                                (v) => v.pluginType === "fileExtractor",
-                              )!
-                            }
-                          />
-                        </Stack>
-                      </Paper>
+                      <Indexer
+                        oauthClients={listOauthClient.data ?? []}
+                        index={index}
+                        fileSourceInfo={
+                          plugins.find((v) => v.pluginType === "fileSource")!
+                        }
+                        fileExtractorInfo={
+                          plugins.find((v) => v.pluginType === "fileExtractor")!
+                        }
+                      />
                       <PluginSelector
                         label="ベクトル化：ファイルを検索可能に変換します"
                         saving={false}
@@ -352,6 +339,9 @@ export const Index = () => {
                         onSubmit={onSubmitVectorStore}
                         initParams={index.vectorStore?.params}
                       />
+                      <Group gap="xs" mt={24} wrap="nowrap">
+                        <Button size="sm">{"今すぐ実行"}</Button>
+                      </Group>
                     </Stack>
                   </Accordion.Panel>
                 </Accordion.Item>
@@ -931,92 +921,87 @@ const Indexer = (params: IndexerProps) => {
   const [oauthId, setOauthId] = useState(index.fileSource?.oauthId ?? null);
   const queryClient = useQueryClient();
   return (
-    <Paper withBorder p="md" radius="md">
-      <Stack gap={"sm"}>
-        <Schedule schedule={index.schedule} index_id={index.id} />
-        <PluginSelector
-          label="ファイルソース：ファイルの取得元です"
-          saving={false}
-          error={false}
-          info={fileSourceInfo}
-          selected={index.fileSource?.name ?? null}
-          plugin_type="fileSource"
-          onSubmit={async (event, name) => {
-            const result = await commands.upsertFileSource(
-              index.id,
-              name,
-              JSON.stringify(event.formData),
-              oauthId,
-            );
-            if (result.status === "error") {
-              await showErrorDialog(result.error);
-            }
-            queryClient.invalidateQueries({ queryKey: ["indexes"] });
-            showInfoNotification("ファイルソースを保存しました");
-          }}
-          initParams={index.fileSource?.params}
-          onReset={() => {
-            setOauthId(index.fileSource?.oauthId ?? null);
-          }}
-          onTest={async (name, params) => {
-            const result = await commands.testFileSource(
-              name,
-              JSON.stringify(params),
-              oauthId,
-            );
-            if (result.status === "error") {
-              await showErrorDialog(result.error);
-            } else {
-              showInfoNotification("ファイルソースのテストに成功しました");
-            }
-          }}
-          onAbortTest={
-            oauthId === null
-              ? undefined
-              : () => {
-                  const oauthClient = oauthClients.find(
-                    (v) => v.id === oauthId,
-                  )?.clientId;
-                  if (oauthClient === undefined) return;
-                  commands.abortOauth(oauthClient);
-                }
+    <Stack gap={"sm"}>
+      <Schedule schedule={index.schedule} index_id={index.id} />
+      <PluginSelector
+        label="ファイルソース：ファイルの取得元です"
+        saving={false}
+        error={false}
+        info={fileSourceInfo}
+        selected={index.fileSource?.name ?? null}
+        plugin_type="fileSource"
+        onSubmit={async (event, name) => {
+          const result = await commands.upsertFileSource(
+            index.id,
+            name,
+            JSON.stringify(event.formData),
+            oauthId,
+          );
+          if (result.status === "error") {
+            await showErrorDialog(result.error);
           }
-        >
-          <Select
-            label={"OAuthクライアント"}
-            value={oauthId}
-            data={oauthClients.map((v) => ({ label: v.name, value: v.id }))}
-            clearable
-            onChange={(v) => {
-              setOauthId(v);
-            }}
-          />
-        </PluginSelector>
-        <PluginSelector
-          label="ファイル抽出：ファイルを抽出します"
-          saving={false}
-          error={false}
-          info={fileExtractorInfo}
-          selected={index.fileExtractor?.name ?? null}
-          plugin_type="fileExtractor"
-          onSubmit={async (event, name) => {
-            const result = await commands.upsertFileExtractor(
-              index.id,
-              name,
-              JSON.stringify(event.formData),
-            );
-            if (result.status === "error") {
-              await showErrorDialog(result.error);
-            }
-            queryClient.invalidateQueries({ queryKey: ["indexes"] });
-            showInfoNotification("ファイル抽出を変更しました");
+          queryClient.invalidateQueries({ queryKey: ["indexes"] });
+          showInfoNotification("ファイルソースを保存しました");
+        }}
+        initParams={index.fileSource?.params}
+        onReset={() => {
+          setOauthId(index.fileSource?.oauthId ?? null);
+        }}
+        onTest={async (name, params) => {
+          const result = await commands.testFileSource(
+            name,
+            JSON.stringify(params),
+            oauthId,
+          );
+          if (result.status === "error") {
+            await showErrorDialog(result.error);
+          } else {
+            showInfoNotification("ファイルソースのテストに成功しました");
+          }
+        }}
+        onAbortTest={
+          oauthId === null
+            ? undefined
+            : () => {
+                const oauthClient = oauthClients.find(
+                  (v) => v.id === oauthId,
+                )?.clientId;
+                if (oauthClient === undefined) return;
+                commands.abortOauth(oauthClient);
+              }
+        }
+      >
+        <Select
+          label={"OAuthクライアント"}
+          value={oauthId}
+          data={oauthClients.map((v) => ({ label: v.name, value: v.id }))}
+          clearable
+          onChange={(v) => {
+            setOauthId(v);
           }}
-          initParams={index.fileExtractor?.params}
         />
-        <Group gap="xs" mt={24} wrap="nowrap">
-          <Button size="sm">{"今すぐ実行"}</Button>
-        </Group>
-      </Stack>
-    </Paper>
+      </PluginSelector>
+      <PluginSelector
+        label="ファイル抽出：ファイルを抽出します"
+        saving={false}
+        error={false}
+        info={fileExtractorInfo}
+        selected={index.fileExtractor?.name ?? null}
+        plugin_type="fileExtractor"
+        onSubmit={async (event, name) => {
+          const result = await commands.upsertFileExtractor(
+            index.id,
+            name,
+            JSON.stringify(event.formData),
+          );
+          if (result.status === "error") {
+            await showErrorDialog(result.error);
+          }
+          queryClient.invalidateQueries({ queryKey: ["indexes"] });
+          showInfoNotification("ファイル抽出を変更しました");
+        }}
+        initParams={index.fileExtractor?.params}
+      />
+    </Stack>
   );
 };
