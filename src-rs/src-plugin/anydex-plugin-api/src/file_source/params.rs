@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     common::Handler,
-    file_source::types::{FileIterationInfo, InputFileInfo},
+    file_source::types::{InputFileInfo, OutputFileInfo},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -19,9 +19,6 @@ pub struct GetParamSchemaData {
 #[serde(rename_all = "camelCase")]
 pub struct GetHandlerArgs {
     pub params: serde_json::Value,
-    pub last_indexed_files: Vec<InputFileInfo>,
-    pub access_token: Option<String>,
-    pub download_dir: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,12 +39,30 @@ pub struct FreeHandlerData {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NextArgs {
+pub struct GetDiffArgs {
     pub handler: Handler,
+    pub last_indexed_files: Vec<InputFileInfo>,
+    pub access_token: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NextData {
-    pub info: Option<FileIterationInfo>,
+pub struct GetDiffData {
+    pub added_or_updated: Vec<OutputFileInfo>,
+    pub deleted: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadArgs {
+    pub handler: Handler,
+    pub uri: String,
+    pub dst_dir: String,
+    pub access_token: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadData {
+    pub downloaded_file_path: String,
 }

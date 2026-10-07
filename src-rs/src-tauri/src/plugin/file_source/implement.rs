@@ -46,20 +46,11 @@ impl FileSource for DynamicFileSource {
         }
     }
 
-    fn get_handler(
-        &self,
-        param: &serde_json::Value,
-        last_indexed_files: &[InputFileInfo],
-        access_token: Option<String>,
-        download_dir: &str,
-    ) -> Result<DisposableHnandler, String> {
+    fn get_handler(&self, param: &serde_json::Value) -> Result<DisposableHnandler, String> {
         match self {
             DynamicFileSource::V1(plugin_v1) => {
                 let args = GetHandlerArgs {
                     params: param.clone(),
-                    access_token: access_token,
-                    last_indexed_files: last_indexed_files.to_vec(),
-                    download_dir: download_dir.to_string(),
                 };
                 let result = plugin_v1.apply_and_unwrap(args)?;
 
@@ -79,12 +70,42 @@ impl FileSource for DynamicFileSource {
         }
     }
 
-    fn next(&self, handler: Handler) -> Result<Option<FileIterationInfo>, String> {
+    fn get_diff(
+        &self,
+        handler: Handler,
+        last_indexed_files: &[InputFileInfo],
+        access_token: Option<String>,
+    ) -> Result<GetDiffData, String> {
         match self {
             DynamicFileSource::V1(plugin_v1) => {
-                let args = NextArgs { handler: handler };
+                let args = GetDiffArgs {
+                    handler: handler,
+                    last_indexed_files: last_indexed_files.to_vec(),
+                    access_token,
+                };
                 let result = plugin_v1.apply_and_unwrap(args)?;
-                return Ok(result.info);
+                return Ok(result);
+            }
+        }
+    }
+
+    fn download(
+        &self,
+        handler: Handler,
+        uri: &str,
+        access_token: Option<String>,
+        dst_dir: &str,
+    ) -> Result<String, String> {
+        match self {
+            DynamicFileSource::V1(plugin_v1) => {
+                let args = DownloadArgs {
+                    handler: handler,
+                    dst_dir: dst_dir.to_string(),
+                    uri: uri.to_string(),
+                    access_token,
+                };
+                let result = plugin_v1.apply_and_unwrap(args)?;
+                return Ok(result.downloaded_file_path);
             }
         }
     }

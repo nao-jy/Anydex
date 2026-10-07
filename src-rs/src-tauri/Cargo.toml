@@ -60,6 +60,7 @@ rmcp = { version = "3.5.1", features = [
     "transport-streamable-http-server",
 ] }
 schemars = "1.2.2"
+xxhash-rust = { version = "0.8.18", features = ["xxh3"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

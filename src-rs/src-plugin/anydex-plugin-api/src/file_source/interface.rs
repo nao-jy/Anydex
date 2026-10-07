@@ -20,7 +20,8 @@ pub struct DynamicFileSourceV1 {
     pub get_handler: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
     pub free_handler: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
 
-    pub next: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
+    pub get_diff: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
+    pub download: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
 
     /// Releases allocations returned by this plugin's ABI functions.
     pub free: unsafe extern "C" fn(value: APIResultSerialized),
@@ -44,9 +45,15 @@ impl PluginFn<FreeHandlerArgs, FreeHandlerData> for DynamicFileSourceV1 {
     }
 }
 
-impl PluginFn<NextArgs, NextData> for DynamicFileSourceV1 {
-    fn apply_and_unwrap(&self, args: NextArgs) -> Result<NextData, String> {
-        super::super::common::apply_and_unwrap(args, self.next, self.free)
+impl PluginFn<GetDiffArgs, GetDiffData> for DynamicFileSourceV1 {
+    fn apply_and_unwrap(&self, args: GetDiffArgs) -> Result<GetDiffData, String> {
+        super::super::common::apply_and_unwrap(args, self.get_diff, self.free)
+    }
+}
+
+impl PluginFn<DownloadArgs, DownloadData> for DynamicFileSourceV1 {
+    fn apply_and_unwrap(&self, args: DownloadArgs) -> Result<DownloadData, String> {
+        super::super::common::apply_and_unwrap(args, self.download, self.free)
     }
 }
 

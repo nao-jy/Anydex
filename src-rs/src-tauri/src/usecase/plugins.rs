@@ -186,7 +186,6 @@ pub async fn test_file_source(
         .join(Uuid::new_v4().to_string())
         .to_string_lossy()
         .to_string();
-    let plugin_download_dir = download_dir.clone();
     let plugin_result = tokio::task::spawn_blocking(move || {
         let mut manager = FILE_SOURCE_MGR.lock().unwrap();
         let manager = manager
@@ -195,13 +194,10 @@ pub async fn test_file_source(
         let plugin = manager.get_plugin(&file_source_name).ok_or_else(|| {
             format!("File Source plugin {file_source_name} was not found in the plugin manager")
         })?;
-        let handler = plugin
-            .get_handler(&params, &[], access_token, &plugin_download_dir)
-            .map_err(|err| err.to_string())?;
+        let handler = plugin.get_handler(&params).map_err(|err| err.to_string())?;
         let _file = plugin
-            .next(handler.handler)
-            .map_err(|err| err.to_string())?
-            .ok_or_else(|| "File not found".to_owned())?;
+            .get_diff(handler.handler, &[], access_token)
+            .map_err(|err| err.to_string())?;
         Ok::<(), String>(())
     })
     .await
