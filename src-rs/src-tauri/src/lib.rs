@@ -29,10 +29,7 @@ macro_rules! app_commands {
             ipc::indexes::put_description,
             ipc::indexes::set_index_mcp_server,
             ipc::indexes::delete_index,
-            ipc::indexers::create_empty_indexer,
-            ipc::indexers::delete_indexer,
-            ipc::indexers::upsert_schedule,
-            ipc::indexers::delete_schedule,
+            ipc::indexes::upsert_schedule,
             ipc::mcp::get_mcp_server_state,
             ipc::mcp::set_mcp_server_status,
             ipc::tasks::list_active_tasks,
@@ -85,9 +82,14 @@ pub fn run() {
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
             let database_path = app_data_dir.join("anydex.sqlite3");
-            let database_url = repository::sqlite_database_url(&database_path)?;
-            let database = tauri::async_runtime::block_on(repository::initialize(&database_url))?;
+            let database_url = repository::sqlite::database_url(&database_path)?;
+            let database =
+                tauri::async_runtime::block_on(repository::sqlite::initialize(&database_url))?;
             app.manage(database);
+
+            let json_path = app_data_dir.join("userdata.json");
+            repository::json::initialize(&json_path.to_string_lossy().to_string())?;
+
             tracing::info!(path = %database_path.display(), "application database initialized");
 
             let task_tray_init = init_task_tray(app);

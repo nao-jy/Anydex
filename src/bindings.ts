@@ -6,35 +6,35 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 export const commands = {
 	greet: (name: string) => __TAURI_INVOKE<string>("greet", { name }),
 	listIndexes: () => typedError<Index[], string>(__TAURI_INVOKE("list_indexes")),
-	createEmptyIndex: () => typedError<Index, string>(__TAURI_INVOKE("create_empty_index")),
-	renameIndex: (indexId: number, name: string) => typedError<Index, string>(__TAURI_INVOKE("rename_index", { indexId, name })),
-	putDescription: (indexId: number, description: string) => typedError<Index, string>(__TAURI_INVOKE("put_description", { indexId, description })),
-	setIndexMcpServer: (indexId: number, enabled: boolean) => typedError<null, string>(__TAURI_INVOKE("set_index_mcp_server", { indexId, enabled })),
-	deleteIndex: (indexId: number) => typedError<null, string>(__TAURI_INVOKE("delete_index", { indexId })),
-	createEmptyIndexer: (indexId: number) => typedError<Indexer, string>(__TAURI_INVOKE("create_empty_indexer", { indexId })),
-	deleteIndexer: (indexerId: number) => typedError<null, string>(__TAURI_INVOKE("delete_indexer", { indexerId })),
-	upsertSchedule: (indexerId: number, schedule: Schedule) => typedError<null, string>(__TAURI_INVOKE("upsert_schedule", { indexerId, schedule })),
-	deleteSchedule: (indexerId: number) => typedError<null, string>(__TAURI_INVOKE("delete_schedule", { indexerId })),
+	createEmptyIndex: () => typedError<null, string>(__TAURI_INVOKE("create_empty_index")),
+	renameIndex: (indexId: string, name: string) => typedError<null, string>(__TAURI_INVOKE("rename_index", { indexId, name })),
+	putDescription: (indexId: string, description: string) => typedError<null, string>(__TAURI_INVOKE("put_description", { indexId, description })),
+	setIndexMcpServer: (indexId: string, enabled: boolean) => typedError<null, string>(__TAURI_INVOKE("set_index_mcp_server", { indexId, enabled })),
+	deleteIndex: (indexId: string) => typedError<null, string>(__TAURI_INVOKE("delete_index", { indexId })),
+	upsertSchedule: (indexId: string, schedule: {
+	rfc5545Rrule: string,
+	catchupWhenMissed: boolean,
+} | null) => typedError<null, string>(__TAURI_INVOKE("upsert_schedule", { indexId, schedule })),
 	getMcpServerState: () => typedError<{
 	port: number,
 	startedAt: string,
 } | null, string>(__TAURI_INVOKE("get_mcp_server_state")),
-	setMcpServerStatus: (running: boolean) => typedError<null, string>(__TAURI_INVOKE("set_mcp_server_status", { running })),
+	setMcpServerStatus: (running: boolean, port: number | null) => typedError<null, string>(__TAURI_INVOKE("set_mcp_server_status", { running, port })),
 	listActiveTasks: () => typedError<Task[], string>(__TAURI_INVOKE("list_active_tasks")),
 	getApplicationSettings: () => __TAURI_INVOKE<ApplicationSettings>("get_application_settings"),
 	getPluginInfo: () => typedError<PluginInfo[], string>(__TAURI_INVOKE("get_plugin_info")),
-	upsertEmbedder: (indexId: number, embedderName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_embedder", { indexId, embedderName, paramsJson })),
-	upsertVectorStore: (indexId: number, vectorStoreName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_vector_store", { indexId, vectorStoreName, paramsJson })),
-	upsertFileExtractor: (indexerId: number, fileExtractorName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_file_extractor", { indexerId, fileExtractorName, paramsJson })),
-	upsertFileSource: (indexerId: number, fileSourceName: string, paramsJson: string, oauthId: number | null) => typedError<null, string>(__TAURI_INVOKE("upsert_file_source", { indexerId, fileSourceName, paramsJson, oauthId })),
-	testFileSource: (fileSourceName: string, paramsJson: string, oauthId: number | null) => typedError<null, string>(__TAURI_INVOKE("test_file_source", { fileSourceName, paramsJson, oauthId })),
+	upsertEmbedder: (indexId: string, embedderName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_embedder", { indexId, embedderName, paramsJson })),
+	upsertVectorStore: (indexId: string, vectorStoreName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_vector_store", { indexId, vectorStoreName, paramsJson })),
+	upsertFileExtractor: (indexId: string, fileExtractorName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_file_extractor", { indexId, fileExtractorName, paramsJson })),
+	upsertFileSource: (indexId: string, fileSourceName: string, paramsJson: string, oauthId: string | null) => typedError<null, string>(__TAURI_INVOKE("upsert_file_source", { indexId, fileSourceName, paramsJson, oauthId })),
+	testFileSource: (fileSourceName: string, paramsJson: string, oauthId: string | null) => typedError<null, string>(__TAURI_INVOKE("test_file_source", { fileSourceName, paramsJson, oauthId })),
 	reloadPlugins: () => typedError<null, string>(__TAURI_INVOKE("reload_plugins")),
 	getParamSchema: (pluginType: PluginType, pluginName: string) => __TAURI_INVOKE<string | null>("get_param_schema", { pluginType, pluginName }),
 	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),
 	listOauthClient: () => typedError<OAuthClient[], string>(__TAURI_INVOKE("list_oauth_client")),
-	createEmptyOauthClient: () => typedError<OAuthClient, string>(__TAURI_INVOKE("create_empty_oauth_client")),
+	createEmptyOauthClient: () => typedError<null, string>(__TAURI_INVOKE("create_empty_oauth_client")),
 	updateOauthClient: (data: OAuthClient) => typedError<null, string>(__TAURI_INVOKE("update_oauth_client", { data })),
-	deleteOauthClient: (oauthId: number) => typedError<null, string>(__TAURI_INVOKE("delete_oauth_client", { oauthId })),
+	deleteOauthClient: (oauthId: string) => typedError<null, string>(__TAURI_INVOKE("delete_oauth_client", { oauthId })),
 	testOauth: (client: OAuthClient) => typedError<null, string>(__TAURI_INVOKE("test_oauth", { client })),
 	abortOauth: (clientId: string) => typedError<null, string>(__TAURI_INVOKE("abort_oauth", { clientId })),
 };
@@ -47,73 +47,31 @@ export type ApplicationSettings = {
 };
 
 export type Embedder = {
-	id: number,
-	indexId: number,
 	name: string,
 	params: any,
-};
-
-export type File = {
-	id: number,
-	fileSourceId: number,
-	name: string,
-	uri: string,
-	contentType: string,
-	/**
-	 *  Byte count serialized as a decimal string to avoid JavaScript integer
-	 *  precision loss. Convert from the repository model with `to_string()`.
-	 */
-	size: string,
-	updatedAt: string,
 };
 
 export type FileExtractor = {
-	id: number,
-	indexerId: number,
 	name: string,
 	params: any,
 };
 
-/**  OpenDAL file-source configuration and the files discovered from it. */
 export type FileSource = {
-	id: number,
-	indexerId: number,
 	name: string,
 	params: any,
-	files: File[],
-	oauthClient: OAuthClient | null,
+	oauthId: string | null,
 };
 
-/**
- *  Index configuration returned to the UI.
- * 
- *  This mirrors the aggregate rooted at `repository::models::index`. Related
- *  entities are loaded explicitly by the repository before constructing it.
- */
 export type Index = {
-	id: number,
+	id: string,
 	name: string,
 	description: string,
-	createdAt: string,
-	updatedAt: string,
 	useMcpServer: boolean,
-	/**  Absent until vectorization is configured for this index. */
-	embedder: Embedder | null,
-	/**  Absent until a vector store is configured for this index. */
-	vectorStore: VectorStore | null,
-	indexers: Indexer[],
-};
-
-export type Indexer = {
-	id: number,
-	indexId: number,
-	lastStart: string | null,
-	lastSuccess: string | null,
-	lastProcessedFiles: number | null,
 	fileSource: FileSource | null,
 	fileExtractor: FileExtractor | null,
+	embedder: Embedder | null,
+	vectorStore: VectorStore | null,
 	schedule: Schedule | null,
-	tasks: Task[],
 };
 
 /**  Status of the local MCP server exposed by the application. */
@@ -122,12 +80,8 @@ export type McpServer = {
 	startedAt: string,
 };
 
-/**
- *  OAuth client configuration for management screens. PKCE has no client
- *  secret, but token values are never included here.
- */
 export type OAuthClient = {
-	id: number,
+	id: string,
 	name: string,
 	clientId: string,
 	clientSecret: string | null,
@@ -135,7 +89,7 @@ export type OAuthClient = {
 	tokenEndpoint: string,
 	refreshEndpoint: string | null,
 	revocationEndpoint: string | null,
-	scopes: any,
+	scopes: string[],
 };
 
 export type PluginInfo = {
@@ -147,8 +101,6 @@ export type PluginInfo = {
 export type PluginType = "fileSource" | "fileExtractor" | "embedder" | "vectorStore";
 
 export type Schedule = {
-	id: number,
-	indexerId: number,
 	rfc5545Rrule: string,
 	catchupWhenMissed: boolean,
 };
@@ -165,7 +117,7 @@ export type SearchResult = {
 
 export type Task = {
 	id: number,
-	indexerId: number,
+	indexId: string,
 	taskType: string,
 	status: string,
 	startedAt: string | null,
@@ -174,8 +126,6 @@ export type Task = {
 };
 
 export type VectorStore = {
-	id: number,
-	indexId: number,
 	name: string,
 	params: any,
 };

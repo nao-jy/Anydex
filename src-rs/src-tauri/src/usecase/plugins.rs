@@ -1,7 +1,6 @@
 use std::fs;
 
 use enum_iterator::all;
-use sea_orm::{DatabaseConnection, EntityTrait};
 use uuid::Uuid;
 
 use crate::{
@@ -10,7 +9,11 @@ use crate::{
         entry::{PluginType, FILE_SOURCE_MGR},
         file_source::interface::FileSource,
     },
-    repository,
+    repository::json::{
+        load,
+        models::{self, *},
+        save,
+    },
     server::oauth::client::{do_oauth_pkce, revoke_access_token, revoke_refresh_token},
 };
 
@@ -38,145 +41,102 @@ pub fn get_param_schema(plugin_type: PluginType, plugin_name: &str) -> Option<St
 }
 
 pub async fn upsert_embedder(
-    index_id: i32,
+    index_id: Uuid,
     embedder_name: String,
-    params_json: String,
-    database: &DatabaseConnection,
+    params: String,
 ) -> Result<(), String> {
-    repository::models::index::Entity::find_by_id(index_id)
-        .one(database)
-        .await
-        .map_err(|error| error.to_string())?
-        .ok_or_else(|| format!("index {index_id} was not found"))?;
-
-    if !PluginType::Embedder.list_names().contains(&embedder_name) {
-        return Err(format!("Embedder {embedder_name} was not found"));
+    let mut userdata = load()?;
+    for index in userdata.indexes.iter_mut() {
+        if index.id == index_id {
+            index.embedder = Some(Embedder {
+                name: embedder_name,
+                params: serde_json::Value::from(params),
+            });
+            break;
+        }
     }
-    let params = serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
-    repository::plugins::upsert_embedder(database, index_id, embedder_name, params)
-        .await
-        .map_err(|err| err.to_string())
+    save(&userdata)
 }
 
 pub async fn upsert_vector_store(
-    index_id: i32,
+    index_id: Uuid,
     vector_store_name: String,
-    params_json: String,
-    database: &DatabaseConnection,
+    params: String,
 ) -> Result<(), String> {
-    repository::models::index::Entity::find_by_id(index_id)
-        .one(database)
-        .await
-        .map_err(|error| error.to_string())?
-        .ok_or_else(|| format!("index {index_id} was not found"))?;
-
-    if !PluginType::VectorStore
-        .list_names()
-        .contains(&vector_store_name)
-    {
-        return Err(format!("Vector store {vector_store_name} was not found"));
+    let mut userdata = load()?;
+    for index in userdata.indexes.iter_mut() {
+        if index.id == index_id {
+            index.vector_store = Some(VectorStore {
+                name: vector_store_name,
+                params: serde_json::Value::from(params),
+            });
+            break;
+        }
     }
-    let params = serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
-    repository::plugins::upsert_vector_store(database, index_id, vector_store_name, params)
-        .await
-        .map_err(|err| err.to_string())
+    save(&userdata)
 }
 
 pub async fn upsert_file_extractor(
-    indexer_id: i32,
+    index_id: Uuid,
     file_extractor_name: String,
-    params_json: String,
-    database: &DatabaseConnection,
+    params: String,
 ) -> Result<(), String> {
-    repository::models::indexer::Entity::find_by_id(indexer_id)
-        .one(database)
-        .await
-        .map_err(|error| error.to_string())?
-        .ok_or_else(|| format!("indexer {indexer_id} was not found"))?;
-
-    if !PluginType::FileExtractor
-        .list_names()
-        .contains(&file_extractor_name)
-    {
-        return Err(format!(
-            "File Extractor {file_extractor_name} was not found"
-        ));
+    let mut userdata = load()?;
+    for index in userdata.indexes.iter_mut() {
+        if index.id == index_id {
+            index.file_extractor = Some(FileExtractor {
+                name: file_extractor_name,
+                params: serde_json::Value::from(params),
+            });
+            break;
+        }
     }
-    let params = serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
-    repository::plugins::upsert_file_extractor(database, indexer_id, file_extractor_name, params)
-        .await
-        .map_err(|err| err.to_string())
+    save(&userdata)
 }
 
 pub async fn upsert_file_source(
-    indexer_id: i32,
+    index_id: Uuid,
     file_source_name: String,
-    params_json: String,
-    oauth_id: Option<i32>,
-    database: &DatabaseConnection,
+    oauth_id: Option<Uuid>,
+    params: String,
 ) -> Result<(), String> {
-    repository::models::indexer::Entity::find_by_id(indexer_id)
-        .one(database)
-        .await
-        .map_err(|error| error.to_string())?
-        .ok_or_else(|| format!("indexer {indexer_id} was not found"))?;
-
-    if !PluginType::FileSource
-        .list_names()
-        .contains(&file_source_name)
-    {
-        return Err(format!("File Source {file_source_name} was not found"));
+    let mut userdata = load()?;
+    for index in userdata.indexes.iter_mut() {
+        if index.id == index_id {
+            index.file_source = Some(models::FileSource {
+                name: file_source_name,
+                params: serde_json::Value::from(params),
+                oauth_id: oauth_id,
+            });
+            break;
+        }
     }
-    let params = serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
-    repository::plugins::upsert_file_source(
-        database,
-        indexer_id,
-        file_source_name,
-        oauth_id,
-        params,
-    )
-    .await
-    .map_err(|err| err.to_string())
+    save(&userdata)
 }
 
 pub async fn test_file_source(
     file_source_name: String,
     params_json: String,
-    oauth_id: Option<i32>,
-    database: &DatabaseConnection,
+    oauth_id: Option<Uuid>,
 ) -> Result<(), String> {
     let params = serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
+    let userdata = load()?;
     let oauth = match oauth_id {
-        Some(id) => Some(
-            repository::models::oauth_client::Entity::find_by_id(id)
-                .one(database)
-                .await
-                .map_err(|err| err.to_string())?
-                .ok_or_else(|| format!("OAuth client {id} was not found"))?,
-        ),
+        Some(id) => userdata.oauth_clients.iter().find(|v| v.id == id),
         None => None,
     };
     let auth_result = match oauth.as_ref() {
-        Some(model) => {
-            let scopes: Vec<String> = model
-                .scopes
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|value| value.as_str().unwrap().to_owned())
-                .collect();
-            Some(
-                do_oauth_pkce(
-                    &model.client_id,
-                    model.client_sercret.clone(),
-                    &model.authorization_endpoint,
-                    &model.token_endpoint,
-                    &scopes,
-                )
-                .await
-                .map_err(|err| err.to_string())?,
+        Some(model) => Some(
+            do_oauth_pkce(
+                &model.client_id,
+                model.client_secret.clone(),
+                &model.authorization_endpoint,
+                &model.token_endpoint,
+                &model.scopes,
             )
-        }
+            .await
+            .map_err(|err| err.to_string())?,
+        ),
         None => None,
     };
     let access_token = auth_result
@@ -219,7 +179,7 @@ pub async fn test_file_source(
         if let Some(revocation_endpoint) = model.revocation_endpoint.as_ref() {
             let _ = revoke_access_token(
                 &model.client_id,
-                model.client_sercret.clone(),
+                model.client_secret.clone(),
                 auth_result.access_token.secret(),
                 revocation_endpoint,
             )
@@ -227,7 +187,7 @@ pub async fn test_file_source(
             if let Some(refresh_token) = auth_result.refresh_token.as_ref() {
                 let _ = revoke_refresh_token(
                     &model.client_id,
-                    model.client_sercret.clone(),
+                    model.client_secret.clone(),
                     refresh_token.secret(),
                     revocation_endpoint,
                 )
