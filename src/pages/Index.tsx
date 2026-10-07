@@ -28,7 +28,6 @@ import {
   Index as IndexInfo,
   PluginInfo,
   PluginType,
-  Indexer as IndexerInfo,
   Schedule as ScheduleInfo,
   OAuthClient,
 } from "../bindings";
@@ -42,12 +41,12 @@ import { Temporal } from "temporal-polyfill";
 import { PageHeader } from "../components/PageHeader";
 import { showInfoNotification } from "../components/Notifications";
 
-type SortKey = "name" | "createdAt" | "updatedAt";
+type SortKey = "name";
 type Direction = "asc" | "desc";
 
 export const Index = () => {
   const queryClient = useQueryClient();
-  const [sortKey, setSortKey] = useState<SortKey>("updatedAt");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
   const [direction, setDirection] = useState<Direction>("desc");
   const [open, setOpen] = useState<string[]>([]);
   const {
@@ -88,7 +87,7 @@ export const Index = () => {
     },
   });
   const renameIndex = useMutation({
-    mutationFn: ({ indexId, name }: { indexId: number; name: string }) =>
+    mutationFn: ({ indexId, name }: { indexId: string; name: string }) =>
       unwrapCommandResult(commands.renameIndex(indexId, name)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["indexes"] });
@@ -100,7 +99,7 @@ export const Index = () => {
       indexId,
       description,
     }: {
-      indexId: number;
+      indexId: string;
       description: string;
     }) => unwrapCommandResult(commands.putDescription(indexId, description)),
     onSuccess: () => {
@@ -219,14 +218,6 @@ export const Index = () => {
                 queryClient.invalidateQueries({ queryKey: ["indexes"] });
                 showInfoNotification("ベクトルストアを変更しました");
               };
-              const onAddIndexer = async () => {
-                const result = await commands.createEmptyIndexer(index.id);
-                if (result.status === "error") {
-                  await showErrorDialog(result.error);
-                }
-                queryClient.invalidateQueries({ queryKey: ["indexes"] });
-                showInfoNotification("空のインデクサを追加しました");
-              };
               return (
                 <Accordion.Item value={index.id.toString()} key={index.id}>
                   <Group gap={0} wrap="nowrap" align="stretch">
@@ -248,10 +239,13 @@ export const Index = () => {
                           </Text>
                         </Box>
                         <Group gap="xl" visibleFrom="sm">
-                          <DateInfo label="作成日" value={index.createdAt} />
+                          <DateInfo
+                            label="作成日"
+                            value={new Date().toString()}
+                          />
                           <DateInfo
                             label="最終更新日"
-                            value={index.updatedAt}
+                            value={new Date().toString()}
                           />
                         </Group>
                       </Group>
@@ -319,32 +313,21 @@ export const Index = () => {
                             <Text size="xs" c="dimmed">
                               {`${"インデクサ"}：${"ファイルソースからデータを抽出します"}`}
                             </Text>
-                            <Button
-                              variant={"subtle"}
-                              size="compact-sm"
-                              onClick={onAddIndexer}
-                            >
-                              {"インデクサを追加"}
-                            </Button>
                           </Group>
-                          {index.indexers.map((v, idx) => (
-                            <Indexer
-                              oauthClients={listOauthClient.data ?? []}
-                              key={idx}
-                              num={idx + 1}
-                              indexer={v}
-                              fileSourceInfo={
-                                plugins.find(
-                                  (v) => v.pluginType === "fileSource",
-                                )!
-                              }
-                              fileExtractorInfo={
-                                plugins.find(
-                                  (v) => v.pluginType === "fileExtractor",
-                                )!
-                              }
-                            />
-                          ))}
+                          <Indexer
+                            oauthClients={listOauthClient.data ?? []}
+                            index={index}
+                            fileSourceInfo={
+                              plugins.find(
+                                (v) => v.pluginType === "fileSource",
+                              )!
+                            }
+                            fileExtractorInfo={
+                              plugins.find(
+                                (v) => v.pluginType === "fileExtractor",
+                              )!
+                            }
+                          />
                         </Stack>
                       </Paper>
                       <PluginSelector
@@ -385,7 +368,7 @@ interface IndexNameProps {
   saving: boolean;
   error: boolean;
   index: IndexInfo;
-  onSave: (indexId: number, newName: string) => void;
+  onSave: (indexId: string, newName: string) => void;
 }
 const IndexName = (props: IndexNameProps) => {
   const { index, onSave, saving, error } = props;
@@ -450,7 +433,7 @@ interface IndexDescriptionProps {
   saving: boolean;
   error: boolean;
   index: IndexInfo;
-  onSave: (indexId: number, newDescription: string) => void;
+  onSave: (indexId: string, newDescription: string) => void;
 }
 const IndexDescription = (props: IndexDescriptionProps) => {
   const { index, onSave, saving, error } = props;
@@ -708,12 +691,12 @@ const toDtStart = (zdt: TemporalZonedDateTime) => {
 };
 
 interface ScheduleProps {
-  indexer_id: number;
+  index_id: string;
   schedule: ScheduleInfo | null;
 }
 
 const Schedule = (props: ScheduleProps) => {
-  const { schedule, indexer_id } = props;
+  const { schedule, index_id } = props;
   const now = Temporal.Now.zonedDateTimeISO();
   const defaultRuleStr =
     schedule?.rfc5545Rrule ??
@@ -881,13 +864,11 @@ const Schedule = (props: ScheduleProps) => {
             size="sm"
             onClick={async () => {
               const newSchedule: ScheduleInfo = {
-                id: 0,
-                indexerId: indexer_id,
                 rfc5545Rrule: rrule.toString(),
                 catchupWhenMissed: catchupWhenMissed,
               };
               const result = await commands.upsertSchedule(
-                indexer_id,
+                index_id,
                 newSchedule,
               );
               if (result.status === "error") {
@@ -908,7 +889,10 @@ const Schedule = (props: ScheduleProps) => {
                   "定期実行スケジュールを削除します、よろしいですか？",
                   async (ok) => {
                     if (ok) {
-                      const result = await commands.deleteSchedule(indexer_id);
+                      const result = await commands.upsertSchedule(
+                        index_id,
+                        null,
+                      );
                       if (result.status === "error") {
                         await showErrorDialog(result.error);
                       }
@@ -936,37 +920,30 @@ const Schedule = (props: ScheduleProps) => {
 };
 
 interface IndexerProps {
-  indexer: IndexerInfo;
+  index: IndexInfo;
   fileSourceInfo: PluginInfo;
   fileExtractorInfo: PluginInfo;
   oauthClients: OAuthClient[];
-  num: number;
 }
 
 const Indexer = (params: IndexerProps) => {
-  const { indexer, fileSourceInfo, fileExtractorInfo, num, oauthClients } =
-    params;
-  const [oauthId, setOauthId] = useState(
-    indexer.fileSource?.oauthClient?.id ?? null,
-  );
+  const { index, fileSourceInfo, fileExtractorInfo, oauthClients } = params;
+  const [oauthId, setOauthId] = useState(index.fileSource?.oauthId ?? null);
   const queryClient = useQueryClient();
   return (
     <Paper withBorder p="md" radius="md">
       <Stack gap={"sm"}>
-        <Text size="xs" c="dimmed">
-          {`インデクサ ${num}`}
-        </Text>
-        <Schedule schedule={indexer.schedule} indexer_id={indexer.id} />
+        <Schedule schedule={index.schedule} index_id={index.id} />
         <PluginSelector
           label="ファイルソース：ファイルの取得元です"
           saving={false}
           error={false}
           info={fileSourceInfo}
-          selected={indexer.fileSource?.name ?? null}
+          selected={index.fileSource?.name ?? null}
           plugin_type="fileSource"
           onSubmit={async (event, name) => {
             const result = await commands.upsertFileSource(
-              indexer.id,
+              index.id,
               name,
               JSON.stringify(event.formData),
               oauthId,
@@ -977,9 +954,9 @@ const Indexer = (params: IndexerProps) => {
             queryClient.invalidateQueries({ queryKey: ["indexes"] });
             showInfoNotification("ファイルソースを保存しました");
           }}
-          initParams={indexer.fileSource?.params}
+          initParams={index.fileSource?.params}
           onReset={() => {
-            setOauthId(indexer.fileSource?.oauthClient?.id ?? null);
+            setOauthId(index.fileSource?.oauthId ?? null);
           }}
           onTest={async (name, params) => {
             const result = await commands.testFileSource(
@@ -1020,11 +997,11 @@ const Indexer = (params: IndexerProps) => {
           saving={false}
           error={false}
           info={fileExtractorInfo}
-          selected={indexer.fileExtractor?.name ?? null}
+          selected={index.fileExtractor?.name ?? null}
           plugin_type="fileExtractor"
           onSubmit={async (event, name) => {
             const result = await commands.upsertFileExtractor(
-              indexer.id,
+              index.id,
               name,
               JSON.stringify(event.formData),
             );
@@ -1034,31 +1011,10 @@ const Indexer = (params: IndexerProps) => {
             queryClient.invalidateQueries({ queryKey: ["indexes"] });
             showInfoNotification("ファイル抽出を変更しました");
           }}
-          initParams={indexer.fileExtractor?.params}
+          initParams={index.fileExtractor?.params}
         />
         <Group gap="xs" mt={24} wrap="nowrap">
           <Button size="sm">{"今すぐ実行"}</Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              await showConfirmDialog(
-                "インデクサを削除します、よろしいですか？",
-                async (ok) => {
-                  if (ok) {
-                    const result = await commands.deleteIndexer(indexer.id);
-                    if (result.status === "error") {
-                      await showErrorDialog(result.error);
-                    }
-                    queryClient.invalidateQueries({ queryKey: ["indexes"] });
-                    showInfoNotification("インデクサを削除しました");
-                  }
-                },
-              );
-            }}
-          >
-            {"インデクサを削除"}
-          </Button>
         </Group>
       </Stack>
     </Paper>

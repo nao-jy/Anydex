@@ -65,7 +65,7 @@ export const Tasks = () => {
             {tasks.map((task) => {
               const state = asObject(task.state);
               const progress = numberValue(state.progress);
-              const labels = indexers.get(task.indexerId);
+              const labels = indexers.get(task.indexId);
               return (
                 <Card key={task.id} withBorder radius="md" padding="lg">
                   <Group justify="space-between" align="flex-start">
@@ -86,7 +86,7 @@ export const Tasks = () => {
                           </Badge>
                         </Group>
                         <Text size="sm" c="dimmed" mt={4}>
-                          {labels?.indexName ?? `Indexer #${task.indexerId}`}
+                          {labels?.indexName ?? `Indexer #${task.indexId}`}
                           {labels?.sourceName ? ` / ${labels.sourceName}` : ""}
                         </Text>
                       </Box>
@@ -127,14 +127,12 @@ export const Tasks = () => {
 
 function buildIndexerLabels(indexes: Index[]) {
   return new Map(
-    indexes.flatMap((index) =>
-      index.indexers.map(
-        (indexer) =>
-          [
-            indexer.id,
-            { indexName: index.name, sourceName: indexer.fileSource?.name },
-          ] as const,
-      ),
+    indexes.map(
+      (index) =>
+        [
+          index.id,
+          { indexName: index.name, sourceName: index.fileSource?.name },
+        ] as const,
     ),
   );
 }

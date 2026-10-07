@@ -121,7 +121,7 @@ export const OAuth = () => {
 interface OAuthContentProps {
   data: OAuthClient;
   onSave: (data: OAuthClient) => void;
-  onDelete: (oauth_id: number) => void;
+  onDelete: (oauth_id: string) => void;
 }
 
 const OAuthContent = (props: OAuthContentProps) => {

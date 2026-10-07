@@ -24,12 +24,12 @@ export const Mcp = () => {
   const queryClient = useQueryClient();
   const [selectedPort, setSelectedPort] = useState<string>("8080");
   const {
-    data: servers = [],
-    isLoading: isLoadingServers,
+    data: server = null,
+    isLoading: isLoadingServer,
     isError: isServerError,
   } = useQuery({
-    queryKey: ["mcpServers"],
-    queryFn: () => unwrapCommandResult(commands.listMcpServers()),
+    queryKey: ["mcpServer"],
+    queryFn: () => unwrapCommandResult(commands.getMcpServerState()),
   });
   const {
     data: indexes = [],
@@ -41,30 +41,32 @@ export const Mcp = () => {
   });
 
   const setIndexEnabled = useMutation({
-    mutationFn: ({ indexId, enabled }: { indexId: number; enabled: boolean }) =>
+    mutationFn: ({ indexId, enabled }: { indexId: string; enabled: boolean }) =>
       unwrapCommandResult(commands.setIndexMcpServer(indexId, enabled)),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["indexes"] });
-      void queryClient.invalidateQueries({ queryKey: ["mcpServers"] });
+      void queryClient.invalidateQueries({ queryKey: ["mcpServer"] });
     },
   });
   const setPort = useMutation({
-    mutationFn: (port: number) => commands.setMcpServerPort(port),
+    mutationFn: (port: number) =>
+      commands.setMcpServerStatus(server !== null, port),
     onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ["mcpServers"] }),
+      void queryClient.invalidateQueries({ queryKey: ["mcpServer"] }),
   });
   const setServerRunning = useMutation({
-    mutationFn: (running: boolean) => commands.setMcpServerRunning(running),
+    mutationFn: (running: boolean) =>
+      commands.setMcpServerStatus(running, null),
     onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ["mcpServers"] }),
+      void queryClient.invalidateQueries({ queryKey: ["mcpServer"] }),
   });
 
-  const server = servers[0];
   useEffect(() => {
     if (server) setSelectedPort(server.port.toString());
   }, [server]);
 
-  const isLoading = isLoadingServers || isLoadingIndexes;
+  const isRunning = server !== null;
+  const isLoading = isLoadingServer || isLoadingIndexes;
   const isError = isServerError || isIndexError;
 
   return (
@@ -97,16 +99,15 @@ export const Mcp = () => {
                   </ThemeIcon>
                   <Box>
                     <Group gap="sm">
-                      <Text fw={700}>{server.name}</Text>
                       <Badge
-                        color={server.status === "running" ? "teal" : "gray"}
+                        color={isRunning ? "teal" : "gray"}
                         variant="light"
                       >
-                        {server.status === "running" ? "稼働中" : "停止中"}
+                        {isRunning ? "稼働中" : "停止中"}
                       </Badge>
                     </Group>
                     <Text size="sm" c="dimmed" mt={4}>
-                      {server.host}:{server.port}
+                      {`localhost:${server.port}`}
                     </Text>
                   </Box>
                 </Group>
@@ -118,26 +119,21 @@ export const Mcp = () => {
               <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg">
                 <Metric
                   label="公開中のインデックス"
-                  value={`${server.enabledIndexCount} 件`}
+                  value={`${indexes.filter((v) => v.useMcpServer).length} 件`}
                 />
-                <Metric label="接続先" value={server.host} />
                 <Metric
                   label="ステータス"
-                  value={server.status === "running" ? "稼働中" : "停止中"}
+                  value={isRunning ? "稼働中" : "停止中"}
                 />
               </SimpleGrid>
               <Group justify="flex-end" mt="lg">
                 <Button
-                  color={server.status === "running" ? "red" : "teal"}
-                  variant={server.status === "running" ? "light" : "filled"}
-                  onClick={() =>
-                    setServerRunning.mutate(server.status !== "running")
-                  }
+                  color={isRunning ? "red" : "teal"}
+                  variant={isRunning ? "light" : "filled"}
+                  onClick={() => setServerRunning.mutate(!isRunning)}
                   loading={setServerRunning.isPending}
                 >
-                  {server.status === "running"
-                    ? "サーバーを停止"
-                    : "サーバーを起動"}
+                  {isRunning ? "サーバーを停止" : "サーバーを起動"}
                 </Button>
               </Group>
             </Card>
@@ -154,7 +150,7 @@ export const Mcp = () => {
                   onChange={(v) => {
                     setSelectedPort(v.toString());
                   }}
-                  disabled={server.status === "running"}
+                  disabled={isRunning}
                   w={180}
                 />
                 <Button
