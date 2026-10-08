@@ -6,6 +6,7 @@ use sea_orm::{
 };
 use url::Url;
 
+pub mod job;
 pub mod models;
 
 pub fn database_url(database_path: &Path) -> Result<String, DbErr> {
@@ -51,7 +52,7 @@ pub async fn initialize(database_url: &str) -> Result<DatabaseConnection, DbErr>
     // the foreign keys generated from the entity relations.
     create_entity_schema!(models::oauth_authentication::Entity);
     create_entity_schema!(models::file::Entity);
-    create_entity_schema!(models::task::Entity);
+    create_entity_schema!(models::job::Entity);
 
     transaction.commit().await?;
     Ok(database)

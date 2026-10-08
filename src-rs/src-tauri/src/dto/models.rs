@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::plugin::entry::PluginType;
 
@@ -23,15 +22,17 @@ pub struct File {
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct Task {
-    pub id: i32,
+pub struct Job {
+    pub id: u64,
     pub index_id: String,
-    pub task_type: String,
+    pub job_type: String,
     pub status: String,
-    pub started_at: Option<DateTime<Utc>>,
-    pub completed_at: Option<DateTime<Utc>>,
-    #[specta(type = specta_typescript::Any)]
-    pub state: Value,
+    pub priority: i32,
+    pub attempts: i32,
+    pub max_attempts: i32,
+    pub run_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// A semantic-search hit returned to the UI. This is not a persistence entity.

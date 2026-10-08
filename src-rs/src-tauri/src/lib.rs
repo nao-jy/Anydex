@@ -9,6 +9,7 @@ use crate::{
     window::task_tray::{init_task_tray, prevent_close},
 };
 
+pub mod bg_job;
 pub mod consts;
 pub mod dto;
 pub mod ipc;
@@ -32,7 +33,7 @@ macro_rules! app_commands {
             ipc::indexes::upsert_schedule,
             ipc::mcp::get_mcp_server_state,
             ipc::mcp::set_mcp_server_status,
-            ipc::tasks::list_active_tasks,
+            ipc::jobs::list_active_tasks,
             ipc::settings::get_application_settings,
             ipc::plugins::get_plugin_info,
             ipc::plugins::upsert_embedder,

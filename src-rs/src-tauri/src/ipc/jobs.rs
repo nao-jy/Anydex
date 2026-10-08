@@ -8,6 +8,6 @@ use crate::usecase;
 #[tracing::instrument(skip(database))]
 pub async fn list_active_tasks(
     database: State<'_, DatabaseConnection>,
-) -> Result<Vec<crate::dto::models::Task>, String> {
-    usecase::tasks::list_active_tasks(database.inner()).await
+) -> Result<Vec<crate::dto::models::Job>, String> {
+    usecase::jobs::list_active_tasks(database.inner()).await
 }

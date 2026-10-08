@@ -82,21 +82,33 @@ pub mod file {
     impl ActiveModelBehavior for ActiveModel {}
 }
 
-pub mod task {
+pub mod job {
     use sea_orm::entity::prelude::*;
+
+    pub const STATUS_PENDING: &str = "pending";
+    pub const STATUS_RUNNING: &str = "running";
+    pub const STATUS_DONE: &str = "done";
+    pub const STATUS_FAILED: &str = "failed";
+    pub const STATUS_DEAD: &str = "dead";
 
     #[sea_orm::model]
     #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[sea_orm(table_name = "tasks")]
+    #[sea_orm(table_name = "jobs")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: i32,
+        pub id: u64,
         pub index_id: String,
-        pub task_type: String,
+        pub job_type: String,
+        pub payload: Json,
         pub status: String,
-        pub started_at: Option<DateTimeUtc>,
-        pub completed_at: Option<DateTimeUtc>,
-        pub state: Json,
+        pub priority: i32,
+        pub attempts: i32,
+        pub max_attempts: i32,
+        pub run_at: DateTimeUtc,
+        pub locked_until: Option<DateTimeUtc>,
+        pub last_error: Option<String>,
+        pub created_at: DateTimeUtc,
+        pub updated_at: DateTimeUtc,
     }
 
     impl ActiveModelBehavior for ActiveModel {}

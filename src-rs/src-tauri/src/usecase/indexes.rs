@@ -76,8 +76,8 @@ pub async fn delete_index(index_id: Uuid, database: &DatabaseConnection) -> Resu
         .await
         .map_err(|err| err.to_string())?;
 
-    let _result = sqlite::models::task::Entity::delete_many()
-        .filter(sqlite::models::task::Column::IndexId.eq(index_id.to_string()))
+    let _result = sqlite::models::job::Entity::delete_many()
+        .filter(sqlite::models::job::Column::IndexId.eq(index_id.to_string()))
         .exec(&transaction)
         .await
         .map_err(|err| err.to_string())?;
