@@ -7,6 +7,7 @@ use std::{
 use crate::repository::json::models::UserData;
 
 pub mod models;
+pub mod oauth_client;
 
 static JSON_PATH: Mutex<Option<String>> = Mutex::new(None);
 

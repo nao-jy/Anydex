@@ -15,7 +15,7 @@ pub struct PluginManager<T> {
     plugin_dir: String,
 }
 
-pub trait LibraryLoader: Sized {
+pub trait LibraryLoader: Sized + Clone {
     fn load_library(library: &libloading::Library) -> Result<Self, String>;
 }
 

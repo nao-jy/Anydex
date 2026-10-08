@@ -71,6 +71,7 @@ impl PluginFn<SearchArgs, SearchData> for DynamicVectorStoreV1 {
     }
 }
 
+#[derive(Clone)]
 pub enum DynamicVectorStore {
     V1(DynamicVectorStoreV1),
 }

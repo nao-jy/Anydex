@@ -57,6 +57,7 @@ impl PluginFn<DownloadArgs, DownloadData> for DynamicFileSourceV1 {
     }
 }
 
+#[derive(Clone)]
 pub enum DynamicFileSource {
     V1(DynamicFileSourceV1),
 }

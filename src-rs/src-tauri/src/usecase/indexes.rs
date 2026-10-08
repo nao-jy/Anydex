@@ -1,13 +1,16 @@
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, TransactionTrait};
 use uuid::Uuid;
 
-use crate::repository::{
-    json::{
-        load,
-        models::{Index, Schedule},
-        save,
+use crate::{
+    repository::{
+        json::{
+            load,
+            models::{Index, Schedule},
+            save,
+        },
+        sqlite::{self},
     },
-    sqlite::{self},
+    usecase::oauth::delete_authentication,
 };
 
 pub async fn list_indexes() -> Result<Vec<Index>, String> {
@@ -57,18 +60,7 @@ pub async fn set_index_mcp_server(index_id: Uuid, enabled: bool) -> Result<(), S
 pub async fn delete_index(index_id: Uuid, database: &DatabaseConnection) -> Result<(), String> {
     let transaction = database.begin().await.map_err(|err| err.to_string())?;
 
-    let result = sqlite::models::oauth_authentication::Entity::find_by_id(index_id.to_string())
-        .one(&transaction)
-        .await
-        .map_err(|err| err.to_string())?;
-    if let Some(auth) = result {
-        auth.clear_tokens()?;
-    }
-
-    let _result = sqlite::models::oauth_authentication::Entity::delete_by_id(index_id.to_string())
-        .exec(&transaction)
-        .await
-        .map_err(|err| err.to_string())?;
+    delete_authentication(index_id, database).await?;
 
     let _result = sqlite::models::file::Entity::delete_many()
         .filter(sqlite::models::file::Column::IndexId.eq(index_id.to_string()))

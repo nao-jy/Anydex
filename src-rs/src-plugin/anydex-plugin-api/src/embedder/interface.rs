@@ -48,6 +48,7 @@ impl PluginFn<EmbedArgs, EmbedData> for DynamicEmbedderV1 {
     }
 }
 
+#[derive(Clone)]
 pub enum DynamicEmbedder {
     V1(DynamicEmbedderV1),
 }

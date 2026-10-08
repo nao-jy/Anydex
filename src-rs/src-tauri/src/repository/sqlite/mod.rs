@@ -6,6 +6,7 @@ use sea_orm::{
 };
 use url::Url;
 
+pub mod authentication;
 pub mod job;
 pub mod models;
 

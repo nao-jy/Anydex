@@ -1,8 +1,5 @@
 pub mod oauth_authentication {
-    use keyring::Entry;
     use sea_orm::entity::prelude::*;
-
-    use crate::consts;
 
     #[sea_orm::model]
     #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
@@ -13,45 +10,6 @@ pub mod oauth_authentication {
         pub oauth_client_id: String,
         pub expires_at: Option<DateTimeUtc>,
     }
-
-    impl Model {
-        fn get_access_token_username(&self) -> String {
-            let id = &self.index_id;
-            format!("{id}_acc")
-        }
-        fn get_refresh_token_username(&self) -> String {
-            let id = &self.index_id;
-            format!("{id}_ref")
-        }
-        pub fn load_access_token(&self) -> Option<String> {
-            let entry = Entry::new(consts::APP_NAME, &self.get_access_token_username()).unwrap();
-            entry.get_password().map_or(None, |v| Some(v))
-        }
-        pub fn load_refresh_token(&self) -> Option<String> {
-            let entry = Entry::new(consts::APP_NAME, &self.get_refresh_token_username()).unwrap();
-            entry.get_password().map_or(None, |v| Some(v))
-        }
-        pub fn save_access_token(&self, token: String) -> Result<(), String> {
-            let entry = Entry::new(consts::APP_NAME, &self.get_access_token_username()).unwrap();
-            entry.set_password(&token).map_err(|err| err.to_string())
-        }
-        pub fn save_refresh_token(&self, token: String) -> Result<(), String> {
-            let entry = Entry::new(consts::APP_NAME, &self.get_refresh_token_username()).unwrap();
-            entry.set_password(&token).map_err(|err| err.to_string())
-        }
-        pub fn clear_tokens(&self) -> Result<(), String> {
-            Entry::new(consts::APP_NAME, &self.get_access_token_username())
-                .unwrap()
-                .delete_credential()
-                .map_err(|err| err.to_string())?;
-            Entry::new(consts::APP_NAME, &self.get_refresh_token_username())
-                .unwrap()
-                .delete_credential()
-                .map_err(|err| err.to_string())?;
-            Ok(())
-        }
-    }
-
     impl ActiveModelBehavior for ActiveModel {}
 }
 

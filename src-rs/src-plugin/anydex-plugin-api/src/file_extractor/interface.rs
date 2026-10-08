@@ -48,6 +48,7 @@ impl PluginFn<ExtractArgs, ExtractData> for DynamicFileExtractorV1 {
     }
 }
 
+#[derive(Clone)]
 pub enum DynamicFileExtractor {
     V1(DynamicFileExtractorV1),
 }

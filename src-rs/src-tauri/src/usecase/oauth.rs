@@ -4,9 +4,9 @@ use uuid::Uuid;
 use crate::{
     repository::{
         json::{self, load, models::OAuthClient, save},
-        sqlite,
+        sqlite::{self, models::oauth_authentication},
     },
-    server::{manager::end, oauth::client},
+    server::manager::end,
 };
 
 pub async fn list_oauth_clients() -> Result<Vec<OAuthClient>, String> {
@@ -56,38 +56,56 @@ pub async fn delete_oauth_client(
 }
 
 pub async fn test_oauth(client_config: OAuthClient) -> Result<(), String> {
-    let scopes = client_config.scopes;
-    let result = client::do_oauth_pkce(
-        &client_config.client_id,
-        client_config.client_secret.clone(),
-        &client_config.authorization_endpoint,
-        &client_config.token_endpoint,
-        &scopes,
-    )
-    .await?;
+    let result = client_config.do_oauth_pkce().await?;
 
-    if let Some(revocation_endpoint) = client_config.revocation_endpoint {
-        let _ = client::revoke_access_token(
-            &client_config.client_id,
-            client_config.client_secret.clone(),
-            result.access_token.secret(),
-            &revocation_endpoint,
-        )
+    let _ = client_config
+        .revoke_access_token(result.access_token.secret())
         .await;
-        if let Some(refresh_token) = result.refresh_token {
-            let _ = client::revoke_refresh_token(
-                &client_config.client_id,
-                client_config.client_secret,
-                refresh_token.secret(),
-                &revocation_endpoint,
-            )
+    if let Some(refresh_token) = result.refresh_token {
+        let _ = client_config
+            .revoke_refresh_token(refresh_token.secret())
             .await;
-        }
     }
     Ok(())
 }
 
 pub fn abort_oauth(client_id: &str) -> Result<(), String> {
-    let _ = end(&client::get_server_name(client_id));
+    let _ = end(&OAuthClient::get_server_name(client_id));
     Ok(())
+}
+
+pub async fn delete_authentication(
+    index_id: Uuid,
+    database: &DatabaseConnection,
+) -> Result<(), String> {
+    let mut data = sqlite::models::oauth_authentication::Entity::find_by_id(index_id.to_string())
+        .one(database)
+        .await
+        .map_err(|err| err.to_string())?;
+    if let Some(v) = data.as_mut() {
+        v.clear_tokens().await;
+        sqlite::models::oauth_authentication::Entity::delete_by_id(index_id.to_string())
+            .exec(database)
+            .await
+            .map_err(|err| err.to_string())?;
+    }
+    Ok(())
+}
+
+pub async fn get_authentication(
+    index_id: Uuid,
+    oauth_client_id: Uuid,
+    database: &DatabaseConnection,
+) -> Result<Option<oauth_authentication::Model>, String> {
+    let data = sqlite::models::oauth_authentication::Entity::find_by_id(index_id.to_string())
+        .one(database)
+        .await
+        .map_err(|err| err.to_string())?;
+    if let Some(v) = &data {
+        if v.oauth_client_id != oauth_client_id.to_string() {
+            delete_authentication(index_id, database).await?;
+            return Ok(None);
+        }
+    }
+    return Ok(data);
 }

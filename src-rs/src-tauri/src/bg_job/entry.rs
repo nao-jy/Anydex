@@ -1,1 +1,4 @@
-pub enum JobType {}
+pub enum JobType {
+    CollectDiff,
+    ProcessFile,
+}

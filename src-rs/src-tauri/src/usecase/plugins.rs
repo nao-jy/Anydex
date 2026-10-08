@@ -14,7 +14,6 @@ use crate::{
         models::{self, *},
         save,
     },
-    server::oauth::client::{do_oauth_pkce, revoke_access_token, revoke_refresh_token},
 };
 
 pub fn get_plugin_info() -> Result<Vec<PluginInfo>, String> {
@@ -126,17 +125,7 @@ pub async fn test_file_source(
         None => None,
     };
     let auth_result = match oauth.as_ref() {
-        Some(model) => Some(
-            do_oauth_pkce(
-                &model.client_id,
-                model.client_secret.clone(),
-                &model.authorization_endpoint,
-                &model.token_endpoint,
-                &model.scopes,
-            )
-            .await
-            .map_err(|err| err.to_string())?,
-        ),
+        Some(model) => Some(model.do_oauth_pkce().await.map_err(|err| err.to_string())?),
         None => None,
     };
     let access_token = auth_result
@@ -176,23 +165,11 @@ pub async fn test_file_source(
     };
 
     if let (Some(auth_result), Some(model)) = (auth_result, oauth.as_ref()) {
-        if let Some(revocation_endpoint) = model.revocation_endpoint.as_ref() {
-            let _ = revoke_access_token(
-                &model.client_id,
-                model.client_secret.clone(),
-                auth_result.access_token.secret(),
-                revocation_endpoint,
-            )
+        let _ = model
+            .revoke_access_token(auth_result.access_token.secret())
             .await;
-            if let Some(refresh_token) = auth_result.refresh_token.as_ref() {
-                let _ = revoke_refresh_token(
-                    &model.client_id,
-                    model.client_secret.clone(),
-                    refresh_token.secret(),
-                    revocation_endpoint,
-                )
-                .await;
-            }
+        if let Some(refresh_token) = auth_result.refresh_token.as_ref() {
+            let _ = model.revoke_refresh_token(refresh_token.secret()).await;
         }
     }
     result
