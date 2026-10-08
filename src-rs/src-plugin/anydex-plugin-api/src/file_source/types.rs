@@ -7,6 +7,7 @@ pub struct InputFileInfo {
     pub file_uri: String,
     pub size: usize,
     pub updated_at: Option<DateTime<Utc>>,
+    pub content_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -20,11 +21,5 @@ pub struct OutputFileInfo {
     pub size: usize,
     pub updated_at: Option<DateTime<Utc>>,
     pub metadata: serde_json::Value,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
-pub enum FileIterationInfo {
-    AddedOrUpdated(OutputFileInfo),
-    Deleted(String),
+    pub content_hash: Option<String>,
 }

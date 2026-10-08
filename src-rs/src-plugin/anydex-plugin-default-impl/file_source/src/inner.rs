@@ -169,7 +169,8 @@ pub fn get_diff(args: GetDiffArgs) -> Result<GetDiffData, String> {
         .map(|v| v.file_uri.to_string())
         .collect();
 
-    let mut added_or_updated_entries: Vec<OutputFileInfo> = Vec::new();
+    let mut added_entries: Vec<OutputFileInfo> = Vec::new();
+    let mut updated_entries: Vec<OutputFileInfo> = Vec::new();
 
     let last_indexed_files = HashMap::<String, InputFileInfo>::from_iter(
         args.last_indexed_files
@@ -178,53 +179,71 @@ pub fn get_diff(args: GetDiffArgs) -> Result<GetDiffData, String> {
     );
 
     for entry in entries {
-        if entry.metadata().mode().is_dir() {
+        let metadata = entry.metadata();
+        if metadata.mode().is_dir() {
             continue;
         }
         let uri = entry.path();
         delete_uris.remove(uri);
 
         let (file_path, file_dir, file_name) = uri_to_path_dir_name(uri)?;
-        let last_modified = entry.metadata().last_modified().map(|value| {
+        let last_modified = metadata.last_modified().map(|value| {
             let jiff = value.into_inner();
             DateTime::from_timestamp(jiff.as_second(), jiff.subsec_nanosecond() as u32).unwrap()
         });
-        let size = entry.metadata().content_length() as usize;
-        let content_type = entry.metadata().content_type().map_or(
+        let size = metadata.content_length() as usize;
+        let content_type = metadata.content_type().map_or(
             mime_guess::from_path(&file_name)
                 .first_or_octet_stream()
                 .to_string(),
             |f| f.to_string(),
         );
+        let etag = metadata.etag().map(String::from);
+
+        let info = OutputFileInfo {
+            file_uri: uri.to_string(),
+            file_path: file_path.clone(),
+            file_dir,
+            file_name: file_name,
+            content_type: content_type,
+            size: size,
+            updated_at: last_modified,
+            metadata: serde_json::Value::Null,
+            content_hash: etag.clone(),
+        };
 
         let prev_entry = last_indexed_files.get(&file_path);
-
-        // added
-        let added_or_updated = match prev_entry {
-            Some(prev_entry_unwrapped) => {
-                (prev_entry_unwrapped.size != size)
-                    || last_modified
-                        .is_none_or(|v| prev_entry_unwrapped.updated_at.is_none_or(|vv| vv < v))
-            }
-            None => true,
-        };
-        if added_or_updated {
-            let added = OutputFileInfo {
-                file_uri: uri.to_string(),
-                file_path,
-                file_dir,
-                file_name: file_name,
-                content_type: content_type,
-                size: size,
-                updated_at: last_modified,
-                metadata: serde_json::Value::Null,
+        if prev_entry.is_none() {
+            added_entries.push(info);
+        } else if let Some(e) = prev_entry {
+            let update_check_by_size = e.size != size;
+            let update_check_by_timestamp = match last_modified {
+                Some(v) => match &e.updated_at {
+                    Some(prev_v) => Some(prev_v != &v),
+                    None => None,
+                },
+                None => None,
             };
-            added_or_updated_entries.push(added);
+            let update_check_by_hash = match &etag {
+                Some(v) => match &e.content_hash {
+                    Some(prev_v) => Some(prev_v != v),
+                    None => None,
+                },
+                None => None,
+            };
+            let updated = match update_check_by_hash {
+                Some(h) => h,
+                None => update_check_by_timestamp.unwrap_or(false) || update_check_by_size,
+            };
+            if updated {
+                updated_entries.push(info);
+            }
         }
     }
 
     return Ok(GetDiffData {
-        added_or_updated: added_or_updated_entries,
+        added: added_entries,
+        updated: updated_entries,
         deleted: delete_uris.iter().map(|v| v.clone()).collect(),
     });
 }

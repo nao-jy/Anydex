@@ -1,6 +1,7 @@
-use std::{path::Path, sync::LazyLock};
+use std::path::Path;
 
-static HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
+use google_drive3::{hyper_rustls, hyper_util, DriveHub};
+use http_body_util::BodyExt;
 
 pub fn native_export_format(content_type: &str) -> Option<(&'static str, &'static str)> {
     match content_type {
@@ -20,20 +21,23 @@ pub fn native_export_format(content_type: &str) -> Option<(&'static str, &'stati
     }
 }
 
-#[derive(serde::Deserialize)]
-struct GdriveFileId {
-    id: String,
-    #[serde(rename = "mimeType")]
-    mime_type: String,
-}
-
-#[derive(serde::Deserialize)]
-struct GdriveFileIdList {
-    files: Vec<GdriveFileId>,
-}
-
-pub async fn find_gdrive_file_id(
+fn drive_hub(
     access_token: &str,
+) -> Result<DriveHub<impl google_drive3::common::Connector>, String> {
+    let connector = hyper_rustls::HttpsConnectorBuilder::new()
+        .with_native_roots()
+        .map_err(|err| format!("failed to load native TLS roots: {err}"))?
+        .https_only()
+        .enable_http2()
+        .build();
+    let client = hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
+        .build(connector);
+
+    Ok(DriveHub::new(client, access_token.to_owned()))
+}
+
+async fn find_gdrive_file_id_with_hub<C: google_drive3::common::Connector>(
+    hub: &DriveHub<C>,
     root: &str,
     path: &str,
 ) -> Result<String, String> {
@@ -51,48 +55,49 @@ pub async fn find_gdrive_file_id(
         let escaped_name = segment.replace('\\', "\\\\").replace('\'', "\\'");
         let query =
             format!("name = '{escaped_name}' and '{parent_id}' in parents and trashed = false");
-        let response = HTTP_CLIENT
-            .get("https://www.googleapis.com/drive/v3/files")
-            .bearer_auth(access_token)
-            .query(&[
-                ("q", query.as_str()),
-                ("pageSize", "1000"),
-                ("orderBy", "modifiedTime desc,createdTime desc"),
-                ("fields", "files(id,mimeType)"),
-            ])
-            .send()
+        let (_, files) = hub
+            .files()
+            .list()
+            .q(&query)
+            .page_size(1000)
+            .order_by("modifiedTime desc,createdTime desc")
+            .param("fields", "files(id,mimeType)")
+            .doit()
             .await
             .map_err(|err| format!("Google Drive file lookup failed: {err}"))?;
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            return Err(format!(
-                "Google Drive file lookup returned {status}: {body}"
-            ));
-        }
-        let files: GdriveFileIdList = response
-            .json()
-            .await
-            .map_err(|err| format!("invalid Google Drive file lookup response: {err}"))?;
         let file = files
             .files
+            .unwrap_or_default()
             .into_iter()
             .next()
             .ok_or_else(|| format!("Google Drive path segment '{segment}' was not found"))?;
 
         if index + 1 < segments.len() {
-            if file.mime_type != "application/vnd.google-apps.folder" {
+            if file.mime_type.as_deref() != Some("application/vnd.google-apps.folder") {
                 return Err(format!(
                     "Google Drive path segment '{segment}' is not a folder"
                 ));
             }
-            parent_id = file.id;
+            parent_id = file
+                .id
+                .ok_or_else(|| format!("Google Drive folder '{segment}' has no ID"))?;
         } else {
-            return Ok(file.id);
+            return file
+                .id
+                .ok_or_else(|| format!("Google Drive file '{segment}' has no ID"));
         }
     }
 
     Err("Google Drive file path could not be resolved".into())
+}
+
+pub async fn find_gdrive_file_id(
+    access_token: &str,
+    root: &str,
+    path: &str,
+) -> Result<String, String> {
+    let hub = drive_hub(access_token)?;
+    find_gdrive_file_id_with_hub(&hub, root, path).await
 }
 
 pub async fn export_gdrive_file(
@@ -103,24 +108,20 @@ pub async fn export_gdrive_file(
 ) -> Result<(Vec<u8>, String, String), String> {
     let (export_mime_type, extension) = native_export_format(content_type)
         .ok_or_else(|| format!("unsupported Google Drive native file type: {content_type}"))?;
-    let file_id = find_gdrive_file_id(access_token, root, path).await?;
-    let url = format!("https://www.googleapis.com/drive/v3/files/{file_id}/export");
-    let response = HTTP_CLIENT
-        .get(url)
-        .bearer_auth(access_token)
-        .query(&[("mimeType", export_mime_type)])
-        .send()
+    let hub = drive_hub(access_token)?;
+    let file_id = find_gdrive_file_id_with_hub(&hub, root, path).await?;
+    let response = hub
+        .files()
+        .export(&file_id, export_mime_type)
+        .doit()
         .await
         .map_err(|err| format!("Google Drive export request failed: {err}"))?;
-    let status = response.status();
-    if !status.is_success() {
-        let body = response.text().await.unwrap_or_default();
-        return Err(format!("Google Drive export returned {status}: {body}"));
-    }
     let content = response
-        .bytes()
+        .into_body()
+        .collect()
         .await
         .map_err(|err| format!("failed to read Google Drive export: {err}"))?
+        .to_bytes()
         .to_vec();
     let filename = Path::new(path)
         .file_name()

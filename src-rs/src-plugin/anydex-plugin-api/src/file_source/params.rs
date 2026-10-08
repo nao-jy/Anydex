@@ -48,7 +48,8 @@ pub struct GetDiffArgs {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetDiffData {
-    pub added_or_updated: Vec<OutputFileInfo>,
+    pub added: Vec<OutputFileInfo>,
+    pub updated: Vec<OutputFileInfo>,
     pub deleted: Vec<String>,
 }
 
