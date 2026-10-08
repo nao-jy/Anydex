@@ -52,6 +52,7 @@ pub async fn run(
 }
 
 async fn execute(db: DatabaseConnection, job: job::Model) -> Result<(), String> {
+    todo!("execute job according to job type");
     // tokio::task::spawn_blocking(move || ).await.map_err(|err|err.to_string())
     Ok(())
 }

@@ -3,6 +3,7 @@ use serde_json::Value;
 pub mod collect_diff;
 pub mod process_file;
 
+#[allow(async_fn_in_trait)]
 pub trait Job {
-    fn process(&self, payload: Value) -> Result<(), String>;
+    async fn process(&self, payload: Value) -> Result<(), String>;
 }

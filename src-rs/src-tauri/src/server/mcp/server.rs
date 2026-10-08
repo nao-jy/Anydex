@@ -37,6 +37,7 @@ impl McpServer {
         &self,
         Parameters(_params): Parameters<GetMountainParams>,
     ) -> Result<String, ErrorData> {
+        todo!("implement mcp");
         let result: Result<(), String> = Ok(());
 
         match result {

@@ -24,7 +24,7 @@ impl Model {
             if let Some(refr) = self.load_refresh_token() {
                 let result = cl.refresh(&refr).await?;
                 let access_token = result.access_token.secret();
-                self.save_access_token(access_token.to_string());
+                self.save_access_token(access_token.to_string())?;
                 self.expires_at = result.expires_at;
                 return Ok(access_token.to_string());
             }

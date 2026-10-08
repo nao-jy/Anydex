@@ -21,7 +21,7 @@ pub mod file {
     #[sea_orm(table_name = "files")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: i32,
+        pub id: u64,
         #[sea_orm(unique_key = "file_source_uri")]
         pub index_id: String,
         pub name: String,
@@ -33,7 +33,7 @@ pub mod file {
         pub file_name: String,
         pub content_type: String,
         pub size: u64,
-        pub updated_at: DateTimeUtc,
+        pub updated_at: Option<DateTimeUtc>,
         pub file_hash: Option<String>,
     }
 

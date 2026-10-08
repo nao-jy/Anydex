@@ -1,3 +1,4 @@
+pub mod files;
 pub mod indexes;
 pub mod jobs;
 pub mod mcp;

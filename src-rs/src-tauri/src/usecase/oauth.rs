@@ -83,7 +83,7 @@ pub async fn delete_authentication(
         .await
         .map_err(|err| err.to_string())?;
     if let Some(v) = data.as_mut() {
-        v.clear_tokens().await;
+        let _ = v.clear_tokens().await;
         sqlite::models::oauth_authentication::Entity::delete_by_id(index_id.to_string())
             .exec(database)
             .await
