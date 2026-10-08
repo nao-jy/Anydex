@@ -76,7 +76,7 @@ pub mod file {
         pub content_type: String,
         pub size: u64,
         pub updated_at: DateTimeUtc,
-        pub file_hash: u64,
+        pub file_hash: Option<String>,
     }
 
     impl ActiveModelBehavior for ActiveModel {}
