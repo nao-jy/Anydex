@@ -87,9 +87,11 @@ pub fn search(args: SearchArgs) -> Result<SearchData, String> {
         .ok_or(format!("handler {handler} not found"))?;
     let db = &info.db;
 
-    let vec: Vec<f32> = args.search_request.embedding;
+    let vec = args.search_request.embedding;
+    let text = args.search_request.text;
     let cond = args.search_request.target_file_ids;
     let result = db.search(
+        text,
         &vec,
         &cond,
         args.search_request.offset,

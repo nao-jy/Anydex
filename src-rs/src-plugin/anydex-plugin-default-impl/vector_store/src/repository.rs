@@ -2,12 +2,14 @@ use anydex_plugin_api_lib::vector_store::types::{Chunk, FileId, IndexId, Indexer
 
 use futures::StreamExt;
 use lancedb::arrow::arrow_array::{
-    types::Float32Type, Array, ArrayRef, FixedSizeListArray, Float32Array, Int32Array, Int64Array,
-    RecordBatch, StringArray,
+    types::Float32Type, Array, FixedSizeListArray, Float32Array, Int32Array, RecordBatch,
+    StringArray,
 };
 use lancedb::arrow::arrow_schema::{DataType, Field, Schema};
 use lancedb::connect;
 use lancedb::connection::Connection;
+use lancedb::index::scalar::FullTextSearchQuery;
+use lancedb::index::{scalar::FtsIndexBuilder, Index, IndexType};
 use lancedb::query::{ExecutableQuery, QueryBase};
 use lancedb::{DistanceType, Table};
 use std::sync::Arc;
@@ -16,6 +18,7 @@ use tokio::runtime::Runtime;
 use crate::param::Param;
 
 const TABLE_NAME: &str = "chunks";
+const CONTENT_COLUMN: &str = "content";
 const VECTOR_COLUMN: &str = "content_vector";
 
 pub fn init_db() -> Result<(), String> {
@@ -49,6 +52,7 @@ impl DB {
         } else {
             let schema = Arc::new(Schema::new(vec![
                 Field::new("chunk_json", DataType::Utf8, false),
+                Field::new(CONTENT_COLUMN, DataType::Utf8, false),
                 Field::new("indexer_id", DataType::Int32, false),
                 Field::new("file_id", DataType::Int32, false),
                 Field::new(
@@ -63,12 +67,20 @@ impl DB {
             rt.block_on(db.create_empty_table(TABLE_NAME, schema).execute())
                 .map_err(|err| err.to_string())?
         };
-        Ok(Self {
+        let db = Self {
             connection: db,
             table,
             param: param.clone(),
             rt,
-        })
+        };
+        let row_count = db
+            .rt
+            .block_on(db.table.count_rows(None))
+            .map_err(|err| err.to_string())?;
+        if row_count > 0 {
+            db.ensure_full_text_index()?;
+        }
+        Ok(db)
     }
 
     pub fn delete_by_file(&self, file_id: FileId) -> Result<(), String> {
@@ -115,6 +127,10 @@ impl DB {
             .map(serde_json::to_string)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|err| err.to_string())?;
+        let content = chunks
+            .iter()
+            .map(|chunk| chunk.content.as_str())
+            .collect::<Vec<_>>();
         let indexer_ids = chunks
             .iter()
             .map(|chunk| chunk.indexer_id)
@@ -136,37 +152,26 @@ impl DB {
             .rt
             .block_on(self.table.schema())
             .map_err(|err| err.to_string())?;
-        let columns = schema
-            .fields()
-            .iter()
-            .map(|field| -> Result<ArrayRef, String> {
-                match field.name().as_str() {
-                    "chunk_json" => Ok(Arc::new(StringArray::from(chunk_json.clone()))),
-                    "indexer_id" => Ok(Arc::new(Int32Array::from(indexer_ids.clone()))),
-                    "file_id" => Ok(Arc::new(Int32Array::from(file_ids.clone()))),
-                    VECTOR_COLUMN => Ok(Arc::new(vectors.clone())),
-                    // Older table schemas stored metadata used by plugin-side filtering.
-                    // Those columns are no longer queried, but must be populated on insert.
-                    "file_dir" | "file_name" | "content_type" | "file_ext" => {
-                        Ok(Arc::new(StringArray::from(vec![
-                            String::new();
-                            chunks.len()
-                        ])))
-                    }
-                    "created_at_millis" => Ok(Arc::new(Int64Array::from(vec![0; chunks.len()]))),
-                    name => Err(format!("unsupported vector-store column: {name}")),
-                }
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let batch = RecordBatch::try_new(schema, columns).map_err(|err| err.to_string())?;
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(StringArray::from(chunk_json)),
+                Arc::new(StringArray::from(content)),
+                Arc::new(Int32Array::from(indexer_ids)),
+                Arc::new(Int32Array::from(file_ids)),
+                Arc::new(vectors),
+            ],
+        )
+        .map_err(|err| err.to_string())?;
         self.rt
             .block_on(self.table.add(batch).execute())
             .map_err(|err| err.to_string())?;
-        Ok(())
+        self.ensure_full_text_index()
     }
 
     pub fn search(
         &self,
+        text: Option<String>,
         vec: &[f32],
         target_file_ids: &[FileId],
         offset: i32,
@@ -189,6 +194,9 @@ impl DB {
             return Ok(Vec::new());
         }
 
+        let text = text.filter(|text| !text.trim().is_empty());
+        let hybrid_search = text.is_some();
+
         let filter = format!(
             "file_id IN ({})",
             target_file_ids
@@ -197,22 +205,38 @@ impl DB {
                 .collect::<Vec<_>>()
                 .join(", ")
         );
-        let batches = self.rt.block_on(async {
-            self.table
-                .query()
-                .nearest_to(vec)?
-                .column(VECTOR_COLUMN)
-                .distance_type(DistanceType::Cosine)
-                .only_if(filter)
-                .offset(offset as usize)
-                .limit(limit as usize)
-                .execute()
-                .await
-        });
+        let query = self
+            .table
+            .query()
+            .nearest_to(vec)
+            .map_err(|err| err.to_string())?
+            .column(VECTOR_COLUMN)
+            .distance_type(DistanceType::Cosine)
+            .only_if(filter);
+        let query = if let Some(text) = text {
+            let hybrid_limit = offset
+                .checked_add(limit)
+                .ok_or("search offset and limit are too large")?;
+            let text_query = FullTextSearchQuery::new(text)
+                .with_column(CONTENT_COLUMN.to_string())
+                .map_err(|err| err.to_string())?;
+            query
+                .full_text_search(text_query)
+                .limit(hybrid_limit as usize)
+        } else {
+            query.offset(offset as usize).limit(limit as usize)
+        };
+        let batches = self.rt.block_on(async { query.execute().await });
         let mut stream = batches.map_err(|err| err.to_string())?;
         let mut results = Vec::new();
+        let mut skipped = 0;
         while let Some(batch) = self.rt.block_on(stream.next()) {
             let batch = batch.map_err(|err| err.to_string())?;
+            let score_column = if hybrid_search {
+                "_relevance_score"
+            } else {
+                "_distance"
+            };
             let chunks = batch
                 .column_by_name("chunk_json")
                 .ok_or("search result is missing chunk_json")?
@@ -220,15 +244,22 @@ impl DB {
                 .downcast_ref::<StringArray>()
                 .ok_or("search result chunk_json has an unexpected type")?;
             let distances = batch
-                .column_by_name("_distance")
-                .ok_or("search result is missing _distance")?
+                .column_by_name(score_column)
+                .ok_or("search result is missing its score column")?
                 .as_any()
                 .downcast_ref::<Float32Array>()
-                .ok_or("search result _distance has an unexpected type")?;
+                .ok_or("search result score has an unexpected type")?;
 
             for row in 0..batch.num_rows() {
                 if chunks.is_null(row) || distances.is_null(row) {
-                    return Err("search result contains a null chunk or distance".into());
+                    return Err("search result contains a null chunk or score".into());
+                }
+                if hybrid_search && skipped < offset as usize {
+                    skipped += 1;
+                    continue;
+                }
+                if results.len() >= limit as usize {
+                    break;
                 }
                 let chunk =
                     serde_json::from_str(chunks.value(row)).map_err(|err| err.to_string())?;
@@ -239,6 +270,27 @@ impl DB {
             }
         }
         Ok(results)
+    }
+
+    fn ensure_full_text_index(&self) -> Result<(), String> {
+        let indices = self
+            .rt
+            .block_on(self.table.list_indices())
+            .map_err(|err| err.to_string())?;
+        if indices.iter().any(|index| {
+            index.index_type == IndexType::FTS
+                && index.columns.iter().any(|column| column == "chunk_json")
+        }) {
+            return Ok(());
+        }
+
+        self.rt
+            .block_on(
+                self.table
+                    .create_index(&[CONTENT_COLUMN], Index::FTS(FtsIndexBuilder::default()))
+                    .execute(),
+            )
+            .map_err(|err| err.to_string())
     }
 }
 
@@ -274,7 +326,7 @@ mod tests {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_millis() as i32;
+            .as_nanos() as i32;
         let index_id = timestamp.saturating_abs().max(1);
         let path = format!("./data/{index_id}");
         assert!(
@@ -290,29 +342,72 @@ mod tests {
         other_file.content_vector = vec![1.0, 1.0];
         db.insert(vec![aligned, other_file]).unwrap();
 
-        let nearest = db.search(&[1.0, 0.0], &[100, 200], 0, 1).unwrap();
+        let nearest = db.search(None, &[1.0, 0.0], &[100, 200], 0, 1).unwrap();
         assert_eq!(nearest[0].chunk.id, 1);
 
-        let results = db.search(&[1.0, 0.0], &[200], 0, 10).unwrap();
+        let results = db.search(None, &[1.0, 0.0], &[200], 0, 10).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].chunk.id, 2);
-        assert!(db.search(&[1.0, 0.0], &[], 0, 10).unwrap().is_empty());
+        assert!(db.search(None, &[1.0, 0.0], &[], 0, 10).unwrap().is_empty());
 
         db.delete_by_file(100).unwrap();
         assert!(db
-            .search(&[1.0, 0.0], &[100, 200], 0, 10)
+            .search(None, &[1.0, 0.0], &[100, 200], 0, 10)
             .unwrap()
             .iter()
             .all(|hit| hit.chunk.id != 1));
 
         db.delete_by_indexer(20).unwrap();
         assert!(db
-            .search(&[1.0, 0.0], &[100, 200], 0, 10)
+            .search(None, &[1.0, 0.0], &[100, 200], 0, 10)
             .unwrap()
             .is_empty());
 
         db.insert(vec![test_chunk(3, 30, 300)]).unwrap();
         db.clear().unwrap();
-        assert!(db.search(&[1.0, 0.0], &[300], 0, 10).unwrap().is_empty());
+        assert!(db
+            .search(None, &[1.0, 0.0], &[300], 0, 10)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn uses_hybrid_search_when_text_is_present() {
+        init_db().unwrap();
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos() as i32;
+        let index_id = timestamp.saturating_abs().max(1);
+        let path = format!("./data/{index_id}");
+        assert!(
+            !Path::new(&path).exists(),
+            "test database path already exists"
+        );
+        let _cleanup = TestDatabasePath(path);
+
+        let db = DB::init_table(index_id, &Param { dimensions: 2 }).unwrap();
+        let mut semantic_match = test_chunk(1, 10, 100);
+        semantic_match.content = "unrelated content".into();
+        semantic_match.content_vector = vec![1.0, 0.0];
+        let mut text_match = test_chunk(2, 10, 100);
+        text_match.content = "distinctive searchable phrase".into();
+        text_match.content_vector = vec![0.0, 1.0];
+        db.insert(vec![semantic_match, text_match]).unwrap();
+
+        let results = db
+            .search(Some("distinctive".into()), &[1.0, 0.0], &[100], 0, 10)
+            .unwrap();
+        let text_hit = results
+            .iter()
+            .find(|hit| hit.chunk.id == 2)
+            .expect("hybrid search should include the full-text match");
+        assert!(text_hit.score > 0.0);
+        assert!(text_hit.score < 1.0);
+
+        let next_page = db
+            .search(Some("distinctive".into()), &[1.0, 0.0], &[100], 1, 10)
+            .unwrap();
+        assert_eq!(next_page.len(), 1);
     }
 }
