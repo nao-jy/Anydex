@@ -70,3 +70,19 @@ pub mod job {
 
     impl ActiveModelBehavior for ActiveModel {}
 }
+
+pub mod indexing_history {
+    use sea_orm::entity::prelude::*;
+
+    #[sea_orm::model]
+    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+    #[sea_orm(table_name = "indexing_histories")]
+    pub struct Model {
+        #[sea_orm(primary_key)]
+        pub id: u64,
+        pub index_id: String,
+        pub started_at: DateTimeUtc,
+    }
+
+    impl ActiveModelBehavior for ActiveModel {}
+}

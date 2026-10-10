@@ -34,6 +34,7 @@ macro_rules! app_commands {
             ipc::mcp::get_mcp_server_state,
             ipc::mcp::set_mcp_server_status,
             ipc::jobs::list_active_jobs,
+            ipc::jobs::start_indexing,
             ipc::settings::get_application_settings,
             ipc::plugins::get_plugin_info,
             ipc::plugins::upsert_embedder,

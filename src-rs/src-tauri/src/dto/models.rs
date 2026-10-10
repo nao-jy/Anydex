@@ -36,6 +36,14 @@ pub struct Job {
     pub updated_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexingHistory {
+    pub id: u64,
+    pub index_id: String,
+    pub started_at: DateTime<Utc>,
+}
+
 /// A semantic-search hit returned to the UI. This is not a persistence entity.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]

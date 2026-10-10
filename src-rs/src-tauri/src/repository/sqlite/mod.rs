@@ -54,6 +54,7 @@ pub async fn initialize(database_url: &str) -> Result<DatabaseConnection, DbErr>
     create_entity_schema!(models::oauth_authentication::Entity);
     create_entity_schema!(models::file::Entity);
     create_entity_schema!(models::job::Entity);
+    create_entity_schema!(models::indexing_history::Entity);
 
     transaction.commit().await?;
     Ok(database)

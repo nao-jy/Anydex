@@ -1,9 +1,11 @@
 use chrono::Utc;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter, Set};
+use sea_orm::{
+    ColumnTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter, QueryOrder, Set,
+};
 use serde_json::Value;
 
 use crate::{
-    bg_job::entry::JobType,
+    bg_job::{entry::JobType, job::collect_diff::CollectDiffArgs},
     dto,
     repository::{
         self,
@@ -40,6 +42,28 @@ pub async fn list_active_jobs(
     Ok(tasks)
 }
 
+pub async fn start_indexing(
+    database: &DatabaseConnection,
+    index_id: uuid::Uuid,
+) -> Result<(), String> {
+    let job = JobInfo {
+        job_type: JobType::CollectDiff,
+        args: serde_json::to_value(CollectDiffArgs { index_id }).unwrap(),
+    };
+    add_jobs(database, index_id, vec![job]).await?;
+    let now = Utc::now();
+    let history = repository::sqlite::models::indexing_history::ActiveModel {
+        index_id: Set(index_id.to_string()),
+        started_at: Set(now),
+        ..repository::sqlite::models::indexing_history::ActiveModel::default()
+    };
+    repository::sqlite::models::indexing_history::Entity::insert(history)
+        .exec(database)
+        .await
+        .map_err(|err| err.to_string())?;
+    Ok(())
+}
+
 pub struct JobInfo {
     pub job_type: JobType,
     pub args: Value,
@@ -73,4 +97,24 @@ pub async fn add_jobs(
         .await
         .map_err(|err| err.to_string())?;
     Ok(())
+}
+
+pub async fn get_last_indexed_date(
+    database: &DatabaseConnection,
+    index_id: uuid::Uuid,
+) -> Result<Option<dto::models::IndexingHistory>, String> {
+    let result = repository::sqlite::models::indexing_history::Entity::find()
+        .filter(
+            repository::sqlite::models::indexing_history::Column::IndexId.eq(index_id.to_string()),
+        )
+        .order_by_desc(repository::sqlite::models::indexing_history::Column::StartedAt)
+        .one(database)
+        .await
+        .map_err(|err| err.to_string())?
+        .map(|v| dto::models::IndexingHistory {
+            id: v.id,
+            index_id: v.index_id,
+            started_at: v.started_at,
+        });
+    Ok(result)
 }
