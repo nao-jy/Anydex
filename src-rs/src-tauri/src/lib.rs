@@ -85,8 +85,7 @@ pub fn run() {
             let database_url = repository::sqlite::database_url(&database_path)?;
             let database =
                 tauri::async_runtime::block_on(repository::sqlite::initialize(&database_url))?;
-            tauri::async_runtime::block_on(repository::sqlite::job::init_job(&database))?;
-            app.manage(database);
+            app.manage(database.clone());
 
             let json_path = app_data_dir.join("userdata.json");
             repository::json::initialize(&json_path.to_string_lossy().to_string())?;
@@ -106,6 +105,8 @@ pub fn run() {
             } else {
                 tracing::info!(path = %database_path.display(), "plugin initialized");
             }
+
+            tauri::async_runtime::block_on(bg_job::entry::init(&database))?;
 
             Ok(())
         })
