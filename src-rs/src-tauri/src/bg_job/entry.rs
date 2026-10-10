@@ -28,9 +28,20 @@ pub async fn init(db: &DatabaseConnection, tmp_dir: &str) -> Result<(), String> 
     }
     init_job(db).await.map_err(|err| err.to_string())?;
 
-    let db = db.clone();
+    let dispatcher_db = db.clone();
     tauri::async_runtime::spawn(async move {
-        dispatcher::run(db, 4, Arc::new(Notify::new()), CancellationToken::new()).await;
+        dispatcher::run(
+            dispatcher_db,
+            4,
+            Arc::new(Notify::new()),
+            CancellationToken::new(),
+        )
+        .await;
+    });
+
+    let monitor_db = db.clone();
+    tauri::async_runtime::spawn(async move {
+        super::indexer_monitor::run(monitor_db, CancellationToken::new()).await;
     });
 
     Ok(())

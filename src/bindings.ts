@@ -21,6 +21,7 @@ export const commands = {
 } | null, string>(__TAURI_INVOKE("get_mcp_server_state")),
 	setMcpServerStatus: (running: boolean, port: number | null) => typedError<null, string>(__TAURI_INVOKE("set_mcp_server_status", { running, port })),
 	listActiveJobs: () => typedError<Job[], string>(__TAURI_INVOKE("list_active_jobs")),
+	startIndexing: (indexerId: string) => typedError<null, string>(__TAURI_INVOKE("start_indexing", { indexerId })),
 	getApplicationSettings: () => __TAURI_INVOKE<ApplicationSettings>("get_application_settings"),
 	getPluginInfo: () => typedError<PluginInfo[], string>(__TAURI_INVOKE("get_plugin_info")),
 	upsertEmbedder: (indexId: string, embedderName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_embedder", { indexId, embedderName, paramsJson })),
