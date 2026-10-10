@@ -4,14 +4,16 @@ use mime_guess::mime;
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::fs;
 use std::path::{Component, Path};
 use uuid::Uuid;
 
+use crate::bg_job::entry::get_tmp_dir;
 use crate::{
     bg_job::job::Job,
     plugin::{
         embedder::interface::Embedder,
-        entry::{PluginType, EMBEDDER_MGR, FILE_EXTRACTOR_MGR, FILE_SOURCE_MGR, VECTOR_STORE_MGR},
+        entry::{EMBEDDER_MGR, FILE_EXTRACTOR_MGR, FILE_SOURCE_MGR, VECTOR_STORE_MGR},
         file_extractor::interface::FileExtractor,
         file_source::interface::FileSource,
         vector_store::interface::VectorStore,
@@ -129,9 +131,7 @@ async fn process_file_plugins(
         None => None,
     };
 
-    let base_dir = PluginType::get_base_dir()?
-        .join("files")
-        .join(args.index_id.to_string());
+    let base_dir = get_tmp_dir()?.join("files").join(args.index_id.to_string());
     let downloaded_dir = base_dir.join("downloads");
     let extracted_dir = base_dir.join("extracted");
     std::fs::create_dir_all(&downloaded_dir).map_err(|err| err.to_string())?;
@@ -288,10 +288,13 @@ fn process_file_plugins_sync(
             content,
             content_vector,
         });
+        fs::remove_file(extracted_file).map_err(|err| err.to_string())?;
     }
 
     vector_store.delete_chunks_file(vector_store_handler.handler, file_id)?;
     vector_store.insert_chunks(vector_store_handler.handler, &chunks)?;
+
+    fs::remove_file(Path::new(&downloaded_file)).map_err(|err| err.to_string())?;
 
     Ok(())
 }

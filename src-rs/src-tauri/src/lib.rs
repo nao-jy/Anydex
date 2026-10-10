@@ -107,7 +107,10 @@ pub fn run() {
                 tracing::info!(path = %database_path.display(), "plugin initialized");
             }
 
-            tauri::async_runtime::block_on(bg_job::entry::init(&database))?;
+            tauri::async_runtime::block_on(bg_job::entry::init(
+                &database,
+                &app.path().app_cache_dir().unwrap().to_string_lossy(),
+            ))?;
 
             Ok(())
         })
