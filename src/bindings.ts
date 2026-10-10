@@ -20,7 +20,7 @@ export const commands = {
 	startedAt: string,
 } | null, string>(__TAURI_INVOKE("get_mcp_server_state")),
 	setMcpServerStatus: (running: boolean, port: number | null) => typedError<null, string>(__TAURI_INVOKE("set_mcp_server_status", { running, port })),
-	listActiveTasks: () => typedError<Task[], string>(__TAURI_INVOKE("list_active_tasks")),
+	listActiveJobs: () => typedError<Job[], string>(__TAURI_INVOKE("list_active_jobs")),
 	getApplicationSettings: () => __TAURI_INVOKE<ApplicationSettings>("get_application_settings"),
 	getPluginInfo: () => typedError<PluginInfo[], string>(__TAURI_INVOKE("get_plugin_info")),
 	upsertEmbedder: (indexId: string, embedderName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_embedder", { indexId, embedderName, paramsJson })),
@@ -28,7 +28,6 @@ export const commands = {
 	upsertFileExtractor: (indexId: string, fileExtractorName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_file_extractor", { indexId, fileExtractorName, paramsJson })),
 	upsertFileSource: (indexId: string, fileSourceName: string, paramsJson: string, oauthId: string | null) => typedError<null, string>(__TAURI_INVOKE("upsert_file_source", { indexId, fileSourceName, paramsJson, oauthId })),
 	testFileSource: (fileSourceName: string, paramsJson: string, oauthId: string | null) => typedError<null, string>(__TAURI_INVOKE("test_file_source", { fileSourceName, paramsJson, oauthId })),
-	reloadPlugins: () => typedError<null, string>(__TAURI_INVOKE("reload_plugins")),
 	getParamSchema: (pluginType: PluginType, pluginName: string) => __TAURI_INVOKE<string | null>("get_param_schema", { pluginType, pluginName }),
 	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),
 	listOauthClient: () => typedError<OAuthClient[], string>(__TAURI_INVOKE("list_oauth_client")),
@@ -74,6 +73,20 @@ export type Index = {
 	schedule: Schedule | null,
 };
 
+export type Job = {
+	/**  Serialized as a decimal string to avoid JavaScript integer precision loss. */
+	id: string,
+	indexId: string,
+	jobType: string,
+	status: string,
+	priority: number,
+	attempts: number,
+	maxAttempts: number,
+	runAt: string,
+	createdAt: string,
+	updatedAt: string,
+};
+
 /**  Status of the local MCP server exposed by the application. */
 export type McpServer = {
 	port: number,
@@ -113,16 +126,6 @@ export type SearchResult = {
 	score: string,
 	excerpt: string,
 	updatedAt: string,
-};
-
-export type Task = {
-	id: number,
-	indexId: string,
-	taskType: string,
-	status: string,
-	startedAt: string | null,
-	completedAt: string | null,
-	state: any,
 };
 
 export type VectorStore = {

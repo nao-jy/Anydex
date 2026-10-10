@@ -69,7 +69,7 @@ mod tests {
     async fn initializes_all_application_tables() {
         let database = initialize("sqlite::memory:").await.unwrap();
 
-        for table in ["oauth_authentications", "files", "tasks"] {
+        for table in ["oauth_authentications", "files", "jobs"] {
             let statement = Statement::from_sql_and_values(
                 DatabaseBackend::Sqlite,
                 "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",

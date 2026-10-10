@@ -25,7 +25,7 @@ pub async fn list_active_jobs(
         .map_err(|error| error.to_string())?
         .into_iter()
         .map(|task| dto::models::Job {
-            id: task.id,
+            id: task.id.to_string(),
             index_id: task.index_id,
             job_type: task.job_type,
             status: task.status,

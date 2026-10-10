@@ -23,7 +23,8 @@ pub struct File {
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Job {
-    pub id: u64,
+    /// Serialized as a decimal string to avoid JavaScript integer precision loss.
+    pub id: String,
     pub index_id: String,
     pub job_type: String,
     pub status: String,
