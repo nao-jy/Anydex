@@ -1,6 +1,9 @@
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter};
+use chrono::Utc;
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter, Set};
+use serde_json::Value;
 
 use crate::{
+    bg_job::entry::JobType,
     dto,
     repository::{
         self,
@@ -8,7 +11,7 @@ use crate::{
     },
 };
 
-pub async fn list_active_tasks(
+pub async fn list_active_jobs(
     database: &DatabaseConnection,
 ) -> Result<Vec<dto::models::Job>, String> {
     let tasks = repository::sqlite::models::job::Entity::find()
@@ -35,4 +38,39 @@ pub async fn list_active_tasks(
         })
         .collect();
     Ok(tasks)
+}
+
+pub struct JobInfo {
+    pub job_type: JobType,
+    pub args: Value,
+}
+
+pub async fn add_jobs(
+    database: &DatabaseConnection,
+    index_id: uuid::Uuid,
+    jobs: Vec<JobInfo>,
+) -> Result<(), String> {
+    let now = Utc::now();
+    let models: Vec<repository::sqlite::models::job::ActiveModel> = jobs
+        .iter()
+        .map(|v| repository::sqlite::models::job::ActiveModel {
+            index_id: Set(index_id.to_string()),
+            job_type: Set(v.job_type.to_string()),
+            payload: Set(v.args.clone()),
+            status: Set(STATUS_PENDING.to_string()),
+            priority: Set(0),
+            attempts: Set(0),
+            max_attempts: Set(3),
+            run_at: Set(now),
+            last_error: Set(None),
+            created_at: Set(now),
+            updated_at: Set(now),
+            ..repository::sqlite::models::job::ActiveModel::default()
+        })
+        .collect();
+    repository::sqlite::models::job::Entity::insert_many(models)
+        .exec(database)
+        .await
+        .map_err(|err| err.to_string())?;
+    Ok(())
 }

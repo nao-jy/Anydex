@@ -1,5 +1,8 @@
+use std::sync::LazyLock;
+
 use chrono::{Duration, Utc};
 use keyring::Entry;
+use tokio::sync::Mutex;
 
 use crate::{
     consts,
@@ -33,6 +36,8 @@ impl Model {
         Err("OAuth client not found".into())
     }
     pub async fn load_access_token(&mut self) -> Result<String, String> {
+        static LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+        let _guard = LOCK.lock().await;
         let entry = Entry::new(consts::APP_NAME, &self.get_access_token_username()).unwrap();
         let mut token = entry.get_password().map_or(None, |v| Some(v));
         let now = Utc::now();

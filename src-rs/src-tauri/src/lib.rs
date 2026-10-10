@@ -33,7 +33,7 @@ macro_rules! app_commands {
             ipc::indexes::upsert_schedule,
             ipc::mcp::get_mcp_server_state,
             ipc::mcp::set_mcp_server_status,
-            ipc::jobs::list_active_tasks,
+            ipc::jobs::list_active_jobs,
             ipc::settings::get_application_settings,
             ipc::plugins::get_plugin_info,
             ipc::plugins::upsert_embedder,
@@ -41,7 +41,6 @@ macro_rules! app_commands {
             ipc::plugins::upsert_file_extractor,
             ipc::plugins::upsert_file_source,
             ipc::plugins::test_file_source,
-            ipc::plugins::reload_plugins,
             ipc::plugins::get_param_schema,
             ipc::search::search_mock,
             ipc::oauth::list_oauth_client,
@@ -86,6 +85,7 @@ pub fn run() {
             let database_url = repository::sqlite::database_url(&database_path)?;
             let database =
                 tauri::async_runtime::block_on(repository::sqlite::initialize(&database_url))?;
+            tauri::async_runtime::block_on(repository::sqlite::job::init_job(&database))?;
             app.manage(database);
 
             let json_path = app_data_dir.join("userdata.json");

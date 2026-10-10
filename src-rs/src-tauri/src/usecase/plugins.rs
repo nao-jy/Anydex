@@ -26,13 +26,6 @@ pub fn get_plugin_info() -> Result<Vec<PluginInfo>, String> {
         .collect())
 }
 
-pub fn reload_plugins() -> Result<(), String> {
-    for plugin_type in all::<PluginType>() {
-        plugin_type.reload()?;
-    }
-    Ok(())
-}
-
 pub fn get_param_schema(plugin_type: PluginType, plugin_name: &str) -> Option<String> {
     plugin_type
         .get_param_schema(plugin_name)

@@ -54,6 +54,15 @@ pub static EMBEDDER_MGR: Mutex<Option<PluginManager<DynamicEmbedder>>> = Mutex::
 pub static VECTOR_STORE_MGR: Mutex<Option<PluginManager<DynamicVectorStore>>> = Mutex::new(None);
 
 impl PluginType {
+    pub fn get_base_dir() -> Result<PathBuf, String> {
+        BASE_DIR
+            .lock()
+            .map_err(|err| err.to_string())?
+            .as_ref()
+            .map(PathBuf::from)
+            .ok_or_else(|| "plugin base directory is not initialized".to_owned())
+    }
+
     pub fn init(base_dir: &str) -> Result<(), String> {
         // init base_dir
         {
@@ -130,35 +139,6 @@ impl PluginType {
                 let mgr_mtx = VECTOR_STORE_MGR.lock().unwrap();
                 let mgr = mgr_mtx.as_ref().unwrap();
                 return mgr.get_plugin_names();
-            }
-        }
-    }
-
-    pub fn reload(&self) -> Result<(), String> {
-        match self {
-            Self::Embedder => {
-                let mut mgr_mtx = EMBEDDER_MGR.lock().unwrap();
-                let mgr = mgr_mtx.as_mut().unwrap();
-                mgr.load_plugins()?;
-                Ok(())
-            }
-            Self::FileExtractor => {
-                let mut mgr_mtx = FILE_EXTRACTOR_MGR.lock().unwrap();
-                let mgr = mgr_mtx.as_mut().unwrap();
-                mgr.load_plugins()?;
-                Ok(())
-            }
-            Self::FileSource => {
-                let mut mgr_mtx = FILE_SOURCE_MGR.lock().unwrap();
-                let mgr = mgr_mtx.as_mut().unwrap();
-                mgr.load_plugins()?;
-                Ok(())
-            }
-            Self::VectorStore => {
-                let mut mgr_mtx = VECTOR_STORE_MGR.lock().unwrap();
-                let mgr = mgr_mtx.as_mut().unwrap();
-                mgr.load_plugins()?;
-                Ok(())
             }
         }
     }

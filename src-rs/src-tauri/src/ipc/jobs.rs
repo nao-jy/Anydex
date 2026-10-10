@@ -6,8 +6,8 @@ use crate::usecase;
 #[tauri::command]
 #[specta::specta]
 #[tracing::instrument(skip(database))]
-pub async fn list_active_tasks(
+pub async fn list_active_jobs(
     database: State<'_, DatabaseConnection>,
 ) -> Result<Vec<crate::dto::models::Job>, String> {
-    usecase::jobs::list_active_tasks(database.inner()).await
+    usecase::jobs::list_active_jobs(database.inner()).await
 }

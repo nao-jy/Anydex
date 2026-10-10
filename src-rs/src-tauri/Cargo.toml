@@ -62,7 +62,7 @@ rmcp = { version = "3.5.1", features = [
 ] }
 schemars = "1.2.2"
 tokio-util = "0.7.19"
-
+mime_guess = "2.0.5"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

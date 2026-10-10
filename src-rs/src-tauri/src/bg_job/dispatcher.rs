@@ -1,8 +1,14 @@
-use std::{sync::Arc, time::Duration};
+use std::{str::FromStr, sync::Arc, time::Duration};
 
-use crate::repository::sqlite::{
-    job::{claim, finish},
-    models::job,
+use crate::{
+    bg_job::{
+        entry::JobType,
+        job::{collect_diff::CollectDiff, process_file::ProcessFile, Job},
+    },
+    repository::sqlite::{
+        job::{claim, finish},
+        models::job,
+    },
 };
 use sea_orm::DatabaseConnection;
 use tokio::{
@@ -22,7 +28,7 @@ pub async fn run(
     while !cancel.is_cancelled() {
         let free = sem.available_permits();
         let jobs = if free > 0 {
-            claim(&db, free, 60_000).await.unwrap_or_default()
+            claim(&db, free).await.unwrap_or_default()
         } else {
             vec![]
         };
@@ -43,7 +49,9 @@ pub async fn run(
             tasks.spawn(async move {
                 let _permit = permit;
                 let result = execute(db.clone(), job.clone()).await;
-                finish(&db, &job, result).await;
+                if let Err(error) = finish(&db, &job, result).await {
+                    tracing::error!(job_id = job.id, %error, "failed to persist job result");
+                }
             });
         }
         while tasks.try_join_next().is_some() {}
@@ -52,7 +60,10 @@ pub async fn run(
 }
 
 async fn execute(db: DatabaseConnection, job: job::Model) -> Result<(), String> {
-    todo!("execute job according to job type");
-    // tokio::task::spawn_blocking(move || ).await.map_err(|err|err.to_string())
-    Ok(())
+    let job_type = JobType::from_str(&job.job_type)
+        .map_err(|_| format!("unknown job type: {}", job.job_type))?;
+    match job_type {
+        JobType::CollectDiff => CollectDiff::new(db).process(job.payload).await,
+        JobType::ProcessFile => ProcessFile { db }.process(job.payload).await,
+    }
 }

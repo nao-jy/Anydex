@@ -12,13 +12,6 @@ pub fn get_plugin_info() -> Result<Vec<crate::dto::models::PluginInfo>, String> 
 #[tauri::command]
 #[specta::specta]
 #[tracing::instrument()]
-pub fn reload_plugins() -> Result<(), String> {
-    usecase::plugins::reload_plugins()
-}
-
-#[tauri::command]
-#[specta::specta]
-#[tracing::instrument()]
 pub fn get_param_schema(plugin_type: PluginType, plugin_name: &str) -> Option<String> {
     usecase::plugins::get_param_schema(plugin_type, plugin_name)
 }

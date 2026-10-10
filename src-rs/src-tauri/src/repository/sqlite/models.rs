@@ -63,7 +63,6 @@ pub mod job {
         pub attempts: i32,
         pub max_attempts: i32,
         pub run_at: DateTimeUtc,
-        pub locked_until: Option<DateTimeUtc>,
         pub last_error: Option<String>,
         pub created_at: DateTimeUtc,
         pub updated_at: DateTimeUtc,
