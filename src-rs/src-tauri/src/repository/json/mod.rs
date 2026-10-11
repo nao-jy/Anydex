@@ -1,35 +1,20 @@
 use std::{
     fs::{self, File},
     io::BufWriter,
-    sync::Mutex,
 };
 
-use crate::repository::json::models::UserData;
+use crate::{path::get_app_data_dir, repository::json::models::UserData};
 
 pub mod models;
 pub mod oauth_client;
 
-static JSON_PATH: Mutex<Option<String>> = Mutex::new(None);
-
 fn json_path() -> Result<String, String> {
-    let path = match JSON_PATH.lock() {
-        Ok(mtx) => mtx.as_ref().cloned(),
-        Err(poisoned) => {
-            let mtx = poisoned.into_inner();
-            JSON_PATH.clear_poison();
-            mtx.as_ref().cloned()
-        }
-    };
-
-    path.ok_or_else(|| "not initialized".to_string())
-}
-
-pub fn initialize(json_path: &str) -> Result<(), String> {
-    let mut mtx = JSON_PATH
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    *mtx = Some(String::from(json_path));
-    Ok(())
+    let app_data_dir = get_app_data_dir()?;
+    let json_path = app_data_dir
+        .join("userdata.json")
+        .to_string_lossy()
+        .to_string();
+    Ok(json_path)
 }
 
 pub fn save(userdata: &UserData) -> Result<(), String> {

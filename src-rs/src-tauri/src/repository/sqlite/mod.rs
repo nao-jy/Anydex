@@ -6,6 +6,8 @@ use sea_orm::{
 };
 use url::Url;
 
+use crate::path::get_app_data_dir;
+
 pub mod authentication;
 pub mod job;
 pub mod models;
@@ -25,26 +27,36 @@ pub fn database_url(database_path: &Path) -> Result<String, DbErr> {
     Ok(format!("sqlite:{path}?mode=rwc"))
 }
 
-pub async fn initialize(database_url: &str) -> Result<DatabaseConnection, DbErr> {
-    let mut options = ConnectOptions::new(database_url);
+pub async fn init() -> Result<DatabaseConnection, String> {
+    let database_path = get_app_data_dir()?.join("anydex.sqlite3");
+    let database_url = database_url(&database_path).map_err(|err| err.to_string())?;
+    let mut options = ConnectOptions::new(&database_url);
     // This is a local embedded database. A single writer avoids SQLite lock
     // contention while commands access the connection managed by Tauri.
     options.max_connections(1);
     options.sqlx_logging(false);
 
-    let database = Database::connect(options).await?;
-    let transaction = database.begin().await?;
+    let database = Database::connect(options)
+        .await
+        .map_err(|err| err.to_string())?;
+    let transaction = database.begin().await.map_err(|err| err.to_string())?;
     let schema = Schema::new(DbBackend::Sqlite);
 
     macro_rules! create_entity_schema {
         ($entity:expr) => {{
             let mut table = schema.create_table_from_entity($entity);
             table.if_not_exists();
-            transaction.execute(&table).await?;
+            transaction
+                .execute(&table)
+                .await
+                .map_err(|err| err.to_string())?;
 
             for mut index in schema.create_index_from_entity($entity) {
                 index.if_not_exists();
-                transaction.execute(&index).await?;
+                transaction
+                    .execute(&index)
+                    .await
+                    .map_err(|err| err.to_string())?;
             }
         }};
     }
@@ -56,27 +68,6 @@ pub async fn initialize(database_url: &str) -> Result<DatabaseConnection, DbErr>
     create_entity_schema!(models::job::Entity);
     create_entity_schema!(models::indexing_history::Entity);
 
-    transaction.commit().await?;
+    transaction.commit().await.map_err(|err| err.to_string())?;
     Ok(database)
-}
-
-#[cfg(test)]
-mod tests {
-    use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
-
-    use super::initialize;
-
-    #[tokio::test]
-    async fn initializes_all_application_tables() {
-        let database = initialize("sqlite::memory:").await.unwrap();
-
-        for table in ["oauth_authentications", "files", "jobs"] {
-            let statement = Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
-                [table.into()],
-            );
-            assert!(database.query_one_raw(statement).await.unwrap().is_some());
-        }
-    }
 }

@@ -5,6 +5,7 @@ use tauri_specta::{collect_commands, collect_events, Builder};
 use tracing::error;
 
 use crate::{
+    path::init,
     plugin::entry::PluginType,
     window::task_tray::{init_task_tray, prevent_close},
 };
@@ -14,6 +15,7 @@ pub mod consts;
 pub mod dto;
 pub mod ipc;
 pub mod logging;
+pub mod path;
 pub mod plugin;
 pub mod repository;
 pub mod server;
@@ -81,18 +83,15 @@ pub fn run() {
             app.manage(log_guard);
             tracing::info!(path = %log_dir.display(), "file logging initialized");
 
-            let app_data_dir = app.path().app_data_dir()?;
-            std::fs::create_dir_all(&app_data_dir)?;
-            let database_path = app_data_dir.join("anydex.sqlite3");
-            let database_url = repository::sqlite::database_url(&database_path)?;
-            let database =
-                tauri::async_runtime::block_on(repository::sqlite::initialize(&database_url))?;
+            init(
+                app.path().app_data_dir().unwrap().to_str().unwrap(),
+                app.path().app_cache_dir().unwrap().to_str().unwrap(),
+            )?;
+
+            let database = tauri::async_runtime::block_on(repository::sqlite::init())?;
             app.manage(database.clone());
 
-            let json_path = app_data_dir.join("userdata.json");
-            repository::json::initialize(&json_path.to_string_lossy().to_string())?;
-
-            tracing::info!(path = %database_path.display(), "application database initialized");
+            tracing::info!("application database initialized");
 
             let task_tray_init = init_task_tray(app);
             if let Err(err) = task_tray_init {
@@ -101,11 +100,11 @@ pub fn run() {
                 tracing::info!("task tray initialized");
             }
 
-            let init_result = PluginType::init(app_data_dir.to_str().unwrap());
+            let init_result = PluginType::init();
             if let Err(err) = init_result {
                 error!(err);
             } else {
-                tracing::info!(path = %database_path.display(), "plugin initialized");
+                tracing::info!("plugin initialized");
             }
 
             tauri::async_runtime::block_on(bg_job::entry::init(

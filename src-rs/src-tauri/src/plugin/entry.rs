@@ -1,8 +1,8 @@
-use crate::plugin::embedder::interface::Embedder;
 use crate::plugin::file_extractor::interface::FileExtractor;
 use crate::plugin::file_source::interface::FileSource;
 use crate::plugin::manager::PluginManager;
 use crate::plugin::vector_store::interface::VectorStore;
+use crate::{path::get_app_data_dir, plugin::embedder::interface::Embedder};
 use anydex_plugin_api_lib::{
     embedder::interface::DynamicEmbedder, file_extractor::interface::DynamicFileExtractor,
     file_source::interface::DynamicFileSource, vector_store::interface::DynamicVectorStore,
@@ -46,7 +46,6 @@ impl TryFrom<&str> for PluginType {
     type Error = String;
 }
 
-static BASE_DIR: Mutex<Option<String>> = Mutex::new(None);
 pub static FILE_SOURCE_MGR: Mutex<Option<PluginManager<DynamicFileSource>>> = Mutex::new(None);
 pub static FILE_EXTRACTOR_MGR: Mutex<Option<PluginManager<DynamicFileExtractor>>> =
     Mutex::new(None);
@@ -54,22 +53,7 @@ pub static EMBEDDER_MGR: Mutex<Option<PluginManager<DynamicEmbedder>>> = Mutex::
 pub static VECTOR_STORE_MGR: Mutex<Option<PluginManager<DynamicVectorStore>>> = Mutex::new(None);
 
 impl PluginType {
-    pub fn get_base_dir() -> Result<PathBuf, String> {
-        BASE_DIR
-            .lock()
-            .map_err(|err| err.to_string())?
-            .as_ref()
-            .map(PathBuf::from)
-            .ok_or_else(|| "plugin base directory is not initialized".to_owned())
-    }
-
-    pub fn init(base_dir: &str) -> Result<(), String> {
-        // init base_dir
-        {
-            let mut base_dir_mtx = BASE_DIR.lock().unwrap();
-            *base_dir_mtx = Some(String::from(base_dir));
-        }
-
+    pub fn init() -> Result<(), String> {
         // create dir
         for plugin_type in all::<Self>() {
             std::fs::create_dir_all(&plugin_type.get_dir()).map_err(|err| err.to_string())?;
@@ -108,10 +92,8 @@ impl PluginType {
     }
 
     pub fn get_dir(self) -> String {
-        let base_dir_opt_mtx = BASE_DIR.lock().unwrap();
         let plugin_name: String = self.into();
-        let base_dir_opt = base_dir_opt_mtx.clone();
-        PathBuf::from(base_dir_opt.unwrap())
+        PathBuf::from(get_app_data_dir().unwrap())
             .join("plugins")
             .join(plugin_name)
             .display()
