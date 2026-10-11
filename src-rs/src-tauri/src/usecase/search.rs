@@ -182,13 +182,9 @@ async fn get_indexed_files(
 
 fn to_file_metadata(file: &sqlite::models::file::Model) -> FileMetadata {
     FileMetadata {
-        id: file.id.to_string(),
         index_id: file.index_id.clone(),
         name: file.name.clone(),
         file_uri: file.file_uri.clone(),
-        file_path: file.file_path.clone(),
-        file_dir: file.file_dir.clone(),
-        file_name: file.file_name.clone(),
         content_type: file.content_type.clone(),
         size: file.size.to_string(),
         updated_at: file.updated_at.clone(),

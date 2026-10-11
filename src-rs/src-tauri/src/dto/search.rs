@@ -38,14 +38,9 @@ pub struct GetFileInfoResult {
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct FileMetadata {
-    /// Serialized as a decimal string to avoid JavaScript integer precision loss.
-    pub id: String,
     pub index_id: String,
     pub name: String,
     pub file_uri: String,
-    pub file_path: String,
-    pub file_dir: String,
-    pub file_name: String,
     pub content_type: String,
     /// A decimal string avoids losing precision when represented by JavaScript.
     pub size: String,
