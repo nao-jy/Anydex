@@ -21,7 +21,7 @@ pub struct SearchMatch {
     pub score: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, schemars::JsonSchema)]
 #[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum SemanticSearchQuery {
     Text(String),
