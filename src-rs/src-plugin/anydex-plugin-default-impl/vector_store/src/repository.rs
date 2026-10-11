@@ -12,10 +12,7 @@ use lancedb::index::scalar::FullTextSearchQuery;
 use lancedb::index::{scalar::FtsIndexBuilder, Index, IndexType};
 use lancedb::query::{ExecutableQuery, QueryBase};
 use lancedb::{DistanceType, Table};
-use std::sync::{
-    atomic::{AtomicU64, Ordering},
-    Arc,
-};
+use std::sync::Arc;
 use tokio::runtime::Runtime;
 
 use crate::param::Param;
@@ -321,6 +318,7 @@ mod tests {
     use super::*;
     use serde_json::json;
     use std::path::Path;
+    use std::sync::atomic::AtomicU64;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     static TEST_INDEX_COUNTER: AtomicU64 = AtomicU64::new(0);
