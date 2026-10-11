@@ -6,8 +6,7 @@ use sea_orm::{
 };
 use url::Url;
 
-use crate::path::get_app_data_dir;
-
+use crate::path::get_dir;
 pub mod authentication;
 pub mod job;
 pub mod models;
@@ -28,7 +27,7 @@ pub fn database_url(database_path: &Path) -> Result<String, DbErr> {
 }
 
 pub async fn init() -> Result<DatabaseConnection, String> {
-    let database_path = get_app_data_dir()?.join("anydex.sqlite3");
+    let database_path = get_dir().app_data_dir.join("anydex.sqlite3");
     let database_url = database_url(&database_path).map_err(|err| err.to_string())?;
     let mut options = ConnectOptions::new(&database_url);
     // This is a local embedded database. A single writer avoids SQLite lock

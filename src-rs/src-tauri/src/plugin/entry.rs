@@ -1,15 +1,16 @@
+use crate::path::get_dir;
+use crate::plugin::embedder::interface::Embedder;
 use crate::plugin::file_extractor::interface::FileExtractor;
 use crate::plugin::file_source::interface::FileSource;
 use crate::plugin::manager::PluginManager;
 use crate::plugin::vector_store::interface::VectorStore;
-use crate::{path::get_app_data_dir, plugin::embedder::interface::Embedder};
 use anydex_plugin_api_lib::{
     embedder::interface::DynamicEmbedder, file_extractor::interface::DynamicFileExtractor,
     file_source::interface::DynamicFileSource, vector_store::interface::DynamicVectorStore,
 };
 use enum_iterator::{all, Sequence};
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, sync::Mutex};
+use std::sync::Mutex;
 use tracing::error;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Sequence, Deserialize, Serialize, specta::Type)]
@@ -93,7 +94,8 @@ impl PluginType {
 
     pub fn get_dir(self) -> String {
         let plugin_name: String = self.into();
-        PathBuf::from(get_app_data_dir().unwrap())
+        get_dir()
+            .app_data_dir
             .join("plugins")
             .join(plugin_name)
             .display()

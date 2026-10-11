@@ -7,7 +7,7 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
 use crate::{
-    path::get_app_cache_dir,
+    path::get_dir,
     plugin::{entry::FILE_SOURCE_MGR, file_source::interface::FileSource},
     repository::{json::load, sqlite},
     usecase::oauth::get_authentication,
@@ -65,7 +65,7 @@ pub async fn download_file(
             .clone()
     };
     let handler = plugin.get_handler(&file_source.params)?;
-    let cache_dir = get_app_cache_dir().unwrap().join(index_id.to_string());
+    let cache_dir = get_dir().app_cache_dir.join(index_id.to_string());
     let access_token = match file_source.oauth_id {
         Some(oauth_client_id) => {
             let mut mdl = get_authentication(index_id, oauth_client_id, database).await?;

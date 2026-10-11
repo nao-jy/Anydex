@@ -87,6 +87,7 @@ pub fn run() {
             init(
                 app.path().app_data_dir().unwrap().to_str().unwrap(),
                 app.path().app_cache_dir().unwrap().to_str().unwrap(),
+                dirs::download_dir().unwrap().to_str().unwrap(),
             )?;
 
             let database = tauri::async_runtime::block_on(repository::sqlite::init())?;

@@ -3,13 +3,13 @@ use std::{
     io::BufWriter,
 };
 
-use crate::{path::get_app_data_dir, repository::json::models::UserData};
+use crate::{path::get_dir, repository::json::models::UserData};
 
 pub mod models;
 pub mod oauth_client;
 
 fn json_path() -> Result<String, String> {
-    let app_data_dir = get_app_data_dir()?;
+    let app_data_dir = get_dir().app_data_dir;
     let json_path = app_data_dir
         .join("userdata.json")
         .to_string_lossy()

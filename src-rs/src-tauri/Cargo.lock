@@ -92,6 +92,7 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "chrono",
+ "dirs",
  "enum-iterator",
  "keyring",
  "libloading 0.9.0",
