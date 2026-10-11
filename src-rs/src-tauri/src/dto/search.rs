@@ -4,15 +4,28 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct GrepResult {
-    pub matches: Vec<GrepMatch>,
+    pub matches: Vec<SearchMatch>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct GrepMatch {
+pub struct SemanticSearchResult {
+    pub matches: Vec<SearchMatch>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchMatch {
     pub file: FileMetadata,
     pub content: String,
     pub score: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(tag = "type", content = "value", rename_all = "camelCase")]
+pub enum SemanticSearchQuery {
+    Text(String),
+    ImageBase64(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]

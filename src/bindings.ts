@@ -30,7 +30,8 @@ export const commands = {
 	testFileSource: (fileSourceName: string, paramsJson: string, oauthId: string | null) => typedError<null, string>(__TAURI_INVOKE("test_file_source", { fileSourceName, paramsJson, oauthId })),
 	getParamSchema: (pluginType: PluginType, pluginName: string) => __TAURI_INVOKE<string | null>("get_param_schema", { pluginType, pluginName }),
 	listDirectory: (indexId: string, path: string) => typedError<ListDirectoryResult, string>(__TAURI_INVOKE("list_directory", { indexId, path })),
-	grep: (indexId: string, pattern: string, target: string, semantic: boolean) => typedError<GrepResult, string>(__TAURI_INVOKE("grep", { indexId, pattern, target, semantic })),
+	grep: (indexId: string, pattern: string, target: string) => typedError<GrepResult, string>(__TAURI_INVOKE("grep", { indexId, pattern, target })),
+	semanticSearch: (indexId: string, query: SemanticSearchQuery, target: string) => typedError<SemanticSearchResult, string>(__TAURI_INVOKE("semantic_search", { indexId, query, target })),
 	getFileInfo: (indexId: string, uri: string) => typedError<GetFileInfoResult, string>(__TAURI_INVOKE("get_file_info", { indexId, uri })),
 	listOauthClient: () => typedError<OAuthClient[], string>(__TAURI_INVOKE("list_oauth_client")),
 	createEmptyOauthClient: () => typedError<null, string>(__TAURI_INVOKE("create_empty_oauth_client")),
@@ -63,14 +64,9 @@ export type FileExtractor = {
 };
 
 export type FileMetadata = {
-	/**  Serialized as a decimal string to avoid JavaScript integer precision loss. */
-	id: string,
 	indexId: string,
 	name: string,
 	fileUri: string,
-	filePath: string,
-	fileDir: string,
-	fileName: string,
 	contentType: string,
 	/**  A decimal string avoids losing precision when represented by JavaScript. */
 	size: string,
@@ -88,14 +84,8 @@ export type GetFileInfoResult = {
 	file: FileMetadata,
 };
 
-export type GrepMatch = {
-	file: FileMetadata,
-	content: string,
-	score: number | null,
-};
-
 export type GrepResult = {
-	matches: GrepMatch[],
+	matches: SearchMatch[],
 };
 
 export type Index = {
@@ -156,6 +146,18 @@ export type PluginType = "fileSource" | "fileExtractor" | "embedder" | "vectorSt
 export type Schedule = {
 	rfc5545Rrule: string,
 	catchupWhenMissed: boolean,
+};
+
+export type SearchMatch = {
+	file: FileMetadata,
+	content: string,
+	score: number | null,
+};
+
+export type SemanticSearchQuery = { type: "text"; value: string } | { type: "imageBase64"; value: string };
+
+export type SemanticSearchResult = {
+	matches: SearchMatch[],
 };
 
 export type VectorStore = {

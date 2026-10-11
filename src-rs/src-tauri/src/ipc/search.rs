@@ -3,7 +3,10 @@ use tauri::State;
 use uuid::Uuid;
 
 use crate::{
-    dto::search::{GetFileInfoResult, GrepResult, ListDirectoryResult},
+    dto::search::{
+        GetFileInfoResult, GrepResult, ListDirectoryResult, SemanticSearchQuery,
+        SemanticSearchResult,
+    },
     usecase,
 };
 
@@ -28,6 +31,18 @@ pub async fn grep(
     database: State<'_, DatabaseConnection>,
 ) -> Result<GrepResult, String> {
     usecase::search::grep(index_id, &pattern, &target, database.inner()).await
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(database, query))]
+pub async fn semantic_search(
+    index_id: Uuid,
+    query: SemanticSearchQuery,
+    target: String,
+    database: State<'_, DatabaseConnection>,
+) -> Result<SemanticSearchResult, String> {
+    usecase::search::semantic_search(index_id, query, &target, database.inner()).await
 }
 
 #[tauri::command]

@@ -90,6 +90,7 @@ version = "0.1.0"
 dependencies = [
  "anydex-plugin-api",
  "axum",
+ "base64 0.22.1",
  "chrono",
  "enum-iterator",
  "keyring",

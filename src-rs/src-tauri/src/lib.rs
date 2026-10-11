@@ -46,6 +46,7 @@ macro_rules! app_commands {
             ipc::plugins::get_param_schema,
             ipc::search::list_directory,
             ipc::search::grep,
+            ipc::search::semantic_search,
             ipc::search::get_file_info,
             ipc::oauth::list_oauth_client,
             ipc::oauth::create_empty_oauth_client,

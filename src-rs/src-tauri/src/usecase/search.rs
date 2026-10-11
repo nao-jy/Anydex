@@ -1,14 +1,26 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fs::{self, OpenOptions},
+    io::Write,
+};
 
-use anydex_plugin_api_lib::vector_store::types::SearchRequest;
+use anydex_plugin_api_lib::{
+    embedder::interface::DynamicEmbedder, vector_store::types::SearchRequest,
+};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
 use crate::{
     dto::search::{
-        DirectoryEntry, FileMetadata, GetFileInfoResult, GrepMatch, GrepResult, ListDirectoryResult,
+        DirectoryEntry, FileMetadata, GetFileInfoResult, GrepResult, ListDirectoryResult,
+        SearchMatch, SemanticSearchQuery, SemanticSearchResult,
     },
-    plugin::{entry::VECTOR_STORE_MGR, vector_store::interface::VectorStore},
+    plugin::{
+        embedder::interface::Embedder,
+        entry::{EMBEDDER_MGR, VECTOR_STORE_MGR},
+        vector_store::interface::VectorStore,
+    },
     repository::{json, sqlite},
 };
 
@@ -67,14 +79,7 @@ pub async fn grep(
         return Err("search pattern must not be empty".to_owned());
     }
     let target = normalize_path(target)?;
-    let files = get_indexed_files(index_id, database).await?;
-    let mut target_files = Vec::new();
-    for file in files {
-        let file_path = normalize_path(&file.file_path)?;
-        if file_path == target || target == "/" || file_path.starts_with(&format!("{target}/")) {
-            target_files.push(file);
-        }
-    }
+    let target_files = get_target_files(index_id, &target, database).await?;
     if target_files.is_empty() {
         return Ok(GrepResult {
             matches: Vec::new(),
@@ -140,7 +145,7 @@ pub async fn grep(
                     hit.chunk.file_id
                 )
             })?;
-            Ok(GrepMatch {
+            Ok(SearchMatch {
                 file: to_file_metadata(file),
                 content: hit.chunk.content,
                 score: hit.score,
@@ -149,6 +154,114 @@ pub async fn grep(
         .collect::<Result<Vec<_>, String>>()?;
 
     Ok(GrepResult { matches })
+}
+
+pub async fn semantic_search(
+    index_id: Uuid,
+    query: SemanticSearchQuery,
+    target: &str,
+    database: &DatabaseConnection,
+) -> Result<SemanticSearchResult, String> {
+    if let SemanticSearchQuery::Text(text) = &query {
+        if text.trim().is_empty() {
+            return Err("search query must not be empty".to_owned());
+        }
+    }
+    let target = normalize_path(target)?;
+    let target_files = get_target_files(index_id, &target, database).await?;
+    if target_files.is_empty() {
+        return Ok(SemanticSearchResult {
+            matches: Vec::new(),
+        });
+    }
+
+    let userdata = json::load()?;
+    let index = userdata
+        .indexes
+        .iter()
+        .find(|index| index.id == index_id)
+        .ok_or_else(|| format!("index {index_id} was not found"))?;
+    let embedder_config = index
+        .embedder
+        .as_ref()
+        .ok_or_else(|| format!("index {index_id} has no embedder configured"))?;
+    let vector_store_config = index
+        .vector_store
+        .as_ref()
+        .ok_or_else(|| format!("index {index_id} has no vector store configured"))?;
+
+    let embedder = {
+        let mut manager = EMBEDDER_MGR.lock().map_err(|err| err.to_string())?;
+        manager
+            .as_mut()
+            .ok_or_else(|| "embedder plugin manager is not initialized".to_owned())?
+            .get_plugin(&embedder_config.name)
+            .ok_or_else(|| {
+                format!(
+                    "embedder plugin {} was not found in the plugin manager",
+                    embedder_config.name
+                )
+            })?
+            .clone()
+    };
+    let vector_store = {
+        let mut manager = VECTOR_STORE_MGR.lock().map_err(|err| err.to_string())?;
+        manager
+            .as_mut()
+            .ok_or_else(|| "vector store plugin manager is not initialized".to_owned())?
+            .get_plugin(&vector_store_config.name)
+            .ok_or_else(|| {
+                format!(
+                    "vector store plugin {} was not found in the plugin manager",
+                    vector_store_config.name
+                )
+            })?
+            .clone()
+    };
+
+    let embedder_params = embedder_config.params.clone();
+    let vector_store_params = vector_store_config.params.clone();
+    let file_ids = target_files.iter().map(|file| file.id).collect();
+    let hits = tokio::task::spawn_blocking(move || {
+        let embedding = embed_query(&embedder, &embedder_params, query)?;
+        let vector_store_handler =
+            vector_store.get_handler(&vector_store_params, index_id.to_string())?;
+        vector_store.search(
+            vector_store_handler.handler,
+            &SearchRequest {
+                text: None,
+                embedding: Some(embedding),
+                target_file_ids: file_ids,
+                offset: 0,
+                limit: GREP_RESULT_LIMIT,
+            },
+        )
+    })
+    .await
+    .map_err(|err| format!("semantic search task failed: {err}"))??;
+
+    let files_by_id: HashMap<_, _> = target_files
+        .into_iter()
+        .map(|file| (file.id, file))
+        .collect();
+    let matches = hits
+        .into_iter()
+        .map(|hit| {
+            let file = files_by_id.get(&hit.chunk.file_id).ok_or_else(|| {
+                format!(
+                    "vector store returned an unknown file id: {}",
+                    hit.chunk.file_id
+                )
+            })?;
+            Ok(SearchMatch {
+                file: to_file_metadata(file),
+                content: hit.chunk.content,
+                score: hit.score,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+
+    Ok(SemanticSearchResult { matches })
 }
 
 pub async fn get_file_info(
@@ -180,6 +293,28 @@ async fn get_indexed_files(
         .map_err(|err| err.to_string())
 }
 
+async fn get_target_files(
+    index_id: Uuid,
+    target: &str,
+    database: &DatabaseConnection,
+) -> Result<Vec<sqlite::models::file::Model>, String> {
+    get_indexed_files(index_id, database)
+        .await?
+        .into_iter()
+        .filter_map(|file| match normalize_path(&file.file_path) {
+            Ok(file_path)
+                if file_path == target
+                    || target == "/"
+                    || file_path.starts_with(&format!("{target}/")) =>
+            {
+                Some(Ok(file))
+            }
+            Ok(_) => None,
+            Err(err) => Some(Err(err)),
+        })
+        .collect()
+}
+
 fn to_file_metadata(file: &sqlite::models::file::Model) -> FileMetadata {
     FileMetadata {
         index_id: file.index_id.clone(),
@@ -189,6 +324,87 @@ fn to_file_metadata(file: &sqlite::models::file::Model) -> FileMetadata {
         size: file.size.to_string(),
         updated_at: file.updated_at.clone(),
         file_hash: file.file_hash.clone(),
+    }
+}
+
+fn embed_query(
+    embedder: &DynamicEmbedder,
+    params: &serde_json::Value,
+    query: SemanticSearchQuery,
+) -> Result<Vec<f32>, String> {
+    let (extension, contents) = query_contents(query)?;
+
+    let path = std::env::temp_dir().join(format!("anydex-search-{}.{}", Uuid::now_v7(), extension));
+    let mut created = false;
+    let embedding_result = (|| {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .map_err(|err| format!("failed to create temporary search query: {err}"))?;
+        created = true;
+        file.write_all(&contents)
+            .map_err(|err| format!("failed to write temporary search query: {err}"))?;
+        let path = path
+            .to_str()
+            .ok_or_else(|| "temporary search query path is not valid UTF-8".to_owned())?;
+        let handler = embedder.get_handler(params)?;
+        embedder.embed(handler.handler, path)
+    })();
+
+    if created {
+        match fs::remove_file(&path) {
+            Ok(()) => embedding_result,
+            Err(cleanup_err) => match embedding_result {
+                Ok(_) => Err(format!(
+                    "failed to remove temporary search query: {cleanup_err}"
+                )),
+                Err(err) => {
+                    tracing::warn!("failed to remove temporary search query: {cleanup_err}");
+                    Err(err)
+                }
+            },
+        }
+    } else {
+        embedding_result
+    }
+}
+
+fn query_contents(query: SemanticSearchQuery) -> Result<(&'static str, Vec<u8>), String> {
+    match query {
+        SemanticSearchQuery::Text(text) => Ok(("txt", text.into_bytes())),
+        SemanticSearchQuery::ImageBase64(encoded) => {
+            let encoded = encoded
+                .split_once(',')
+                .filter(|(header, _)| {
+                    header.starts_with("data:image/") && header.ends_with(";base64")
+                })
+                .map_or(encoded.as_str(), |(_, data)| data);
+            let contents = STANDARD
+                .decode(encoded)
+                .map_err(|err| format!("invalid base64 image query: {err}"))?;
+            let extension = image_extension(&contents)
+                .ok_or_else(|| "unsupported or invalid base64 image query".to_owned())?;
+            Ok((extension, contents))
+        }
+    }
+}
+
+fn image_extension(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        Some("png")
+    } else if bytes.starts_with(b"\xff\xd8\xff") {
+        Some("jpg")
+    } else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+        Some("gif")
+    } else if bytes.starts_with(b"BM") {
+        Some("bmp")
+    } else if bytes.starts_with(b"II*\0") || bytes.starts_with(b"MM\0*") {
+        Some("tiff")
+    } else if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        Some("webp")
+    } else {
+        None
     }
 }
 
@@ -219,7 +435,8 @@ fn join_path(directory: &str, name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{join_path, normalize_path};
+    use super::{image_extension, join_path, normalize_path, query_contents};
+    use crate::dto::search::SemanticSearchQuery;
 
     #[test]
     fn normalize_path_canonicalizes_separators_and_rejects_parent_components() {
@@ -232,5 +449,32 @@ mod tests {
     fn join_path_handles_root() {
         assert_eq!(join_path("/", "notes"), "/notes");
         assert_eq!(join_path("/docs", "notes"), "/docs/notes");
+    }
+
+    #[test]
+    fn query_contents_supports_text_and_base64_images() {
+        assert_eq!(
+            query_contents(SemanticSearchQuery::Text("hello".to_owned())).unwrap(),
+            ("txt", b"hello".to_vec())
+        );
+
+        let (extension, bytes) =
+            query_contents(SemanticSearchQuery::ImageBase64("iVBORw0KGgo=".to_owned())).unwrap();
+        assert_eq!(extension, "png");
+        assert_eq!(image_extension(&bytes), Some("png"));
+
+        let (extension, bytes) = query_contents(SemanticSearchQuery::ImageBase64(
+            "data:image/png;base64,iVBORw0KGgo=".to_owned(),
+        ))
+        .unwrap();
+        assert_eq!(extension, "png");
+        assert_eq!(image_extension(&bytes), Some("png"));
+    }
+
+    #[test]
+    fn query_contents_rejects_invalid_image_base64() {
+        assert!(
+            query_contents(SemanticSearchQuery::ImageBase64("not an image".to_owned())).is_err()
+        );
     }
 }
