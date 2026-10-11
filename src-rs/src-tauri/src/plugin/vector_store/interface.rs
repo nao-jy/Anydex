@@ -1,6 +1,6 @@
 use anydex_plugin_api_lib::{
     common::Handler,
-    vector_store::types::{Chunk, FileId, IndexId, IndexerId, SearchHit, SearchRequest},
+    vector_store::types::{Chunk, FileId, IndexId, SearchHit, SearchRequest},
 };
 
 use crate::plugin::common::DisposableHnandler;
@@ -15,7 +15,6 @@ pub trait VectorStore {
     ) -> Result<DisposableHnandler, String>;
 
     fn delete_chunks_file(&self, handler: Handler, fild_id: FileId) -> Result<(), String>;
-    fn delete_chunks_indexer(&self, handler: Handler, indexer_id: IndexerId) -> Result<(), String>;
     fn clear_chunks(&self, handler: Handler) -> Result<(), String>;
     fn insert_chunks(&self, handler: Handler, chunks: &[Chunk]) -> Result<(), String>;
     fn search(

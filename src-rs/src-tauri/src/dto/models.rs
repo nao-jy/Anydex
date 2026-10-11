@@ -44,19 +44,12 @@ pub struct IndexingHistory {
     pub started_at: DateTime<Utc>,
 }
 
-/// A semantic-search hit returned to the UI. This is not a persistence entity.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct SearchResult {
-    pub title: String,
-    pub source: String,
-    pub content_type: String,
-    pub score: String,
-    pub excerpt: String,
-    pub updated_at: String,
+pub struct GrepResult {
+    pub file_uri: String,
 }
 
-/// Status of the local MCP server exposed by the application.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct McpServer {
@@ -64,7 +57,6 @@ pub struct McpServer {
     pub started_at: DateTime<Utc>,
 }
 
-/// Locations and plugin discovery settings displayed by the settings screen.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ApplicationSettings {

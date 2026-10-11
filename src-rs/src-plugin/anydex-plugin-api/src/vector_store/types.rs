@@ -1,15 +1,14 @@
 use serde::{Deserialize, Serialize};
 
-pub type IndexId = i32;
-pub type IndexerId = i32;
-pub type FileId = i32;
+pub type IndexId = String;
+pub type FileId = u64;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Chunk {
-    pub id: i32,
+    pub id: String,
     pub file_id: FileId,
-    pub indexer_id: IndexerId,
+    pub index_id: IndexId,
     pub content: String,
     pub content_vector: Vec<f32>,
 }

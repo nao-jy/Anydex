@@ -1,9 +1,9 @@
-use anydex_plugin_api_lib::vector_store::types::{Chunk, FileId, IndexId, IndexerId, SearchHit};
+use anydex_plugin_api_lib::vector_store::types::{Chunk, FileId, IndexId, SearchHit};
 
 use futures::StreamExt;
+use lancedb::arrow::arrow_array::UInt64Array;
 use lancedb::arrow::arrow_array::{
-    types::Float32Type, Array, FixedSizeListArray, Float32Array, Int32Array, RecordBatch,
-    StringArray,
+    types::Float32Type, Array, FixedSizeListArray, Float32Array, RecordBatch, StringArray,
 };
 use lancedb::arrow::arrow_schema::{DataType, Field, Schema};
 use lancedb::connect;
@@ -53,8 +53,8 @@ impl DB {
             let schema = Arc::new(Schema::new(vec![
                 Field::new("chunk_json", DataType::Utf8, false),
                 Field::new(CONTENT_COLUMN, DataType::Utf8, false),
-                Field::new("indexer_id", DataType::Int32, false),
-                Field::new("file_id", DataType::Int32, false),
+                Field::new("index_id", DataType::Utf8, false),
+                Field::new("file_id", DataType::Int64, false),
                 Field::new(
                     VECTOR_COLUMN,
                     DataType::FixedSizeList(
@@ -85,14 +85,6 @@ impl DB {
 
     pub fn delete_by_file(&self, file_id: FileId) -> Result<(), String> {
         let predicate = format!("file_id = {file_id}");
-        self.rt
-            .block_on(self.table.delete(&predicate))
-            .map_err(|err| err.to_string())?;
-        Ok(())
-    }
-
-    pub fn delete_by_indexer(&self, indexer_id: IndexerId) -> Result<(), String> {
-        let predicate = format!("indexer_id = {indexer_id}");
         self.rt
             .block_on(self.table.delete(&predicate))
             .map_err(|err| err.to_string())?;
@@ -131,9 +123,9 @@ impl DB {
             .iter()
             .map(|chunk| chunk.content.as_str())
             .collect::<Vec<_>>();
-        let indexer_ids = chunks
+        let index_ids = chunks
             .iter()
-            .map(|chunk| chunk.indexer_id)
+            .map(|chunk| chunk.index_id.clone())
             .collect::<Vec<_>>();
         let file_ids = chunks.iter().map(|chunk| chunk.file_id).collect::<Vec<_>>();
         let vectors = FixedSizeListArray::from_iter_primitive::<Float32Type, _, _>(
@@ -157,8 +149,8 @@ impl DB {
             vec![
                 Arc::new(StringArray::from(chunk_json)),
                 Arc::new(StringArray::from(content)),
-                Arc::new(Int32Array::from(indexer_ids)),
-                Arc::new(Int32Array::from(file_ids)),
+                Arc::new(StringArray::from(index_ids)),
+                Arc::new(UInt64Array::from(file_ids)),
                 Arc::new(vectors),
             ],
         )
@@ -309,11 +301,11 @@ mod tests {
         }
     }
 
-    fn test_chunk(id: i32, indexer_id: i32, file_id: i32) -> Chunk {
+    fn test_chunk(id: String, index_id: String, file_id: i32) -> Chunk {
         serde_json::from_value(json!({
             "id": id,
             "fileId": file_id,
-            "indexerId": indexer_id,
+            "indexId": index_id,
             "content": format!("chunk {id}"),
             "contentVector": [1.0, 0.0],
         }))
@@ -323,11 +315,11 @@ mod tests {
     #[test]
     fn searches_only_target_files_and_supports_deletion() {
         init_db().unwrap();
-        let timestamp = SystemTime::now()
+        let index_id = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_nanos() as i32;
-        let index_id = timestamp.saturating_abs().max(1);
+            .as_nanos()
+            .to_string();
         let path = format!("./data/{index_id}");
         assert!(
             !Path::new(&path).exists(),
@@ -335,19 +327,20 @@ mod tests {
         );
         let _cleanup = TestDatabasePath(path);
 
-        let db = DB::init_table(index_id, &Param { dimensions: 2 }).unwrap();
-        let mut aligned = test_chunk(1, 10, 100);
+        let db = DB::init_table(index_id.clone(), &Param { dimensions: 2 }).unwrap();
+        let mut aligned = test_chunk("1".into(), index_id.clone(), 100);
         aligned.content_vector = vec![10.0, 0.0];
-        let mut other_file = test_chunk(2, 20, 200);
+        let mut other_file = test_chunk("2".into(), index_id.clone(), 200);
         other_file.content_vector = vec![1.0, 1.0];
         db.insert(vec![aligned, other_file]).unwrap();
 
         let nearest = db.search(None, &[1.0, 0.0], &[100, 200], 0, 1).unwrap();
-        assert_eq!(nearest[0].chunk.id, 1);
+        assert_eq!(nearest[0].chunk.id, "1");
+        assert_eq!(nearest[0].chunk.index_id, index_id);
 
         let results = db.search(None, &[1.0, 0.0], &[200], 0, 10).unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].chunk.id, 2);
+        assert_eq!(results[0].chunk.id, "2");
         assert!(db.search(None, &[1.0, 0.0], &[], 0, 10).unwrap().is_empty());
 
         db.delete_by_file(100).unwrap();
@@ -355,15 +348,16 @@ mod tests {
             .search(None, &[1.0, 0.0], &[100, 200], 0, 10)
             .unwrap()
             .iter()
-            .all(|hit| hit.chunk.id != 1));
+            .all(|hit| hit.chunk.id != "1"));
 
-        db.delete_by_indexer(20).unwrap();
+        db.delete_by_file(200).unwrap();
         assert!(db
             .search(None, &[1.0, 0.0], &[100, 200], 0, 10)
             .unwrap()
             .is_empty());
 
-        db.insert(vec![test_chunk(3, 30, 300)]).unwrap();
+        db.insert(vec![test_chunk("3".into(), index_id.clone(), 300)])
+            .unwrap();
         db.clear().unwrap();
         assert!(db
             .search(None, &[1.0, 0.0], &[300], 0, 10)
@@ -374,11 +368,11 @@ mod tests {
     #[test]
     fn uses_hybrid_search_when_text_is_present() {
         init_db().unwrap();
-        let timestamp = SystemTime::now()
+        let index_id = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_nanos() as i32;
-        let index_id = timestamp.saturating_abs().max(1);
+            .as_nanos()
+            .to_string();
         let path = format!("./data/{index_id}");
         assert!(
             !Path::new(&path).exists(),
@@ -386,11 +380,11 @@ mod tests {
         );
         let _cleanup = TestDatabasePath(path);
 
-        let db = DB::init_table(index_id, &Param { dimensions: 2 }).unwrap();
-        let mut semantic_match = test_chunk(1, 10, 100);
+        let db = DB::init_table(index_id.clone(), &Param { dimensions: 2 }).unwrap();
+        let mut semantic_match = test_chunk("1".into(), index_id.clone(), 100);
         semantic_match.content = "unrelated content".into();
         semantic_match.content_vector = vec![1.0, 0.0];
-        let mut text_match = test_chunk(2, 10, 100);
+        let mut text_match = test_chunk("2".into(), index_id, 100);
         text_match.content = "distinctive searchable phrase".into();
         text_match.content_vector = vec![0.0, 1.0];
         db.insert(vec![semantic_match, text_match]).unwrap();
@@ -400,7 +394,7 @@ mod tests {
             .unwrap();
         let text_hit = results
             .iter()
-            .find(|hit| hit.chunk.id == 2)
+            .find(|hit| hit.chunk.id == "2")
             .expect("hybrid search should include the full-text match");
         assert!(text_hit.score > 0.0);
         assert!(text_hit.score < 1.0);

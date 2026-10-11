@@ -42,16 +42,7 @@ impl Job for ProcessFile {
         let args: ProcessFileArgs =
             serde_json::from_value(payload).map_err(|err| err.to_string())?;
 
-        let userdata = repository::json::load()?;
         let plugin_index_id = to_plugin_index_id(args.index_id);
-        if userdata.indexes.iter().any(|index| {
-            index.id != args.index_id && to_plugin_index_id(index.id) == plugin_index_id
-        }) {
-            return Err(format!(
-                "index ID collision in vector store for index {}",
-                args.index_id
-            ));
-        }
 
         let existing_file = sqlite::models::file::Entity::find()
             .filter(sqlite::models::file::Column::IndexId.eq(args.index_id.to_string()))
@@ -67,26 +58,7 @@ impl Job for ProcessFile {
                 .await
                 .map_err(|err| err.to_string())?,
         };
-        let file_id = match i32::try_from(file.id) {
-            Ok(file_id) => file_id,
-            Err(err) => {
-                if is_new_file {
-                    if let Err(delete_err) = sqlite::models::file::Entity::delete_by_id(file.id)
-                        .exec(&self.db)
-                        .await
-                    {
-                        return Err(format!(
-                            "file ID {} cannot be used by the vector store: {err}; failed to remove the new file record: {delete_err}",
-                            file.id
-                        ));
-                    }
-                }
-                return Err(format!(
-                    "file ID {} cannot be used by the vector store: {err}",
-                    file.id
-                ));
-            }
-        };
+        let file_id = file.id;
 
         let process_result = process_file_plugins(&args, plugin_index_id, file_id, &self.db).await;
         if let Err(err) = process_result {
@@ -230,7 +202,8 @@ fn process_file_plugins_sync(
     let file_extractor_handler =
         file_extractor.get_handler(&args.file_extractor.params, &extracted_dir_string)?;
     let embedder_handler = embedder.get_handler(&args.embedder.params)?;
-    let vector_store_handler = vector_store.get_handler(&args.vector_store.params, index_id)?;
+    let vector_store_handler =
+        vector_store.get_handler(&args.vector_store.params, index_id.clone())?;
 
     let downloaded_file = file_source.download(
         file_source_handler.handler,
@@ -247,7 +220,7 @@ fn process_file_plugins_sync(
     let extracted_files =
         file_extractor.extract(file_extractor_handler.handler, &downloaded_file)?;
     let mut chunks = Vec::with_capacity(extracted_files.len());
-    for (chunk_index, relative_path) in extracted_files.iter().enumerate() {
+    for (_size, relative_path) in extracted_files.iter().enumerate() {
         let relative_path = Path::new(relative_path);
         if relative_path.is_absolute()
             || relative_path
@@ -281,10 +254,9 @@ fn process_file_plugins_sync(
                 .ok_or_else(|| "extracted file path is not valid UTF-8".to_owned())?,
         )?;
         chunks.push(Chunk {
-            id: i32::try_from(chunk_index)
-                .map_err(|err| format!("too many extracted chunks: {err}"))?,
+            id: Uuid::now_v7().to_string(),
             file_id,
-            indexer_id: 0,
+            index_id: index_id.clone(),
             content,
             content_vector,
         });
@@ -300,14 +272,7 @@ fn process_file_plugins_sync(
 }
 
 fn to_plugin_index_id(index_id: Uuid) -> IndexId {
-    index_id
-        .as_bytes()
-        .iter()
-        .fold(2_166_136_261_u32, |hash, byte| {
-            (hash ^ u32::from(*byte)).wrapping_mul(16_777_619)
-        })
-        .wrapping_rem(i32::MAX as u32) as i32
-        + 1
+    index_id.to_string()
 }
 
 fn new_file_model(

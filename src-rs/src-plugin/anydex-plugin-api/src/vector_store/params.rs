@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::common::Handler;
-use crate::vector_store::types::{Chunk, FileId, IndexId, IndexerId, SearchHit, SearchRequest};
+use crate::vector_store::types::{Chunk, FileId, IndexId, SearchHit, SearchRequest};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,16 +38,9 @@ pub struct FreeHandlerData {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum DeleteCond {
-    ByFileId(FileId),
-    ByIndexerId(IndexerId),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct DeleteChunksArgs {
     pub handler: Handler,
-    pub condition: DeleteCond,
+    pub file_id: FileId,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

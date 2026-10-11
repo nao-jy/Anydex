@@ -23,7 +23,6 @@ pub mod window;
 macro_rules! app_commands {
     ($command_macro:ident) => {
         $command_macro![
-            ipc::search::greet,
             ipc::indexes::list_indexes,
             ipc::indexes::create_empty_index,
             ipc::indexes::rename_index,
@@ -43,7 +42,6 @@ macro_rules! app_commands {
             ipc::plugins::upsert_file_source,
             ipc::plugins::test_file_source,
             ipc::plugins::get_param_schema,
-            ipc::search::search_mock,
             ipc::oauth::list_oauth_client,
             ipc::oauth::create_empty_oauth_client,
             ipc::oauth::update_oauth_client,

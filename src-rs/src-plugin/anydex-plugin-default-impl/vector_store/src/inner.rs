@@ -50,10 +50,7 @@ pub fn delete_chunks(args: DeleteChunksArgs) -> Result<DeleteChunksData, String>
         .get(&handler)
         .ok_or(format!("handler {handler} not found"))?;
     let db = &info.db;
-    match args.condition {
-        DeleteCond::ByFileId(file_id) => db.delete_by_file(file_id)?,
-        DeleteCond::ByIndexerId(indexer_id) => db.delete_by_indexer(indexer_id)?,
-    };
+    db.delete_by_file(args.file_id)?;
     Ok(DeleteChunksData {})
 }
 

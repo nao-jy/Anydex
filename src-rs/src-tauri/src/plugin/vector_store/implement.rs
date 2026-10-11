@@ -79,20 +79,7 @@ impl VectorStore for DynamicVectorStore {
             DynamicVectorStore::V1(plugin_v1) => {
                 let args = DeleteChunksArgs {
                     handler,
-                    condition: DeleteCond::ByFileId(fild_id),
-                };
-                let _result = plugin_v1.apply_and_unwrap(args)?;
-                return Ok(());
-            }
-        }
-    }
-
-    fn delete_chunks_indexer(&self, handler: Handler, indexer_id: IndexerId) -> Result<(), String> {
-        match self {
-            DynamicVectorStore::V1(plugin_v1) => {
-                let args = DeleteChunksArgs {
-                    handler,
-                    condition: DeleteCond::ByIndexerId(indexer_id),
+                    file_id: fild_id,
                 };
                 let _result = plugin_v1.apply_and_unwrap(args)?;
                 return Ok(());
