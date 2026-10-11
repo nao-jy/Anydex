@@ -12,7 +12,10 @@ use lancedb::index::scalar::FullTextSearchQuery;
 use lancedb::index::{scalar::FtsIndexBuilder, Index, IndexType};
 use lancedb::query::{ExecutableQuery, QueryBase};
 use lancedb::{DistanceType, Table};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
+};
 use tokio::runtime::Runtime;
 
 use crate::param::Param;
@@ -54,7 +57,7 @@ impl DB {
                 Field::new("chunk_json", DataType::Utf8, false),
                 Field::new(CONTENT_COLUMN, DataType::Utf8, false),
                 Field::new("index_id", DataType::Utf8, false),
-                Field::new("file_id", DataType::Int64, false),
+                Field::new("file_id", DataType::UInt64, false),
                 Field::new(
                     VECTOR_COLUMN,
                     DataType::FixedSizeList(
@@ -164,18 +167,11 @@ impl DB {
     pub fn search(
         &self,
         text: Option<String>,
-        vec: &[f32],
+        vec: Option<Vec<f32>>,
         target_file_ids: &[FileId],
         offset: i32,
         limit: i32,
     ) -> Result<Vec<SearchHit>, String> {
-        if vec.len() != self.param.dimensions as usize {
-            return Err(format!(
-                "query vector dimension {}, expected {}",
-                vec.len(),
-                self.param.dimensions
-            ));
-        }
         if offset < 0 || limit < 0 {
             return Err("search offset and limit must not be negative".into());
         }
@@ -187,7 +183,22 @@ impl DB {
         }
 
         let text = text.filter(|text| !text.trim().is_empty());
-        let hybrid_search = text.is_some();
+        let vec = match vec {
+            Some(vec) => {
+                if vec.len() != self.param.dimensions as usize {
+                    return Err(format!(
+                        "query vector dimension {}, expected {}",
+                        vec.len(),
+                        self.param.dimensions
+                    ));
+                }
+                Some(vec)
+            }
+            None if text.is_some() => None,
+            None => return Err("text is required when the query embedding is absent".into()),
+        };
+        let full_text_only = vec.is_none();
+        let hybrid_search = vec.is_some() && text.is_some();
 
         let filter = format!(
             "file_id IN ({})",
@@ -197,35 +208,54 @@ impl DB {
                 .collect::<Vec<_>>()
                 .join(", ")
         );
-        let query = self
-            .table
-            .query()
-            .nearest_to(vec)
-            .map_err(|err| err.to_string())?
-            .column(VECTOR_COLUMN)
-            .distance_type(DistanceType::Cosine)
-            .only_if(filter);
-        let query = if let Some(text) = text {
-            let hybrid_limit = offset
-                .checked_add(limit)
-                .ok_or("search offset and limit are too large")?;
+        let batches = if let Some(vec) = vec {
+            let query = self
+                .table
+                .query()
+                .nearest_to(vec)
+                .map_err(|err| err.to_string())?
+                .column(VECTOR_COLUMN)
+                .distance_type(DistanceType::Cosine)
+                .only_if(&filter);
+            let query = if let Some(text) = text {
+                let hybrid_limit = offset
+                    .checked_add(limit)
+                    .ok_or("search offset and limit are too large")?;
+                let text_query = FullTextSearchQuery::new(text)
+                    .with_column(CONTENT_COLUMN.to_string())
+                    .map_err(|err| err.to_string())?;
+                query
+                    .full_text_search(text_query)
+                    .limit(hybrid_limit as usize)
+            } else {
+                query.offset(offset as usize).limit(limit as usize)
+            };
+            self.rt.block_on(query.execute())
+        } else {
+            let text = text.ok_or("text is required when the query embedding is absent")?;
             let text_query = FullTextSearchQuery::new(text)
                 .with_column(CONTENT_COLUMN.to_string())
                 .map_err(|err| err.to_string())?;
-            query
+            let query = self
+                .table
+                .query()
+                .only_if(&filter)
                 .full_text_search(text_query)
-                .limit(hybrid_limit as usize)
-        } else {
-            query.offset(offset as usize).limit(limit as usize)
+                .offset(offset as usize)
+                .limit(limit as usize);
+            self.rt.block_on(query.execute())
         };
-        let batches = self.rt.block_on(async { query.execute().await });
         let mut stream = batches.map_err(|err| err.to_string())?;
         let mut results = Vec::new();
         let mut skipped = 0;
         while let Some(batch) = self.rt.block_on(stream.next()) {
             let batch = batch.map_err(|err| err.to_string())?;
-            let score_column = if hybrid_search {
-                "_relevance_score"
+            let score_column = if full_text_only || hybrid_search {
+                if full_text_only {
+                    "_score"
+                } else {
+                    "_relevance_score"
+                }
             } else {
                 "_distance"
             };
@@ -271,7 +301,7 @@ impl DB {
             .map_err(|err| err.to_string())?;
         if indices.iter().any(|index| {
             index.index_type == IndexType::FTS
-                && index.columns.iter().any(|column| column == "chunk_json")
+                && index.columns.iter().any(|column| column == CONTENT_COLUMN)
         }) {
             return Ok(());
         }
@@ -293,6 +323,8 @@ mod tests {
     use std::path::Path;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    static TEST_INDEX_COUNTER: AtomicU64 = AtomicU64::new(0);
+
     struct TestDatabasePath(String);
 
     impl Drop for TestDatabasePath {
@@ -312,14 +344,19 @@ mod tests {
         .unwrap()
     }
 
+    fn test_index_id() -> String {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let counter = TEST_INDEX_COUNTER.fetch_add(1, Ordering::Relaxed);
+        format!("{timestamp}-{counter}")
+    }
+
     #[test]
     fn searches_only_target_files_and_supports_deletion() {
         init_db().unwrap();
-        let index_id = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-            .to_string();
+        let index_id = test_index_id();
         let path = format!("./data/{index_id}");
         assert!(
             !Path::new(&path).exists(),
@@ -334,25 +371,32 @@ mod tests {
         other_file.content_vector = vec![1.0, 1.0];
         db.insert(vec![aligned, other_file]).unwrap();
 
-        let nearest = db.search(None, &[1.0, 0.0], &[100, 200], 0, 1).unwrap();
+        let nearest = db
+            .search(None, Some(vec![1.0, 0.0]), &[100, 200], 0, 1)
+            .unwrap();
         assert_eq!(nearest[0].chunk.id, "1");
         assert_eq!(nearest[0].chunk.index_id, index_id);
 
-        let results = db.search(None, &[1.0, 0.0], &[200], 0, 10).unwrap();
+        let results = db
+            .search(None, Some(vec![1.0, 0.0]), &[200], 0, 10)
+            .unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].chunk.id, "2");
-        assert!(db.search(None, &[1.0, 0.0], &[], 0, 10).unwrap().is_empty());
+        assert!(db
+            .search(None, Some(vec![1.0, 0.0]), &[], 0, 10)
+            .unwrap()
+            .is_empty());
 
         db.delete_by_file(100).unwrap();
         assert!(db
-            .search(None, &[1.0, 0.0], &[100, 200], 0, 10)
+            .search(None, Some(vec![1.0, 0.0]), &[100, 200], 0, 10)
             .unwrap()
             .iter()
             .all(|hit| hit.chunk.id != "1"));
 
         db.delete_by_file(200).unwrap();
         assert!(db
-            .search(None, &[1.0, 0.0], &[100, 200], 0, 10)
+            .search(None, Some(vec![1.0, 0.0]), &[100, 200], 0, 10)
             .unwrap()
             .is_empty());
 
@@ -360,7 +404,7 @@ mod tests {
             .unwrap();
         db.clear().unwrap();
         assert!(db
-            .search(None, &[1.0, 0.0], &[300], 0, 10)
+            .search(None, Some(vec![1.0, 0.0]), &[300], 0, 10)
             .unwrap()
             .is_empty());
     }
@@ -368,11 +412,7 @@ mod tests {
     #[test]
     fn uses_hybrid_search_when_text_is_present() {
         init_db().unwrap();
-        let index_id = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-            .to_string();
+        let index_id = test_index_id();
         let path = format!("./data/{index_id}");
         assert!(
             !Path::new(&path).exists(),
@@ -390,7 +430,13 @@ mod tests {
         db.insert(vec![semantic_match, text_match]).unwrap();
 
         let results = db
-            .search(Some("distinctive".into()), &[1.0, 0.0], &[100], 0, 10)
+            .search(
+                Some("distinctive".into()),
+                Some(vec![1.0, 0.0]),
+                &[100],
+                0,
+                10,
+            )
             .unwrap();
         let text_hit = results
             .iter()
@@ -400,8 +446,66 @@ mod tests {
         assert!(text_hit.score < 1.0);
 
         let next_page = db
-            .search(Some("distinctive".into()), &[1.0, 0.0], &[100], 1, 10)
+            .search(
+                Some("distinctive".into()),
+                Some(vec![1.0, 0.0]),
+                &[100],
+                1,
+                10,
+            )
             .unwrap();
         assert_eq!(next_page.len(), 1);
+    }
+
+    #[test]
+    fn searches_text_without_an_embedding() {
+        init_db().unwrap();
+        let index_id = test_index_id();
+        let path = format!("./data/{index_id}");
+        assert!(
+            !Path::new(&path).exists(),
+            "test database path already exists"
+        );
+        let _cleanup = TestDatabasePath(path);
+
+        let db = DB::init_table(index_id.clone(), &Param { dimensions: 2 }).unwrap();
+        let mut matching = test_chunk("1".into(), index_id.clone(), 100);
+        matching.content = "distinctive exact phrase".into();
+        matching.content_vector = vec![0.0, 1.0];
+        let mut unrelated = test_chunk("2".into(), index_id.clone(), 100);
+        unrelated.content = "unrelated content".into();
+        unrelated.content_vector = vec![1.0, 0.0];
+        let mut other_file = test_chunk("3".into(), index_id.clone(), 200);
+        other_file.content = "distinctive phrase in another file".into();
+        db.insert(vec![matching, unrelated, other_file]).unwrap();
+
+        let results = db
+            .search(Some("distinctive".into()), None, &[100], 0, 10)
+            .unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].chunk.id, "1");
+        assert!(results[0].score > 0.0);
+
+        let next_page = db
+            .search(Some("distinctive".into()), None, &[200], 0, 10)
+            .unwrap();
+        assert_eq!(next_page.len(), 1);
+        assert_eq!(next_page[0].chunk.id, "3");
+    }
+
+    #[test]
+    fn rejects_textless_search_without_an_embedding() {
+        init_db().unwrap();
+        let index_id = test_index_id();
+        let path = format!("./data/{index_id}");
+        assert!(
+            !Path::new(&path).exists(),
+            "test database path already exists"
+        );
+        let _cleanup = TestDatabasePath(path);
+        let db = DB::init_table(index_id, &Param { dimensions: 2 }).unwrap();
+
+        assert!(db.search(None, None, &[100], 0, 10).is_err());
+        assert!(db.search(Some("  ".into()), None, &[100], 0, 10).is_err());
     }
 }

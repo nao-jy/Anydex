@@ -24,7 +24,7 @@ pub struct SearchHit {
 #[serde(rename_all = "camelCase")]
 pub struct SearchRequest {
     pub text: Option<String>,
-    pub embedding: Vec<f32>,
+    pub embedding: Option<Vec<f32>>,
     pub target_file_ids: Vec<FileId>,
     pub offset: i32,
     pub limit: i32,

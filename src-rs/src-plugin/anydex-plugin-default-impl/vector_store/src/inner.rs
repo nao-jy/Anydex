@@ -89,7 +89,7 @@ pub fn search(args: SearchArgs) -> Result<SearchData, String> {
     let cond = args.search_request.target_file_ids;
     let result = db.search(
         text,
-        &vec,
+        vec,
         &cond,
         args.search_request.offset,
         args.search_request.limit,

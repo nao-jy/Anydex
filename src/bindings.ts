@@ -4,7 +4,6 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 
 /** Commands */
 export const commands = {
-	greet: (name: string) => __TAURI_INVOKE<string>("greet", { name }),
 	listIndexes: () => typedError<Index[], string>(__TAURI_INVOKE("list_indexes")),
 	createEmptyIndex: () => typedError<null, string>(__TAURI_INVOKE("create_empty_index")),
 	renameIndex: (indexId: string, name: string) => typedError<null, string>(__TAURI_INVOKE("rename_index", { indexId, name })),
@@ -30,7 +29,9 @@ export const commands = {
 	upsertFileSource: (indexId: string, fileSourceName: string, paramsJson: string, oauthId: string | null) => typedError<null, string>(__TAURI_INVOKE("upsert_file_source", { indexId, fileSourceName, paramsJson, oauthId })),
 	testFileSource: (fileSourceName: string, paramsJson: string, oauthId: string | null) => typedError<null, string>(__TAURI_INVOKE("test_file_source", { fileSourceName, paramsJson, oauthId })),
 	getParamSchema: (pluginType: PluginType, pluginName: string) => __TAURI_INVOKE<string | null>("get_param_schema", { pluginType, pluginName }),
-	searchMock: (query: string) => __TAURI_INVOKE<SearchResult[]>("search_mock", { query }),
+	listDirectory: (indexId: string, path: string) => typedError<ListDirectoryResult, string>(__TAURI_INVOKE("list_directory", { indexId, path })),
+	grep: (indexId: string, pattern: string, target: string, semantic: boolean) => typedError<GrepResult, string>(__TAURI_INVOKE("grep", { indexId, pattern, target, semantic })),
+	getFileInfo: (indexId: string, uri: string) => typedError<GetFileInfoResult, string>(__TAURI_INVOKE("get_file_info", { indexId, uri })),
 	listOauthClient: () => typedError<OAuthClient[], string>(__TAURI_INVOKE("list_oauth_client")),
 	createEmptyOauthClient: () => typedError<null, string>(__TAURI_INVOKE("create_empty_oauth_client")),
 	updateOauthClient: (data: OAuthClient) => typedError<null, string>(__TAURI_INVOKE("update_oauth_client", { data })),
@@ -40,10 +41,15 @@ export const commands = {
 };
 
 /* Types */
-/**  Locations and plugin discovery settings displayed by the settings screen. */
 export type ApplicationSettings = {
 	databasePath: string,
 	logDirectory: string,
+};
+
+export type DirectoryEntry = {
+	name: string,
+	path: string,
+	isDirectory: boolean,
 };
 
 export type Embedder = {
@@ -56,10 +62,40 @@ export type FileExtractor = {
 	params: any,
 };
 
+export type FileMetadata = {
+	/**  Serialized as a decimal string to avoid JavaScript integer precision loss. */
+	id: string,
+	indexId: string,
+	name: string,
+	fileUri: string,
+	filePath: string,
+	fileDir: string,
+	fileName: string,
+	contentType: string,
+	/**  A decimal string avoids losing precision when represented by JavaScript. */
+	size: string,
+	updatedAt: string | null,
+	fileHash: string | null,
+};
+
 export type FileSource = {
 	name: string,
 	params: any,
 	oauthId: string | null,
+};
+
+export type GetFileInfoResult = {
+	file: FileMetadata,
+};
+
+export type GrepMatch = {
+	file: FileMetadata,
+	content: string,
+	score: number | null,
+};
+
+export type GrepResult = {
+	matches: GrepMatch[],
 };
 
 export type Index = {
@@ -88,7 +124,10 @@ export type Job = {
 	updatedAt: string,
 };
 
-/**  Status of the local MCP server exposed by the application. */
+export type ListDirectoryResult = {
+	entries: DirectoryEntry[],
+};
+
 export type McpServer = {
 	port: number,
 	startedAt: string,
@@ -117,16 +156,6 @@ export type PluginType = "fileSource" | "fileExtractor" | "embedder" | "vectorSt
 export type Schedule = {
 	rfc5545Rrule: string,
 	catchupWhenMissed: boolean,
-};
-
-/**  A semantic-search hit returned to the UI. This is not a persistence entity. */
-export type SearchResult = {
-	title: string,
-	source: string,
-	contentType: string,
-	score: string,
-	excerpt: string,
-	updatedAt: string,
 };
 
 export type VectorStore = {

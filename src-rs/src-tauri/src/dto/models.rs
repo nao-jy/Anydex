@@ -46,12 +46,6 @@ pub struct IndexingHistory {
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct GrepResult {
-    pub file_uri: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
 pub struct McpServer {
     pub port: u16,
     pub started_at: DateTime<Utc>,
