@@ -318,7 +318,7 @@ mod tests {
     use super::*;
     use serde_json::json;
     use std::path::Path;
-    use std::sync::atomic::AtomicU64;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     static TEST_INDEX_COUNTER: AtomicU64 = AtomicU64::new(0);
