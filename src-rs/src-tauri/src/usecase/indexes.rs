@@ -1,11 +1,14 @@
 use chrono::Utc;
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set, TransactionTrait,
+    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect, Set,
+    TransactionTrait,
 };
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
     bg_job::{entry::JobType, job::collect_diff::CollectDiffArgs},
+    dto::models::IndexWithLastHistory,
     repository::{
         self,
         json::{
@@ -25,9 +28,29 @@ use crate::{
     },
 };
 
-pub async fn list_indexes() -> Result<Vec<Index>, String> {
+pub async fn list_indexes(db: &DatabaseConnection) -> Result<Vec<IndexWithLastHistory>, String> {
     let userdata = load()?;
-    Ok(userdata.indexes)
+    let histories = sqlite::models::indexing_history::Entity::find()
+        .order_by_desc(sqlite::models::indexing_history::Column::StartedAt)
+        .order_by_desc(sqlite::models::indexing_history::Column::Id)
+        .all(db)
+        .await
+        .map_err(|err| err.to_string())?;
+    let mut last_started_at = HashMap::new();
+    for history in histories {
+        last_started_at
+            .entry(history.index_id)
+            .or_insert(history.started_at);
+    }
+
+    Ok(userdata
+        .indexes
+        .iter()
+        .map(|index| IndexWithLastHistory {
+            last_indexing_started_at: last_started_at.get(&index.id.to_string()).copied(),
+            index: index.clone(),
+        })
+        .collect())
 }
 
 pub async fn create_empty_index() -> Result<(), String> {

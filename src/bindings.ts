@@ -4,7 +4,7 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 
 /** Commands */
 export const commands = {
-	listIndexes: () => typedError<Index[], string>(__TAURI_INVOKE("list_indexes")),
+	listIndexes: () => typedError<IndexWithLastHistory[], string>(__TAURI_INVOKE("list_indexes")),
 	createEmptyIndex: () => typedError<null, string>(__TAURI_INVOKE("create_empty_index")),
 	renameIndex: (indexId: string, name: string) => typedError<null, string>(__TAURI_INVOKE("rename_index", { indexId, name })),
 	putDescription: (indexId: string, description: string) => typedError<null, string>(__TAURI_INVOKE("put_description", { indexId, description })),
@@ -99,6 +99,11 @@ export type Index = {
 	embedder: Embedder | null,
 	vectorStore: VectorStore | null,
 	schedule: Schedule | null,
+};
+
+export type IndexWithLastHistory = {
+	index: Index,
+	lastIndexingStartedAt: string | null,
 };
 
 export type Job = {

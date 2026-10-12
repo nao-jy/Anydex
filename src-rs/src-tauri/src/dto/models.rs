@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::plugin::entry::PluginType;
+use crate::{plugin::entry::PluginType, repository::json::models::Index};
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -64,4 +64,11 @@ pub struct PluginInfo {
     pub plugin_type: PluginType,
     pub path: String,
     pub plugins: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexWithLastHistory {
+    pub index: Index,
+    pub last_indexing_started_at: Option<DateTime<Utc>>,
 }

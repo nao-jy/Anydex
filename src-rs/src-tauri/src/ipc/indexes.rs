@@ -2,10 +2,7 @@ use sea_orm::DatabaseConnection;
 use tauri::State;
 use uuid::Uuid;
 
-use crate::{
-    repository::json::models::{Index, Schedule},
-    usecase,
-};
+use crate::{dto::models::IndexWithLastHistory, repository::json::models::Schedule, usecase};
 
 #[tauri::command]
 #[specta::specta]
@@ -17,9 +14,11 @@ pub async fn upsert_schedule(index_id: Uuid, schedule: Option<Schedule>) -> Resu
 
 #[tauri::command]
 #[specta::specta]
-#[tracing::instrument()]
-pub async fn list_indexes() -> Result<Vec<Index>, String> {
-    usecase::indexes::list_indexes().await
+#[tracing::instrument(skip(database))]
+pub async fn list_indexes(
+    database: State<'_, DatabaseConnection>,
+) -> Result<Vec<IndexWithLastHistory>, String> {
+    usecase::indexes::list_indexes(database.inner()).await
 }
 
 #[tauri::command]

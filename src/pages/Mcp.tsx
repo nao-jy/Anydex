@@ -115,7 +115,7 @@ export const Mcp = () => {
               <SimpleGrid cols={{ base: 1, sm: 2 }} mt="lg">
                 <Metric
                   label="公開中のインデックス"
-                  value={`${indexes.filter((v) => v.useMcpServer).length} 件`}
+                  value={`${indexes.filter((v) => v.index.useMcpServer).length} 件`}
                 />
                 <Metric
                   label="ステータス"
@@ -160,7 +160,7 @@ export const Mcp = () => {
                 </Text>
               </Group>
               <Stack gap="xs" mt="md">
-                {indexes.map((index) => (
+                {indexes.map(({ index }) => (
                   <Paper key={index.id} withBorder p="md" radius="md">
                     <Group justify="space-between" wrap="nowrap">
                       <Box>

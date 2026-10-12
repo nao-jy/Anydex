@@ -29,7 +29,7 @@ import {
   EditableTextInput,
 } from "../components/EditableTextInput";
 
-type SortKey = "name";
+type SortKey = "name" | "lastIndexingStartedAt";
 type Direction = "asc" | "desc";
 
 export const Index = () => {
@@ -98,7 +98,21 @@ export const Index = () => {
   const sortedIndexes = useMemo(
     () =>
       [...indexes].sort((a, b) => {
-        const result = a[sortKey].localeCompare(b[sortKey], "ja");
+        if (sortKey === "name") {
+          const result = a.index.name.localeCompare(b.index.name, "ja");
+          return direction === "asc" ? result : -result;
+        }
+
+        const aStartedAt = a.lastIndexingStartedAt
+          ? Date.parse(a.lastIndexingStartedAt)
+          : null;
+        const bStartedAt = b.lastIndexingStartedAt
+          ? Date.parse(b.lastIndexingStartedAt)
+          : null;
+        if (aStartedAt === null) return bStartedAt === null ? 0 : 1;
+        if (bStartedAt === null) return -1;
+
+        const result = aStartedAt - bStartedAt;
         return direction === "asc" ? result : -result;
       }),
     [sortKey, direction, indexes],
@@ -136,8 +150,7 @@ export const Index = () => {
               {(
                 [
                   ["name", "名前"],
-                  ["createdAt", "作成日"],
-                  ["updatedAt", "最終更新日"],
+                  ["lastIndexingStartedAt", "最終実行日時"],
                 ] as [SortKey, string][]
               ).map(([key, label]) => (
                 <Button
@@ -175,7 +188,7 @@ export const Index = () => {
             variant="separated"
             radius="md"
           >
-            {sortedIndexes.map((index) => {
+            {sortedIndexes.map(({ index, lastIndexingStartedAt }) => {
               const onSubmitEmbedder = async (
                 event: IChangeEvent<any, RJSFSchema, any>,
                 plugin_name: string,
@@ -227,8 +240,14 @@ export const Index = () => {
                           </Text>
                         </Box>
                         <Group gap="xl" visibleFrom="sm">
-                          <DateInfo label="作成日" value={new Date()} />
-                          <DateInfo label="最終更新日" value={new Date()} />
+                          <DateInfo
+                            label="最終実行日時"
+                            value={
+                              lastIndexingStartedAt
+                                ? new Date(lastIndexingStartedAt)
+                                : null
+                            }
+                          />
                         </Group>
                       </Group>
                     </Accordion.Control>

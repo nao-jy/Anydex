@@ -88,12 +88,13 @@ fn serialize_result<T: Serialize>(result: T) -> Result<String, ErrorData> {
 impl McpServer {
     #[tool(description = "参照可能なインデックスのIDと名前を取得します。")]
     async fn list_indexes(&self) -> Result<String, ErrorData> {
-        let indexes = crate::usecase::indexes::list_indexes()
+        let indexes = crate::usecase::indexes::list_indexes(&self.db)
             .await
             .map_err(usecase_error)?;
         let summaries = indexes
             .into_iter()
-            .filter(|v| v.use_mcp_server)
+            .map(|v| v.index)
+            .filter(|index| index.use_mcp_server)
             .map(|index| IndexSummary {
                 id: index.id,
                 name: index.name,

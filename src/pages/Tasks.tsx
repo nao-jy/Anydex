@@ -11,7 +11,7 @@ import {
   Text,
   ThemeIcon,
 } from "@mantine/core";
-import { commands, type Index } from "../bindings";
+import { commands, type IndexWithLastHistory } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
 import { formatDateTime } from "../components/utils";
 import { PageHeader } from "../components/PageHeader";
@@ -115,10 +115,10 @@ export const Tasks = () => {
   );
 };
 
-function buildIndexerLabels(indexes: Index[]) {
+function buildIndexerLabels(indexes: IndexWithLastHistory[]) {
   return new Map(
     indexes.map(
-      (index) =>
+      ({ index }) =>
         [
           index.id,
           { indexName: index.name, sourceName: index.fileSource?.name },

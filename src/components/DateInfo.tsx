@@ -2,12 +2,12 @@ import { Box, Text } from "@mantine/core";
 
 interface DateInfoProps {
   label: string;
-  value: Date;
+  value: Date | null;
 }
 
 export const DateInfo = (params: DateInfoProps) => {
   const { label, value } = params;
-  const localValue = Number.isNaN(value.getTime())
+  const localValue = value === null || Number.isNaN(value.getTime())
     ? "-"
     : value.toLocaleString();
 

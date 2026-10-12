@@ -7,8 +7,9 @@ use uuid::Uuid;
 use crate::{
     dto::models::PluginInfo,
     plugin::{
-        entry::{PluginType, FILE_SOURCE_MGR},
+        entry::{PluginType, FILE_SOURCE_MGR, VECTOR_STORE_MGR},
         file_source::interface::FileSource,
+        vector_store::interface::VectorStore,
     },
     repository::json::{
         load,
@@ -60,7 +61,17 @@ pub async fn upsert_vector_store(
     let mut userdata = load()?;
     for index in userdata.indexes.iter_mut() {
         if index.id == index_id {
-            index.vector_store = Some(VectorStore {
+            if let Some(prev) = &index.vector_store {
+                let mut mgr_mtx = VECTOR_STORE_MGR.lock().unwrap();
+                let mgr = mgr_mtx.as_mut().unwrap();
+                let plugin_opt = mgr.get_plugin(&prev.name);
+                if let Some(plugin) = plugin_opt {
+                    if let Ok(handler) = plugin.get_handler(&prev.params, index_id.to_string()) {
+                        let _ = plugin.clear_chunks(handler.handler);
+                    }
+                }
+            }
+            index.vector_store = Some(crate::usecase::plugins::models::VectorStore {
                 name: vector_store_name,
                 params: serde_json::Value::from(params),
             });
