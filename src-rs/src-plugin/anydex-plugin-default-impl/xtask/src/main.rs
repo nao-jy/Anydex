@@ -115,7 +115,7 @@ fn get_plugin_path(conf: &Config, original_path: &PathBuf) -> Option<PathBuf> {
         .to_string_lossy()
         .to_string();
     let name_map = HashMap::from([
-        ("embedder", "web-json-api"),
+        ("embedder", "qwen3-vl"),
         ("file_extractor", "xberg"),
         ("file_source", "opendal"),
         ("vector_store", "lancedb"),
