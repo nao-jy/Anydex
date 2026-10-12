@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     fs,
     io::Cursor,
+    path::Path,
     sync::{LazyLock, Mutex},
 };
 
@@ -9,16 +10,22 @@ use anydex_plugin_api_lib::{
     common::{Handler, LogLevel},
     embedder::params::*,
 };
-use base64::prelude::*;
+use candle_core::{DType, Device};
 use chardetng::{EncodingDetector, Iso2022JpDetection, Utf8Detection};
+use fastembed::Qwen3VLEmbedding;
 use image::{ImageFormat, ImageReader};
 use mime_guess::{mime, Mime};
 use schemars::schema_for;
+use uuid::Uuid;
 
-use crate::{log, param::Param};
+use crate::{
+    log,
+    param::{BackendDevice, Param},
+};
 
 struct HandleInfo {
-    pub param: Param,
+    pub _param: Param,
+    pub model: Qwen3VLEmbedding,
 }
 
 static HANDLERS: LazyLock<Mutex<HashMap<Handler, HandleInfo>>> =
@@ -40,8 +47,18 @@ pub fn get_handler(args: GetHandlerArgs) -> Result<GetHandlerData, String> {
     let handler = (*handler_mtx).clone();
     (*handler_mtx) += 1;
 
+    let device = get_device(&param_result.device)?;
+    let model = Qwen3VLEmbedding::from_hf(
+        "Qwen/Qwen3-VL-Embedding-2B",
+        &device,
+        DType::F32,
+        param_result.dimensions as usize,
+    )
+    .map_err(|err| err.to_string())?;
+
     let info = HandleInfo {
-        param: param_result,
+        _param: param_result,
+        model,
     };
 
     HANDLERS.lock().unwrap().insert(handler, info);
@@ -60,32 +77,99 @@ pub fn embed(args: EmbedArgs) -> Result<EmbedData, String> {
         .get_mut(&handler)
         .ok_or(format!("handler {handler} not found"))?;
 
-    let param = &info.param;
     let file_path_str = &args.file_path;
-    let (extracted_opt, mime_type) = extract_from(file_path_str, ImageFormat::Png)?;
-    let extracted = extracted_opt.ok_or(format!("extraction failed from {file_path_str}"))?;
+    let source_path = Path::new(file_path_str);
+    let image_output_path = source_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(format!("{}.png", Uuid::new_v4()));
 
-    let api_param = param
-        .get_api_param(&mime_type)
-        .ok_or(format!("processable api param not found"))?;
+    let result = (|| {
+        let (extracted_opt, _mime_type) =
+            extract_from(file_path_str, &image_output_path, ImageFormat::Png)?;
+        let extracted = extracted_opt.ok_or(format!("extraction failed from {file_path_str}"))?;
 
-    let embedding = match extracted {
-        ExtractType::Text(content) => api_param.try_get_embedding(Some(content), None),
-        ExtractType::ImageBase64(content) => api_param.try_get_embedding(None, Some(content)),
-    }?;
+        let model = &info.model;
 
-    return Ok(EmbedData {
-        embeddings: embedding,
-    });
+        let embedding = match extracted {
+            ExtractType::Text(content) => model
+                .embed_texts(&[content])
+                .map_err(|err| err.to_string())?,
+            ExtractType::ImagePngPath => model
+                .embed_images(&[&image_output_path])
+                .map_err(|err| err.to_string())?,
+        };
+
+        Ok(EmbedData {
+            embeddings: embedding
+                .get(0)
+                .ok_or_else(|| "embedding not yielded".to_string())?
+                .to_vec(),
+        })
+    })();
+
+    match fs::remove_file(&image_output_path) {
+        Ok(()) => result,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => result,
+        Err(cleanup_err) => match result {
+            Ok(_) => Err(format!(
+                "failed to remove temporary image {}: {cleanup_err}",
+                image_output_path.display()
+            )),
+            Err(processing_err) => Err(format!(
+                "{processing_err}; failed to remove temporary image {}: {cleanup_err}",
+                image_output_path.display()
+            )),
+        },
+    }
+}
+
+fn get_device(backend: &BackendDevice) -> Result<Device, String> {
+    match backend {
+        BackendDevice::Cpu => Ok(Device::Cpu),
+        BackendDevice::Cuda => {
+            #[cfg(feature = "cuda")]
+            {
+                let device = Device::cuda_if_available(0).map_err(|err| err.to_string())?;
+                if device.is_cpu() {
+                    return Err("CUDA was requested, but no CUDA device is available".into());
+                }
+                Ok(device)
+            }
+            #[cfg(not(feature = "cuda"))]
+            {
+                Err("CUDA support is not enabled; rebuild with --features cuda".into())
+            }
+        }
+        BackendDevice::Metal => {
+            #[cfg(all(feature = "metal", target_os = "macos"))]
+            {
+                let device = Device::metal_if_available(0).map_err(|err| err.to_string())?;
+                if device.is_cpu() {
+                    return Err("Metal was requested, but no Metal device is available".into());
+                }
+                Ok(device)
+            }
+            #[cfg(all(feature = "metal", not(target_os = "macos")))]
+            {
+                Err("Metal support is only available on macOS".into())
+            }
+            #[cfg(not(feature = "metal"))]
+            {
+                Err("Metal support is not enabled; rebuild with --features metal".into())
+            }
+        }
+    }
 }
 
 enum ExtractType {
     Text(String),
-    ImageBase64(String),
+    ImagePngPath,
 }
 
 fn extract_from(
     file_path: &str,
+    image_output_path: &Path,
     image_format: ImageFormat,
 ) -> Result<(Option<ExtractType>, Mime), String> {
     let guess = mime_guess::from_path(file_path);
@@ -120,8 +204,9 @@ fn extract_from(
                 .write_to(&mut output, image_format)
                 .map_err(|err| err.to_string())?;
 
-            let encoded = BASE64_STANDARD.encode(output.into_inner());
-            Ok((Some(ExtractType::ImageBase64(encoded)), mime))
+            fs::write(image_output_path, output.into_inner()).map_err(|err| err.to_string())?;
+
+            Ok((Some(ExtractType::ImagePngPath), mime))
         }
         _ => Err(format!("unsupported mime: {mime}")),
     }
