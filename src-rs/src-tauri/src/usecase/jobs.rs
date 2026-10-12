@@ -5,7 +5,7 @@ use sea_orm::{
 use serde_json::Value;
 
 use crate::{
-    bg_job::{entry::JobType, job::collect_diff::CollectDiffArgs},
+    bg_job::entry::JobType,
     dto,
     repository::{
         self,
@@ -40,28 +40,6 @@ pub async fn list_active_jobs(
         })
         .collect();
     Ok(tasks)
-}
-
-pub async fn start_indexing(
-    database: &DatabaseConnection,
-    index_id: uuid::Uuid,
-) -> Result<(), String> {
-    let job = JobInfo {
-        job_type: JobType::CollectDiff,
-        args: serde_json::to_value(CollectDiffArgs { index_id }).unwrap(),
-    };
-    add_jobs(database, index_id, vec![job]).await?;
-    let now = Utc::now();
-    let history = repository::sqlite::models::indexing_history::ActiveModel {
-        index_id: Set(index_id.to_string()),
-        started_at: Set(now),
-        ..repository::sqlite::models::indexing_history::ActiveModel::default()
-    };
-    repository::sqlite::models::indexing_history::Entity::insert(history)
-        .exec(database)
-        .await
-        .map_err(|err| err.to_string())?;
-    Ok(())
 }
 
 pub struct JobInfo {

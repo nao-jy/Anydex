@@ -410,7 +410,14 @@ export const Index = () => {
                         initParams={index.vectorStore?.params}
                       />
                       <Group gap="xs" mt={24} wrap="nowrap">
-                        <Button size="sm">{"今すぐ実行"}</Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            commands.startIndexing(index.id);
+                          }}
+                        >
+                          {"今すぐ実行"}
+                        </Button>
                       </Group>
                     </Stack>
                   </Accordion.Panel>

@@ -1,23 +1,13 @@
-use std::{
-    collections::{HashMap, HashSet},
-    str::FromStr,
-    time::Duration,
-};
+use std::{collections::HashMap, str::FromStr, time::Duration};
 
 use chrono::{DateTime, Utc};
 use rrule::RRuleSet;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{DatabaseConnection, EntityTrait, QueryOrder};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    repository::{
-        json,
-        sqlite::models::{
-            indexing_history,
-            job::{self, STATUS_RUNNING},
-        },
-    },
-    usecase::jobs::start_indexing,
+    repository::{json, sqlite::models::indexing_history},
+    usecase::indexes::{is_indexing_running, start_indexing},
 };
 
 const CHECK_INTERVAL: Duration = Duration::from_secs(30);
@@ -59,15 +49,6 @@ async fn check_schedules(
         histories.insert(history.index_id, history.started_at);
     }
 
-    let running_jobs = job::Entity::find()
-        .filter(job::Column::Status.eq(STATUS_RUNNING))
-        .all(db)
-        .await
-        .map_err(|err| err.to_string())?
-        .into_iter()
-        .map(|job| job.index_id)
-        .collect::<HashSet<_>>();
-
     for index in userdata.indexes {
         let Some(schedule) = index.schedule else {
             continue;
@@ -86,8 +67,8 @@ async fn check_schedules(
                 continue;
             }
         };
-        if should_start_indexing(due, running_jobs.contains(&index.id.to_string())) {
-            if let Err(error) = start_indexing(db, index.id).await {
+        if should_start_indexing(due, is_indexing_running(index.id, db).await?) {
+            if let Err(error) = start_indexing(index.id, db).await {
                 tracing::error!(index_id = %index.id, %error, "failed to start scheduled indexing");
             }
         }

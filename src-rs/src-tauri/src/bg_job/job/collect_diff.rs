@@ -13,6 +13,7 @@ use crate::{
     repository::json::load,
     usecase::{
         files::{delete_files, get_all_indexed_files},
+        indexes::{is_index_ready, is_indexing_running},
         jobs::{add_jobs, JobInfo},
         oauth::get_authentication,
     },
@@ -38,6 +39,10 @@ impl Job for CollectDiff {
     async fn process(&self, payload: Value) -> Result<(), String> {
         let args: CollectDiffArgs =
             serde_json::from_value(payload).map_err(|err| err.to_string())?;
+        is_index_ready(args.index_id, &self.db).await?;
+        if is_indexing_running(args.index_id, &self.db).await? {
+            return Err("indexer already running".into());
+        };
         let userdata = load()?;
         let index = userdata
             .indexes

@@ -59,3 +59,13 @@ pub async fn delete_index(
 ) -> Result<(), String> {
     usecase::indexes::delete_index(index_id, database.inner()).await
 }
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(database))]
+pub async fn start_indexing(
+    index_id: Uuid,
+    database: State<'_, DatabaseConnection>,
+) -> Result<(), String> {
+    usecase::indexes::start_indexing(index_id, database.inner()).await
+}

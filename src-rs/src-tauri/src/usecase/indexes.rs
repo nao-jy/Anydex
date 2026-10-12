@@ -1,16 +1,28 @@
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, TransactionTrait};
+use chrono::Utc;
+use sea_orm::{
+    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set, TransactionTrait,
+};
 use uuid::Uuid;
 
 use crate::{
+    bg_job::{entry::JobType, job::collect_diff::CollectDiffArgs},
     repository::{
+        self,
         json::{
             load,
             models::{Index, Schedule},
             save,
         },
-        sqlite::{self},
+        sqlite::{
+            self,
+            models::job::{STATUS_PENDING, STATUS_RUNNING},
+        },
     },
-    usecase::oauth::delete_authentication,
+    usecase::{
+        jobs::{add_jobs, JobInfo},
+        oauth::delete_authentication,
+        plugins::test_file_source,
+    },
 };
 
 pub async fn list_indexes() -> Result<Vec<Index>, String> {
@@ -95,4 +107,69 @@ pub async fn upsert_schedule(index_id: Uuid, schedule: Option<Schedule>) -> Resu
         }
     }
     save(&userdata)
+}
+
+pub async fn start_indexing(index_id: Uuid, database: &DatabaseConnection) -> Result<(), String> {
+    if is_indexing_running(index_id, database).await? {
+        return Err("already indexing".into());
+    }
+    is_index_ready(index_id, database).await?;
+
+    let job = JobInfo {
+        job_type: JobType::CollectDiff,
+        args: serde_json::to_value(CollectDiffArgs { index_id }).unwrap(),
+    };
+    add_jobs(database, index_id, vec![job]).await?;
+    let now = Utc::now();
+    let history = repository::sqlite::models::indexing_history::ActiveModel {
+        index_id: Set(index_id.to_string()),
+        started_at: Set(now),
+        ..repository::sqlite::models::indexing_history::ActiveModel::default()
+    };
+    repository::sqlite::models::indexing_history::Entity::insert(history)
+        .exec(database)
+        .await
+        .map_err(|err| err.to_string())?;
+    Ok(())
+}
+
+pub async fn is_indexing_running(
+    index_id: Uuid,
+    database: &DatabaseConnection,
+) -> Result<bool, String> {
+    Ok(sqlite::models::job::Entity::find()
+        .filter(sqlite::models::job::Column::IndexId.eq(index_id.to_string()))
+        .filter(sqlite::models::job::Column::Status.is_in(vec![STATUS_PENDING, STATUS_RUNNING]))
+        .limit(1)
+        .one(database)
+        .await
+        .map_err(|err| err.to_string())?
+        .is_some())
+}
+
+pub async fn is_index_ready(index_id: Uuid, database: &DatabaseConnection) -> Result<(), String> {
+    let userdata = load()?;
+    let index = userdata
+        .indexes
+        .iter()
+        .find(|v| v.id == index_id)
+        .ok_or("index not found")?;
+    if let Some(v) = &index.file_source {
+        test_file_source(index_id, v.name.to_owned(), v.params.to_string(), database).await?;
+    } else {
+        return Err("file source is not set".into());
+    }
+    if let Some(_v) = &index.file_extractor {
+    } else {
+        return Err("file extractor is not set".into());
+    }
+    if let Some(_v) = &index.embedder {
+    } else {
+        return Err("embedder is not set".into());
+    }
+    if let Some(_v) = &index.vector_store {
+    } else {
+        return Err("vector store is not set".into());
+    }
+    Ok(())
 }
