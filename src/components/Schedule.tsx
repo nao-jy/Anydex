@@ -20,6 +20,9 @@ import {
 import { DateTimePicker } from "@mantine/dates";
 import { CaretDownIcon, WarningIcon } from "@phosphor-icons/react";
 
+const getDefaultStartDt = () =>
+  Temporal.Now.zonedDateTimeISO().add({ days: 1 }).startOfDay();
+
 const toDtStart = (zdt: TemporalZonedDateTime) => {
   const local = zdt.toPlainDateTime();
 
@@ -37,10 +40,9 @@ interface ScheduleProps {
 
 export const ScheduleInput = (props: ScheduleProps) => {
   const { schedule, index_id, onUpsertSchedule, onDeleteSchedule } = props;
-  const now = Temporal.Now.zonedDateTimeISO();
   const defaultRuleStr =
     schedule?.rfc5545Rrule ??
-    `DTSTART;TZID=${toDtStart(now)}\nRRULE:FREQ=DAILY`;
+    `DTSTART;TZID=${toDtStart(getDefaultStartDt())}\nRRULE:FREQ=DAILY`;
   const rule = new RRuleTemporal({
     rruleString: defaultRuleStr,
   });
@@ -224,7 +226,7 @@ export const ScheduleInput = (props: ScheduleProps) => {
           {schedule === null && (
             <Alert
               color="yellow"
-              title="スケジュールは未設定です"
+              title="定期実行は未設定です"
               icon={<WarningIcon />}
             />
           )}

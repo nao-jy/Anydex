@@ -1,9 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   ActionIcon,
   Badge,
   Box,
-  Button,
   Card,
   Code,
   Container,
@@ -19,7 +18,6 @@ import { unwrapCommandResult } from "../tauri";
 import { PageHeader } from "../components/PageHeader";
 
 export const Settings = () => {
-  const queryClient = useQueryClient();
   const settingsQuery = useQuery({
     queryKey: ["applicationSettings"],
     queryFn: commands.getApplicationSettings,
@@ -27,13 +25,6 @@ export const Settings = () => {
   const getPluginInfo = useQuery({
     queryKey: ["getPluginInfo"],
     queryFn: async () => await unwrapCommandResult(commands.getPluginInfo()),
-  });
-  const reloadPlugins = useMutation({
-    mutationKey: ["reloadPlugins"],
-    mutationFn: async () => {
-      await unwrapCommandResult(commands.reloadPlugins());
-      queryClient.invalidateQueries({ queryKey: ["getPluginInfo"] });
-    },
   });
   const settings = settingsQuery.data;
 
@@ -63,16 +54,7 @@ export const Settings = () => {
             </Card>
 
             <Card withBorder radius="md" padding="lg">
-              <Group justify="space-between" align="flex-start">
-                <Text fw={700}>プラグイン</Text>
-                <Button
-                  variant="light"
-                  onClick={() => reloadPlugins.mutate()}
-                  loading={getPluginInfo.isPending || reloadPlugins.isPending}
-                >
-                  プラグインを再読み込み
-                </Button>
-              </Group>
+              <Text fw={700}>プラグイン</Text>
               <Stack gap="xs" mt="lg">
                 {getPluginInfo.data?.map((info) => (
                   <Paper key={info.pluginType} withBorder p="md" radius="md">

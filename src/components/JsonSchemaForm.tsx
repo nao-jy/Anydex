@@ -9,6 +9,7 @@ import Ajv2019 from "ajv/dist/2019";
 import { useMemo, useRef } from "react";
 
 const DefaultObjectField = getDefaultRegistry().fields.ObjectField;
+const ThemedForm = withTheme(MantineTheme);
 
 export const CustomObjectField = (props: FieldProps) => {
   const {
@@ -67,7 +68,13 @@ export interface JsonSchemaFormParams {
 export const JsonSchemaForm = (props: JsonSchemaFormParams) => {
   const { jsonSchema, onSubmit, initParams, submitButtonClosure, disabled } =
     props;
-  const Form = withTheme(MantineTheme);
+  const initialFormData =
+    typeof initParams === "string" &&
+    (jsonSchema.type === "object" ||
+      jsonSchema.properties !== undefined ||
+      jsonSchema.additionalProperties !== undefined)
+      ? JSON.parse(initParams)
+      : (initParams ?? undefined);
   const validator = customizeValidator({
     AjvClass: String(jsonSchema.$schema).includes("draft/2020")
       ? Ajv2020
@@ -84,12 +91,11 @@ export const JsonSchemaForm = (props: JsonSchemaFormParams) => {
       return <SubmitButton {...buttonProps} />;
     };
   }, []);
-
   return (
-    <Form
+    <ThemedForm
       ref={formRef}
       disabled={disabled}
-      formData={initParams ?? undefined}
+      initialFormData={initialFormData}
       schema={jsonSchema}
       validator={validator}
       fields={{
@@ -103,6 +109,6 @@ export const JsonSchemaForm = (props: JsonSchemaFormParams) => {
       onSubmit={(data) => {
         onSubmit(data);
       }}
-    ></Form>
+    ></ThemedForm>
   );
 };

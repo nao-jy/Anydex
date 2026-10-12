@@ -72,7 +72,7 @@ pub async fn set_index_mcp_server(index_id: Uuid, enabled: bool) -> Result<(), S
 pub async fn delete_index(index_id: Uuid, database: &DatabaseConnection) -> Result<(), String> {
     let transaction = database.begin().await.map_err(|err| err.to_string())?;
 
-    delete_authentication(index_id, database).await?;
+    delete_authentication(index_id, &transaction).await?;
 
     let _result = sqlite::models::file::Entity::delete_many()
         .filter(sqlite::models::file::Column::IndexId.eq(index_id.to_string()))

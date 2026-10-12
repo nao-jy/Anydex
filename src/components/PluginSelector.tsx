@@ -148,7 +148,6 @@ export const FileSourceSelector = (props: FileSourceSelectorProps) => {
     saving,
     error,
     plugin_type,
-    initParams,
     oauthClients,
     onSubmit,
   } = props;
@@ -266,6 +265,7 @@ export const FileSourceSelector = (props: FileSourceSelectorProps) => {
               value={oauthId}
               data={oauthClients.map((v) => ({ label: v.name, value: v.id }))}
               clearable
+              disabled={cantChange}
               onChange={(v) => {
                 setOauthId(v);
               }}
@@ -274,7 +274,7 @@ export const FileSourceSelector = (props: FileSourceSelectorProps) => {
             <JsonSchemaForm
               disabled={cantChange}
               key={resetKey}
-              initParams={initParams}
+              initParams={fileSource?.params}
               jsonSchema={paramSchema}
               onSubmit={(event) => {
                 if (selecting === null) return;

@@ -412,8 +412,13 @@ export const Index = () => {
                       <Group gap="xs" mt={24} wrap="nowrap">
                         <Button
                           size="sm"
-                          onClick={() => {
-                            commands.startIndexing(index.id);
+                          onClick={async () => {
+                            const result = await commands.startIndexing(
+                              index.id,
+                            );
+                            if (result.status === "error") {
+                              await showErrorDialog(result.error);
+                            }
                           }}
                         >
                           {"今すぐ実行"}

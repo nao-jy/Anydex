@@ -1,4 +1,6 @@
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter};
+use sea_orm::{
+    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -116,9 +118,9 @@ pub fn abort_oauth(client_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub async fn delete_authentication(
+pub async fn delete_authentication<T: ConnectionTrait>(
     index_id: Uuid,
-    database: &DatabaseConnection,
+    database: &T,
 ) -> Result<(), String> {
     let mut data = sqlite::models::oauth_authentication::Entity::find_by_id(index_id.to_string())
         .one(database)
