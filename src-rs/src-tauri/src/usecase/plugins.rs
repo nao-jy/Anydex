@@ -1,6 +1,7 @@
 use std::fs;
 
 use enum_iterator::all;
+use sea_orm::DatabaseConnection;
 use uuid::Uuid;
 
 use crate::{
@@ -14,6 +15,7 @@ use crate::{
         models::{self, *},
         save,
     },
+    usecase::oauth::get_authentication,
 };
 
 pub fn get_plugin_info() -> Result<Vec<PluginInfo>, String> {
@@ -107,23 +109,35 @@ pub async fn upsert_file_source(
 }
 
 pub async fn test_file_source(
+    index_id: Uuid,
     file_source_name: String,
     params_json: String,
-    oauth_id: Option<Uuid>,
+    database: &DatabaseConnection,
 ) -> Result<(), String> {
     let params = serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
     let userdata = load()?;
-    let oauth = match oauth_id {
-        Some(id) => userdata.oauth_clients.iter().find(|v| v.id == id),
+    let oauth_id = userdata
+        .indexes
+        .iter()
+        .find(|v| v.id == index_id)
+        .ok_or("index not found")?
+        .file_source
+        .clone()
+        .map(|v| v.oauth_id);
+    let mut auth = match oauth_id {
+        Some(Some(id)) => Some(
+            get_authentication(index_id, id, database)
+                .await
+                .map_err(|err| err.to_string())?
+                .ok_or("not authenticated yet")?,
+        ),
+        Some(None) => None,
         None => None,
     };
-    let auth_result = match oauth.as_ref() {
-        Some(model) => Some(model.do_oauth_pkce().await.map_err(|err| err.to_string())?),
+    let access_token = match auth.as_mut() {
+        Some(v) => Some(v.load_access_token().await?),
         None => None,
     };
-    let access_token = auth_result
-        .as_ref()
-        .map(|token| token.access_token.secret().to_string());
     let download_dir = std::env::temp_dir()
         .join(Uuid::new_v4().to_string())
         .to_string_lossy()
@@ -157,13 +171,5 @@ pub async fn test_file_source(
         (Ok(()), Ok(())) => Ok(()),
     };
 
-    if let (Some(auth_result), Some(model)) = (auth_result, oauth.as_ref()) {
-        let _ = model
-            .revoke_access_token(auth_result.access_token.secret())
-            .await;
-        if let Some(refresh_token) = auth_result.refresh_token.as_ref() {
-            let _ = model.revoke_refresh_token(refresh_token.secret()).await;
-        }
-    }
     result
 }

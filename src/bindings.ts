@@ -27,7 +27,7 @@ export const commands = {
 	upsertVectorStore: (indexId: string, vectorStoreName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_vector_store", { indexId, vectorStoreName, paramsJson })),
 	upsertFileExtractor: (indexId: string, fileExtractorName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_file_extractor", { indexId, fileExtractorName, paramsJson })),
 	upsertFileSource: (indexId: string, fileSourceName: string, paramsJson: string, oauthId: string | null) => typedError<null, string>(__TAURI_INVOKE("upsert_file_source", { indexId, fileSourceName, paramsJson, oauthId })),
-	testFileSource: (fileSourceName: string, paramsJson: string, oauthId: string | null) => typedError<null, string>(__TAURI_INVOKE("test_file_source", { fileSourceName, paramsJson, oauthId })),
+	testFileSource: (indexId: string, fileSourceName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("test_file_source", { indexId, fileSourceName, paramsJson })),
 	getParamSchema: (pluginType: PluginType, pluginName: string) => __TAURI_INVOKE<string | null>("get_param_schema", { pluginType, pluginName }),
 	listDirectory: (indexId: string, path: string) => typedError<ListDirectoryResult, string>(__TAURI_INVOKE("list_directory", { indexId, path })),
 	grep: (indexId: string, pattern: string, target: string) => typedError<GrepResult, string>(__TAURI_INVOKE("grep", { indexId, pattern, target })),
@@ -39,6 +39,7 @@ export const commands = {
 	deleteOauthClient: (oauthId: string) => typedError<null, string>(__TAURI_INVOKE("delete_oauth_client", { oauthId })),
 	testOauth: (client: OAuthClient) => typedError<null, string>(__TAURI_INVOKE("test_oauth", { client })),
 	abortOauth: (clientId: string) => typedError<null, string>(__TAURI_INVOKE("abort_oauth", { clientId })),
+	doOauthAuthenticationIfNot: (indexId: string, client: OAuthClient, force: boolean) => typedError<null, string>(__TAURI_INVOKE("do_oauth_authentication_if_not", { indexId, client, force })),
 };
 
 /* Types */

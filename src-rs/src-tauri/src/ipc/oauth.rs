@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use sea_orm::DatabaseConnection;
 use tauri::State;
 use uuid::Uuid;
@@ -40,6 +42,24 @@ pub async fn delete_oauth_client(
 #[tracing::instrument()]
 pub async fn test_oauth(client: OAuthClient) -> Result<(), String> {
     usecase::oauth::test_oauth(client).await
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument()]
+pub async fn do_oauth_authentication_if_not(
+    index_id: &str,
+    client: OAuthClient,
+    force: bool,
+    database: State<'_, DatabaseConnection>,
+) -> Result<(), String> {
+    usecase::oauth::do_oauth_authentication_if_not(
+        Uuid::from_str(index_id).map_err(|err| err.to_string())?,
+        client,
+        force,
+        database.inner(),
+    )
+    .await
 }
 
 #[tauri::command]

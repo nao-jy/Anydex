@@ -7,7 +7,6 @@ import {
   Container,
   Group,
   Paper,
-  Progress,
   Stack,
   Text,
   ThemeIcon,
@@ -20,7 +19,7 @@ import { PageHeader } from "../components/PageHeader";
 export const Tasks = () => {
   const tasksQuery = useQuery({
     queryKey: ["activeTasks"],
-    queryFn: () => unwrapCommandResult(commands.listActiveTasks()),
+    queryFn: () => unwrapCommandResult(commands.listActiveJobs()),
     refetchInterval: 5_000,
   });
   const indexesQuery = useQuery({
@@ -63,8 +62,6 @@ export const Tasks = () => {
         {!isLoading && !isError && tasks.length > 0 && (
           <Stack gap="md">
             {tasks.map((task) => {
-              const state = asObject(task.state);
-              const progress = numberValue(state.progress);
               const labels = indexers.get(task.indexId);
               return (
                 <Card key={task.id} withBorder radius="md" padding="lg">
@@ -80,7 +77,7 @@ export const Tasks = () => {
                       </ThemeIcon>
                       <Box>
                         <Group gap="sm">
-                          <Text fw={700}>{task.taskType}</Text>
+                          <Text fw={700}>{task.jobType}</Text>
                           <Badge color="blue" variant="light">
                             実行中
                           </Badge>
@@ -93,7 +90,7 @@ export const Tasks = () => {
                     </Group>
                     <Text size="sm" c="dimmed">
                       開始:{" "}
-                      {task.startedAt ? formatDateTime(task.startedAt) : "-"}
+                      {task.createdAt ? formatDateTime(task.createdAt) : "-"}
                     </Text>
                   </Group>
                   <Paper
@@ -104,16 +101,9 @@ export const Tasks = () => {
                   >
                     <Group justify="space-between">
                       <Text size="sm" fw={600}>
-                        {stringValue(state.phase) ?? "処理中"}
-                      </Text>
-                      <Text size="sm" c="dimmed">
-                        {progress == null ? "進捗を集計中" : `${progress}%`}
+                        {jobTypeValue(task.jobType)}
                       </Text>
                     </Group>
-                    {progress != null && <Progress value={progress} mt="sm" />}
-                    <Text size="xs" c="dimmed" mt="sm">
-                      {formatFileProgress(state)}
-                    </Text>
                   </Paper>
                 </Card>
               );
@@ -137,26 +127,8 @@ function buildIndexerLabels(indexes: Index[]) {
   );
 }
 
-function asObject(value: unknown): Record<string, unknown> {
-  return typeof value === "object" && value != null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function numberValue(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function stringValue(value: unknown) {
+function jobTypeValue(value: unknown) {
   return typeof value === "string" ? value : null;
-}
-
-function formatFileProgress(state: Record<string, unknown>) {
-  const processed = numberValue(state.processedFiles);
-  const total = numberValue(state.totalFiles);
-  return processed != null && total != null
-    ? `${processed} / ${total} ファイルを処理済み`
-    : "ファイルを処理しています";
 }
 
 function Message({ text, color = "dimmed" }: { text: string; color?: string }) {

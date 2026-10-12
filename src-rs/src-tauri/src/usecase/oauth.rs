@@ -1,4 +1,4 @@
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter};
 use uuid::Uuid;
 
 use crate::{
@@ -55,6 +55,18 @@ pub async fn delete_oauth_client(
     save(&userdata)
 }
 
+pub async fn delete_oauth_authentication(
+    index_id: Uuid,
+    database: &DatabaseConnection,
+) -> Result<(), String> {
+    sqlite::models::oauth_authentication::Entity::delete_many()
+        .filter(sqlite::models::oauth_authentication::Column::IndexId.eq(index_id.to_string()))
+        .exec(database)
+        .await
+        .map_err(|err| err.to_string())?;
+    Ok(())
+}
+
 pub async fn test_oauth(client_config: OAuthClient) -> Result<(), String> {
     let result = client_config.do_oauth_pkce().await?;
 
@@ -66,6 +78,36 @@ pub async fn test_oauth(client_config: OAuthClient) -> Result<(), String> {
             .revoke_refresh_token(refresh_token.secret())
             .await;
     }
+    Ok(())
+}
+
+pub async fn do_oauth_authentication_if_not(
+    index_id: Uuid,
+    client_config: OAuthClient,
+    force: bool,
+    database: &DatabaseConnection,
+) -> Result<(), String> {
+    let auth = get_authentication(index_id, client_config.id, database).await?;
+    if auth.is_none() && !force {
+        return Ok(());
+    }
+
+    let result = client_config.do_oauth_pkce().await?;
+    let model = sqlite::models::oauth_authentication::Model {
+        index_id: index_id.to_string(),
+        oauth_client_id: client_config.id.to_string(),
+        expires_at: result.expires_at,
+    };
+    model.save_access_token(result.access_token.secret().to_owned())?;
+    if let Some(refr) = &result.refresh_token {
+        model.save_refresh_token(refr.secret().to_owned())?;
+    }
+    let _ = delete_authentication(index_id, database).await;
+    sqlite::models::oauth_authentication::Entity::insert(model.into_active_model())
+        .exec(database)
+        .await
+        .map_err(|err| err.to_string())?;
+
     Ok(())
 }
 

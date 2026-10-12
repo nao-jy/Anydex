@@ -54,6 +54,7 @@ macro_rules! app_commands {
             ipc::oauth::delete_oauth_client,
             ipc::oauth::test_oauth,
             ipc::oauth::abort_oauth,
+            ipc::oauth::do_oauth_authentication_if_not,
         ]
     };
 }

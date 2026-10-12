@@ -12,7 +12,6 @@ import {
   Divider,
   Group,
   Input,
-  Loader,
   NumberInput,
   Paper,
   Select,
@@ -27,12 +26,10 @@ import {
   commands,
   Index as IndexInfo,
   PluginInfo,
-  PluginType,
   Schedule as ScheduleInfo,
   OAuthClient,
 } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
-import { JsonSchemaForm } from "../components/JsonSchemaForm";
 import { IChangeEvent } from "@rjsf/core";
 import { RJSFSchema } from "@rjsf/utils";
 import { showConfirmDialog, showErrorDialog } from "../components/Dialogs";
@@ -40,6 +37,10 @@ import { RRuleTemporal, TemporalZonedDateTime } from "rrule-temporal";
 import { Temporal } from "temporal-polyfill";
 import { PageHeader } from "../components/PageHeader";
 import { showInfoNotification } from "../components/Notifications";
+import {
+  FileSourceSelector,
+  PluginSelector,
+} from "../components/PluginSelector";
 
 type SortKey = "name";
 type Direction = "asc" | "desc";
@@ -490,166 +491,6 @@ const IndexDescription = (props: IndexDescriptionProps) => {
   );
 };
 
-interface PluginSelectorProps {
-  label: string;
-  saving: boolean;
-  error: boolean;
-  info: PluginInfo;
-  selected: string | null;
-  plugin_type: PluginType;
-  onSubmit: (
-    event: IChangeEvent<any, RJSFSchema, any>,
-    plugin_name: string,
-  ) => void;
-  initParams: any | null;
-  children?: React.ReactNode;
-  onTest?: (plugin_name: string, params: any) => void;
-  onAbortTest?: () => void;
-  onReset?: () => void;
-}
-
-const PluginSelector = (props: PluginSelectorProps) => {
-  const {
-    label,
-    info,
-    selected,
-    saving,
-    error,
-    plugin_type,
-    onSubmit,
-    initParams,
-    children,
-    onTest,
-    onAbortTest,
-    onReset,
-  } = props;
-  const [selecting, setSelecting] = useState(selected);
-  const [paramSchema, setParamSchema] = useState<any | null>(null);
-  const [resetKey, setResetKey] = useState(0);
-  const [isTesting, setIsTesting] = useState(false);
-  const onCancel = () => {
-    setSelecting(selected);
-    setResetKey((prev) => prev + 1);
-    onReset?.();
-  };
-  const onClickTest = (plugin_name: string, params: any) => {
-    if (onTest === undefined) return;
-    setIsTesting(true);
-    try {
-      onTest(plugin_name, params);
-    } finally {
-      setIsTesting(false);
-    }
-  };
-  useEffect(() => {
-    const asyncSchema = async () => {
-      if (selecting === null || selecting.length === 0) {
-        setParamSchema(null);
-        return;
-      }
-      const paramSchema = await commands.getParamSchema(plugin_type, selecting);
-      if (paramSchema === null) {
-        setParamSchema(null);
-      } else {
-        try {
-          const parsed = JSON.parse(paramSchema);
-          setParamSchema(parsed);
-        } catch {
-          setParamSchema(null);
-        }
-      }
-    };
-    asyncSchema();
-  }, [selecting]);
-
-  return (
-    <Paper withBorder p="md" radius="md">
-      <Stack gap="md">
-        <Text size="xs" c="dimmed">
-          {label}
-        </Text>
-        <Group align="flex-start" wrap="nowrap">
-          <Select
-            label={info.pluginType}
-            value={selecting}
-            data={info.plugins}
-            onChange={async (value, _option) => {
-              if (value === null || value.length === 0) {
-                return;
-              }
-              setSelecting(value);
-            }}
-            disabled={saving || isTesting}
-            error={error && "保存できませんでした。"}
-            style={{ flex: 1 }}
-          />
-          <Group gap="xs" mt={24} wrap="nowrap">
-            <Button
-              variant="default"
-              onClick={onCancel}
-              disabled={saving || isTesting}
-            >
-              リセット
-            </Button>
-          </Group>
-        </Group>
-        {paramSchema !== null && (
-          <>
-            {children}
-            <Divider my="sm" />
-            <JsonSchemaForm
-              disabled={saving || isTesting}
-              key={resetKey}
-              initParams={initParams}
-              jsonSchema={paramSchema}
-              onSubmit={(event) => {
-                if (selecting === null) return;
-                onSubmit(event, selecting);
-              }}
-              submitButtonClosure={
-                onTest === undefined
-                  ? undefined
-                  : (getForm) => {
-                      return (_) => {
-                        return (
-                          <Group gap="xs" mt={24} wrap="nowrap">
-                            <Button type="submit">保存</Button>
-                            {isTesting ? (
-                              <Button variant="outline" onClick={onAbortTest}>
-                                <Loader
-                                  size={"sm"}
-                                  style={{ marginRight: "10px" }}
-                                />
-                                {onAbortTest && "中断"}
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  if (selecting === null) return;
-                                  const form = getForm();
-                                  if (form === null) return;
-                                  const result = form.validateForm();
-                                  if (result !== true) return;
-                                  onClickTest(selecting, form.state.formData);
-                                }}
-                              >
-                                テスト
-                              </Button>
-                            )}
-                          </Group>
-                        );
-                      };
-                    }
-              }
-            />
-          </>
-        )}
-      </Stack>
-    </Paper>
-  );
-};
-
 interface DateInfoProps {
   label: string;
   value: string;
@@ -918,24 +759,23 @@ interface IndexerProps {
 
 const Indexer = (params: IndexerProps) => {
   const { index, fileSourceInfo, fileExtractorInfo, oauthClients } = params;
-  const [oauthId, setOauthId] = useState(index.fileSource?.oauthId ?? null);
   const queryClient = useQueryClient();
   return (
     <Stack gap={"sm"}>
       <Schedule schedule={index.schedule} index_id={index.id} />
-      <PluginSelector
+      <FileSourceSelector
         label="ファイルソース：ファイルの取得元です"
         saving={false}
         error={false}
         info={fileSourceInfo}
-        selected={index.fileSource?.name ?? null}
+        index={index}
         plugin_type="fileSource"
-        onSubmit={async (event, name) => {
+        onSubmit={async (event, name, oauthClient) => {
           const result = await commands.upsertFileSource(
             index.id,
             name,
             JSON.stringify(event.formData),
-            oauthId,
+            oauthClient?.id ?? null,
           );
           if (result.status === "error") {
             await showErrorDialog(result.error);
@@ -944,43 +784,8 @@ const Indexer = (params: IndexerProps) => {
           showInfoNotification("ファイルソースを保存しました");
         }}
         initParams={index.fileSource?.params}
-        onReset={() => {
-          setOauthId(index.fileSource?.oauthId ?? null);
-        }}
-        onTest={async (name, params) => {
-          const result = await commands.testFileSource(
-            name,
-            JSON.stringify(params),
-            oauthId,
-          );
-          if (result.status === "error") {
-            await showErrorDialog(result.error);
-          } else {
-            showInfoNotification("ファイルソースのテストに成功しました");
-          }
-        }}
-        onAbortTest={
-          oauthId === null
-            ? undefined
-            : () => {
-                const oauthClient = oauthClients.find(
-                  (v) => v.id === oauthId,
-                )?.clientId;
-                if (oauthClient === undefined) return;
-                commands.abortOauth(oauthClient);
-              }
-        }
-      >
-        <Select
-          label={"OAuthクライアント"}
-          value={oauthId}
-          data={oauthClients.map((v) => ({ label: v.name, value: v.id }))}
-          clearable
-          onChange={(v) => {
-            setOauthId(v);
-          }}
-        />
-      </PluginSelector>
+        oauthClients={oauthClients}
+      />
       <PluginSelector
         label="ファイル抽出：ファイルを抽出します"
         saving={false}

@@ -1,3 +1,7 @@
+use std::str::FromStr;
+
+use sea_orm::DatabaseConnection;
+use tauri::State;
 use uuid::Uuid;
 
 use crate::{plugin::entry::PluginType, usecase};
@@ -65,9 +69,16 @@ pub async fn upsert_file_source(
 #[specta::specta]
 #[tracing::instrument()]
 pub async fn test_file_source(
+    index_id: String,
     file_source_name: String,
     params_json: String,
-    oauth_id: Option<Uuid>,
+    database: State<'_, DatabaseConnection>,
 ) -> Result<(), String> {
-    usecase::plugins::test_file_source(file_source_name, params_json, oauth_id).await
+    usecase::plugins::test_file_source(
+        Uuid::from_str(&index_id).map_err(|err| err.to_string())?,
+        file_source_name,
+        params_json,
+        database.inner(),
+    )
+    .await
 }
