@@ -95,6 +95,7 @@ pub async fn do_oauth_authentication_if_not(
     }
 
     let result = client_config.do_oauth_pkce().await?;
+    let _ = delete_authentication(index_id, database).await;
     let model = sqlite::models::oauth_authentication::Model {
         index_id: index_id.to_string(),
         oauth_client_id: client_config.id.to_string(),
@@ -104,7 +105,6 @@ pub async fn do_oauth_authentication_if_not(
     if let Some(refr) = &result.refresh_token {
         model.save_refresh_token(refr.secret().to_owned())?;
     }
-    let _ = delete_authentication(index_id, database).await;
     sqlite::models::oauth_authentication::Entity::insert(model.into_active_model())
         .exec(database)
         .await
