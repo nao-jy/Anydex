@@ -150,7 +150,7 @@ pub async fn start_indexing(index_id: Uuid, database: &DatabaseConnection) -> Re
         ..repository::sqlite::models::indexing_history::ActiveModel::default()
     };
     repository::sqlite::models::indexing_history::Entity::insert(history)
-        .exec(database)
+        .exec_without_returning(database)
         .await
         .map_err(|err| err.to_string())?;
     Ok(())

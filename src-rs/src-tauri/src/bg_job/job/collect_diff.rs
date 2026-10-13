@@ -13,7 +13,7 @@ use crate::{
     repository::json::load,
     usecase::{
         files::{delete_files, get_all_indexed_files},
-        indexes::{is_index_ready, is_indexing_running},
+        indexes::is_index_ready,
         jobs::{add_jobs, JobInfo},
         oauth::get_authentication,
     },
@@ -40,9 +40,6 @@ impl Job for CollectDiff {
         let args: CollectDiffArgs =
             serde_json::from_value(payload).map_err(|err| err.to_string())?;
         is_index_ready(args.index_id, &self.db).await?;
-        if is_indexing_running(args.index_id, &self.db).await? {
-            return Err("indexer already running".into());
-        };
         let userdata = load()?;
         let index = userdata
             .indexes
@@ -84,13 +81,15 @@ impl Job for CollectDiff {
         let files: Vec<InputFileInfo> = get_all_indexed_files(args.index_id, &self.db)
             .await?
             .iter()
-            .map(|v| InputFileInfo {
-                file_uri: v.file_uri.clone(),
-                size: v.size as usize,
-                updated_at: v.updated_at,
-                content_hash: v.file_hash.clone(),
+            .map(|v| {
+                Ok(InputFileInfo {
+                    file_uri: v.file_uri.clone(),
+                    size: usize::try_from(v.size).map_err(|err| err.to_string())?,
+                    updated_at: v.updated_at,
+                    content_hash: v.file_hash.clone(),
+                })
             })
-            .collect();
+            .collect::<Result<_, String>>()?;
 
         let file_source_params = file_source.params.clone();
         let diff = tokio::task::spawn_blocking(move || {

@@ -114,7 +114,7 @@ pub async fn grep(
 
     let vector_store_params = vector_store_config.params.clone();
     let search_text = pattern.to_owned();
-    let file_ids = target_files.iter().map(|file| file.id).collect();
+    let file_ids: Vec<i64> = target_files.iter().map(|file| file.id).collect();
     let hits = tokio::task::spawn_blocking(move || {
         let vector_store_handler =
             vector_store.get_handler(&vector_store_params, index_id.to_string())?;
@@ -139,7 +139,8 @@ pub async fn grep(
     let matches = hits
         .into_iter()
         .map(|hit| {
-            let file = files_by_id.get(&hit.chunk.file_id).ok_or_else(|| {
+            let file_id = i64::try_from(hit.chunk.file_id).map_err(|err| err.to_string())?;
+            let file = files_by_id.get(&file_id).ok_or_else(|| {
                 format!(
                     "vector store returned an unknown file id: {}",
                     hit.chunk.file_id
@@ -221,7 +222,7 @@ pub async fn semantic_search(
 
     let embedder_params = embedder_config.params.clone();
     let vector_store_params = vector_store_config.params.clone();
-    let file_ids = target_files.iter().map(|file| file.id).collect();
+    let file_ids: Vec<i64> = target_files.iter().map(|file| file.id).collect();
     let hits = tokio::task::spawn_blocking(move || {
         let embedding = embed_query(&embedder, &embedder_params, query)?;
         let vector_store_handler =
@@ -247,7 +248,8 @@ pub async fn semantic_search(
     let matches = hits
         .into_iter()
         .map(|hit| {
-            let file = files_by_id.get(&hit.chunk.file_id).ok_or_else(|| {
+            let file_id = i64::try_from(hit.chunk.file_id).map_err(|err| err.to_string())?;
+            let file = files_by_id.get(&file_id).ok_or_else(|| {
                 format!(
                     "vector store returned an unknown file id: {}",
                     hit.chunk.file_id

@@ -39,7 +39,7 @@ pub struct Job {
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexingHistory {
-    pub id: u64,
+    pub id: i64,
     pub index_id: String,
     pub started_at: DateTime<Utc>,
 }

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub type IndexId = String;
-pub type FileId = u64;
+pub type FileId = i64;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

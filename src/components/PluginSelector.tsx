@@ -29,9 +29,6 @@ interface PluginSelectorProps {
   ) => void;
   initParams: any | null;
   children?: React.ReactNode;
-  onTest?: (plugin_name: string, params: any) => void;
-  onAbortTest?: () => void;
-  onReset?: () => void;
 }
 
 export const PluginSelector = (props: PluginSelectorProps) => {
@@ -45,7 +42,6 @@ export const PluginSelector = (props: PluginSelectorProps) => {
     onSubmit,
     initParams,
     children,
-    onReset,
   } = props;
   const [selecting, setSelecting] = useState(selected);
   const [paramSchema, setParamSchema] = useState<any | null>(null);
@@ -53,7 +49,6 @@ export const PluginSelector = (props: PluginSelectorProps) => {
   const onCancel = () => {
     setSelecting(selected);
     setResetKey((prev) => prev + 1);
-    onReset?.();
   };
   useEffect(() => {
     const asyncSchema = async () => {

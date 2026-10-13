@@ -13,7 +13,7 @@ fn default_backend_device() -> BackendDevice {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
-#[schemars(title = "JSON Web API Params")]
+#[schemars(title = "Qwen3-VL Params")]
 pub struct Param {
     #[schemars(title = "Vector Dimensions", range(min = 1))]
     pub dimensions: i32,

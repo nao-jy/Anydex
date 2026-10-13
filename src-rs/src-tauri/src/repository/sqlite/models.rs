@@ -21,7 +21,7 @@ pub mod file {
     #[sea_orm(table_name = "files")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u64,
+        pub id: i64,
         #[sea_orm(unique_key = "file_source_uri")]
         pub index_id: String,
         pub name: String,
@@ -32,7 +32,7 @@ pub mod file {
         pub file_dir: String,
         pub file_name: String,
         pub content_type: String,
-        pub size: u64,
+        pub size: i64,
         pub updated_at: Option<DateTimeUtc>,
         pub file_hash: Option<String>,
     }
@@ -54,7 +54,7 @@ pub mod job {
     #[sea_orm(table_name = "jobs")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u64,
+        pub id: i64,
         pub index_id: String,
         pub job_type: String,
         pub payload: Json,
@@ -79,7 +79,7 @@ pub mod indexing_history {
     #[sea_orm(table_name = "indexing_histories")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u64,
+        pub id: i64,
         pub index_id: String,
         pub started_at: DateTimeUtc,
     }

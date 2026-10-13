@@ -31,6 +31,17 @@ static HANDLERS: LazyLock<Mutex<HashMap<Handler, HandleInfo>>> =
 
 static HANDLER_COUNTER: Mutex<u64> = Mutex::new(0);
 
+fn ensure_crypto_provider() -> Result<(), String> {
+    if rustls::crypto::CryptoProvider::get_default().is_some() {
+        return Ok(());
+    }
+    match rustls::crypto::ring::default_provider().install_default() {
+        Ok(()) => Ok(()),
+        Err(_) if rustls::crypto::CryptoProvider::get_default().is_some() => Ok(()),
+        Err(_) => Err("failed to install the Rustls ring crypto provider".into()),
+    }
+}
+
 pub fn get_param_schema(_args: GetParamSchemaArgs) -> Result<GetParamSchemaData, String> {
     let schema = schema_for!(Param);
     return Ok(GetParamSchemaData {
@@ -143,6 +154,8 @@ pub fn free_handler(args: FreeHandlerArgs) -> Result<FreeHandlerData, String> {
 }
 
 pub fn get_diff(args: GetDiffArgs) -> Result<GetDiffData, String> {
+    ensure_crypto_provider()?;
+
     let handler = args.handler;
     let mut mtx = HANDLERS.lock().unwrap();
     let info = mtx
@@ -249,6 +262,8 @@ pub fn get_diff(args: GetDiffArgs) -> Result<GetDiffData, String> {
 }
 
 pub fn download(args: DownloadArgs) -> Result<DownloadData, String> {
+    ensure_crypto_provider()?;
+
     let handler = args.handler;
     let mut mtx = HANDLERS.lock().unwrap();
     let info = mtx

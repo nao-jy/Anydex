@@ -1,7 +1,7 @@
 use anydex_plugin_api_lib::vector_store::types::{Chunk, FileId, IndexId, SearchHit};
 
 use futures::StreamExt;
-use lancedb::arrow::arrow_array::UInt64Array;
+use lancedb::arrow::arrow_array::Int64Array;
 use lancedb::arrow::arrow_array::{
     types::Float32Type, Array, FixedSizeListArray, Float32Array, RecordBatch, StringArray,
 };
@@ -150,7 +150,7 @@ impl DB {
                 Arc::new(StringArray::from(chunk_json)),
                 Arc::new(StringArray::from(content)),
                 Arc::new(StringArray::from(index_ids)),
-                Arc::new(UInt64Array::from(file_ids)),
+                Arc::new(Int64Array::from(file_ids)),
                 Arc::new(vectors),
             ],
         )

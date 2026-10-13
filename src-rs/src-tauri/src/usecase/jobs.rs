@@ -71,7 +71,7 @@ pub async fn add_jobs(
         })
         .collect();
     repository::sqlite::models::job::Entity::insert_many(models)
-        .exec(database)
+        .exec_without_returning(database)
         .await
         .map_err(|err| err.to_string())?;
     Ok(())

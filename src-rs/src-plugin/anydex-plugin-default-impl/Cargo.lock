@@ -163,6 +163,7 @@ dependencies = [
  "http-body-util",
  "mime_guess",
  "opendal",
+ "rustls",
  "schemars 1.2.2",
  "serde",
  "serde_json",

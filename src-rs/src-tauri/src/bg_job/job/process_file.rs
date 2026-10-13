@@ -58,7 +58,7 @@ impl Job for ProcessFile {
                 .await
                 .map_err(|err| err.to_string())?,
         };
-        let file_id = file.id;
+        let file_id = FileId::try_from(file.id).map_err(|err| err.to_string())?;
 
         let process_result = process_file_plugins(&args, plugin_index_id, file_id, &self.db).await;
         if let Err(err) = process_result {
@@ -287,7 +287,7 @@ fn new_file_model(
         file_dir: Set(file_info.file_dir.clone()),
         file_name: Set(file_info.file_name.clone()),
         content_type: Set(file_info.content_type.clone()),
-        size: Set(u64::try_from(file_info.size).map_err(|err| err.to_string())?),
+        size: Set(i64::try_from(file_info.size).map_err(|err| err.to_string())?),
         updated_at: Set(file_info.updated_at),
         file_hash: Set(file_info.content_hash.clone()),
         ..Default::default()
@@ -306,7 +306,7 @@ fn set_file_info(
     file.file_dir = Set(file_info.file_dir.clone());
     file.file_name = Set(file_info.file_name.clone());
     file.content_type = Set(file_info.content_type.clone());
-    file.size = Set(u64::try_from(file_info.size).map_err(|err| err.to_string())?);
+    file.size = Set(i64::try_from(file_info.size).map_err(|err| err.to_string())?);
     file.updated_at = Set(file_info.updated_at);
     file.file_hash = Set(file_info.content_hash.clone());
     Ok(())

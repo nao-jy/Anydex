@@ -24,3 +24,4 @@ serde_json.workspace = true
 schemars.workspace = true
 tokio.workspace = true
 chrono.workspace = true
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }

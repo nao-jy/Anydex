@@ -19,6 +19,10 @@ use crate::{
     usecase::oauth::get_authentication,
 };
 
+fn parse_plugin_params(params: &str) -> Result<serde_json::Value, String> {
+    serde_json::from_str(params).map_err(|err| err.to_string())
+}
+
 pub fn get_plugin_info() -> Result<Vec<PluginInfo>, String> {
     Ok(all::<PluginType>()
         .map(|plugin_type| PluginInfo {
@@ -40,12 +44,13 @@ pub async fn upsert_embedder(
     embedder_name: String,
     params: String,
 ) -> Result<(), String> {
+    let params = parse_plugin_params(&params)?;
     let mut userdata = load()?;
     for index in userdata.indexes.iter_mut() {
         if index.id == index_id {
             index.embedder = Some(Embedder {
                 name: embedder_name,
-                params: serde_json::Value::from(params),
+                params,
             });
             break;
         }
@@ -58,6 +63,7 @@ pub async fn upsert_vector_store(
     vector_store_name: String,
     params: String,
 ) -> Result<(), String> {
+    let params = parse_plugin_params(&params)?;
     let mut userdata = load()?;
     for index in userdata.indexes.iter_mut() {
         if index.id == index_id {
@@ -73,7 +79,7 @@ pub async fn upsert_vector_store(
             }
             index.vector_store = Some(crate::usecase::plugins::models::VectorStore {
                 name: vector_store_name,
-                params: serde_json::Value::from(params),
+                params,
             });
             break;
         }
@@ -86,12 +92,13 @@ pub async fn upsert_file_extractor(
     file_extractor_name: String,
     params: String,
 ) -> Result<(), String> {
+    let params = parse_plugin_params(&params)?;
     let mut userdata = load()?;
     for index in userdata.indexes.iter_mut() {
         if index.id == index_id {
             index.file_extractor = Some(FileExtractor {
                 name: file_extractor_name,
-                params: serde_json::Value::from(params),
+                params,
             });
             break;
         }
@@ -105,12 +112,13 @@ pub async fn upsert_file_source(
     oauth_id: Option<Uuid>,
     params: String,
 ) -> Result<(), String> {
+    let params = parse_plugin_params(&params)?;
     let mut userdata = load()?;
     for index in userdata.indexes.iter_mut() {
         if index.id == index_id {
             index.file_source = Some(models::FileSource {
                 name: file_source_name,
-                params: serde_json::Value::from(params),
+                params,
                 oauth_id: oauth_id,
             });
             break;
@@ -153,6 +161,7 @@ pub async fn test_file_source(
         .join(Uuid::new_v4().to_string())
         .to_string_lossy()
         .to_string();
+    fs::create_dir_all(&download_dir).map_err(|err| err.to_string())?;
     let plugin_result = tokio::task::spawn_blocking(move || {
         let mut manager = FILE_SOURCE_MGR.lock().unwrap();
         let manager = manager
