@@ -54,7 +54,7 @@ impl DB {
                 Field::new("chunk_json", DataType::Utf8, false),
                 Field::new(CONTENT_COLUMN, DataType::Utf8, false),
                 Field::new("index_id", DataType::Utf8, false),
-                Field::new("file_id", DataType::UInt64, false),
+                Field::new("file_id", DataType::Int64, false),
                 Field::new(
                     VECTOR_COLUMN,
                     DataType::FixedSizeList(
