@@ -13,7 +13,7 @@ name = "anydex_plugin_default_impl_embedder_lib"
 crate-type = ["cdylib"]
 
 [dependencies]
-fastembed = { version = "7", features = ["qwen3"] }
+fastembed = { version = "7", features = ["qwen3", "accelerate", "metal"] }
 jsonpath-rust = "1.0.11"
 anydex-plugin-api.workspace = true
 serde.workspace = true

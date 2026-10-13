@@ -67,7 +67,7 @@ impl Model {
         let client = userdata
             .oauth_clients
             .iter()
-            .find(|v| v.client_id == self.oauth_client_id);
+            .find(|v| v.id.to_string() == self.oauth_client_id);
         client.cloned()
     }
 

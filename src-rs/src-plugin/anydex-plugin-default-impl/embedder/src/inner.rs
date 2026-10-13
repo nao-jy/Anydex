@@ -52,7 +52,7 @@ pub fn get_handler(args: GetHandlerArgs) -> Result<GetHandlerData, String> {
     (*handler_mtx) += 1;
 
     let device = get_device(&param_result.device)?;
-    let model = Qwen3VLEmbedding::from_hf("Qwen/Qwen3-VL-Embedding-2B", &device, DType::F32, 4096)
+    let model = Qwen3VLEmbedding::from_hf("Qwen/Qwen3-VL-Embedding-2B", &device, DType::F32, 1024)
         .map_err(|err| err.to_string())?;
     let dimensions = param_result.dimensions as usize;
     if dimensions > model.config().hidden_size {
