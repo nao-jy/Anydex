@@ -140,15 +140,29 @@ fn truncate_and_normalize(embedding: &[f32], dimensions: usize) -> Result<Vec<f3
         ));
     }
     let mut truncated = embedding[..dimensions].to_vec();
+    if let Some((index, value)) = truncated
+        .iter()
+        .enumerate()
+        .find(|(_, value)| !value.is_finite())
+    {
+        return Err(format!(
+            "model returned a non-finite value at embedding dimension {index}: {value}"
+        ));
+    }
     let norm = truncated
         .iter()
-        .map(|value| value * value)
-        .sum::<f32>()
+        .map(|value| f64::from(*value).powi(2))
+        .sum::<f64>()
         .sqrt();
-    if !norm.is_finite() || norm == 0.0 {
-        return Err("cannot normalize truncated embedding vector".into());
+    if norm == 0.0 {
+        return Err(format!(
+            "the first {dimensions} dimensions of the {}-dimension model output are all zero",
+            embedding.len()
+        ));
     }
-    truncated.iter_mut().for_each(|value| *value /= norm);
+    truncated.iter_mut().for_each(|value| {
+        *value = (f64::from(*value) / norm) as f32;
+    });
     Ok(truncated)
 }
 
@@ -208,6 +222,21 @@ mod tests {
         let error = truncate_and_normalize(&[1.0, 0.0], 3).unwrap_err();
 
         assert!(error.contains("model returned 2"));
+    }
+
+    #[test]
+    fn reports_non_finite_embedding_values() {
+        let error = truncate_and_normalize(&[1.0, f32::NAN], 2).unwrap_err();
+
+        assert!(error.contains("non-finite value at embedding dimension 1"));
+    }
+
+    #[test]
+    fn reports_zero_truncated_embedding_prefix() {
+        let error = truncate_and_normalize(&[0.0, 0.0, 1.0], 2).unwrap_err();
+
+        assert!(error.contains("first 2 dimensions"));
+        assert!(error.contains("3-dimension model output"));
     }
 }
 

@@ -7,7 +7,8 @@ use uuid::Uuid;
 use crate::{
     dto::models::PluginInfo,
     plugin::{
-        entry::{PluginType, FILE_SOURCE_MGR, VECTOR_STORE_MGR},
+        embedder::interface::Embedder as EmbedderPlugin,
+        entry::{PluginType, EMBEDDER_MGR, FILE_SOURCE_MGR, VECTOR_STORE_MGR},
         file_source::interface::FileSource,
         vector_store::interface::VectorStore,
     },
@@ -187,8 +188,73 @@ pub async fn test_file_source(
             Err(err)
         }
         (Err(err), _) => Err(err),
-        (Ok(()), Err(err)) => Err(err),
+        (Ok(_), Err(err)) => Err(err),
         (Ok(()), Ok(())) => Ok(()),
+    };
+
+    result
+}
+
+pub async fn test_embedder(
+    index_id: Uuid,
+    embedder_name: String,
+    params_json: String,
+) -> Result<String, String> {
+    let params = serde_json::from_str(&params_json).map_err(|err| err.to_string())?;
+    let test_file = std::env::temp_dir().join(format!(
+        "anydex-embedder-test-{index_id}-{}.txt",
+        Uuid::new_v4()
+    ));
+    fs::write(
+        &test_file,
+        "Anydex embedder test. This text verifies that the configured model can generate an embedding.",
+    )
+    .map_err(|err| format!("failed to create embedder test input: {err}"))?;
+    let test_file_path = test_file.to_string_lossy().into_owned();
+
+    let plugin_result = tokio::task::spawn_blocking(move || {
+        let mut manager = EMBEDDER_MGR.lock().unwrap();
+        let manager = manager
+            .as_mut()
+            .ok_or_else(|| "embedder plugin manager is not initialized".to_owned())?;
+        let plugin = manager.get_plugin(&embedder_name).ok_or_else(|| {
+            format!("Embedder plugin {embedder_name} was not found in the plugin manager")
+        })?;
+        let handler = plugin.get_handler(&params).map_err(|err| err.to_string())?;
+        let embeddings = plugin
+            .embed(handler.handler, &test_file_path)
+            .map_err(|err| err.to_string())?;
+        let dimensions = params
+            .get("dimensions")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or_else(|| "embedder dimensions must be a positive integer".to_owned())?;
+        if embeddings.len() != dimensions as usize {
+            return Err(format!(
+                "embedder returned {} dimensions, expected {dimensions}",
+                embeddings.len()
+            ));
+        }
+        if embeddings.iter().any(|value| !value.is_finite()) {
+            return Err("embedder returned a non-finite vector value".to_owned());
+        }
+        Ok(format!(
+            "Embedding test succeeded with {} dimensions",
+            embeddings.len()
+        ))
+    })
+    .await
+    .map_err(|err| format!("embedder test task failed: {err}"))
+    .and_then(|result| result);
+
+    let cleanup_result = fs::remove_file(&test_file).map_err(|err| err.to_string());
+    let result = match (plugin_result, cleanup_result) {
+        (Err(err), Err(cleanup_err)) => {
+            tracing::warn!("failed to remove embedder test input: {cleanup_err}");
+            Err(err)
+        }
+        (Err(err), _) => Err(err),
+        (Ok(_), Err(err)) => Err(err),
+        (Ok(message), Ok(())) => Ok(message),
     };
 
     result

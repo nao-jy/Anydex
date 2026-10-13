@@ -82,3 +82,14 @@ pub async fn test_file_source(
     )
     .await
 }
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(params_json))]
+pub async fn test_embedder(
+    index_id: Uuid,
+    embedder_name: String,
+    params_json: String,
+) -> Result<String, String> {
+    usecase::plugins::test_embedder(index_id, embedder_name, params_json).await
+}

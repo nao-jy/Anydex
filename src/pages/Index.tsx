@@ -382,6 +382,7 @@ export const Index = () => {
                         oauthClients={listOauthClient.data ?? []}
                       />
                       <PluginSelector
+                        indexId={index.id}
                         label="ファイル抽出：ファイルを抽出します"
                         saving={false}
                         error={false}
@@ -407,6 +408,7 @@ export const Index = () => {
                         initParams={index.fileExtractor?.params}
                       />
                       <PluginSelector
+                        indexId={index.id}
                         label="ベクトル化：ファイルを検索可能に変換します"
                         saving={false}
                         error={false}
@@ -417,6 +419,7 @@ export const Index = () => {
                         initParams={index.embedder?.params}
                       />
                       <PluginSelector
+                        indexId={index.id}
                         label="ベクトルストア：生成したベクトルを保存し、検索に使います"
                         saving={false}
                         error={false}

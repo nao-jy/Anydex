@@ -17,6 +17,7 @@ import { showErrorDialog } from "./Dialogs";
 import { showInfoNotification } from "./Notifications";
 
 interface PluginSelectorProps {
+  indexId: string;
   label: string;
   saving: boolean;
   error: boolean;
@@ -33,6 +34,7 @@ interface PluginSelectorProps {
 
 export const PluginSelector = (props: PluginSelectorProps) => {
   const {
+    indexId,
     label,
     info,
     selected,
@@ -46,9 +48,28 @@ export const PluginSelector = (props: PluginSelectorProps) => {
   const [selecting, setSelecting] = useState(selected);
   const [paramSchema, setParamSchema] = useState<any | null>(null);
   const [resetKey, setResetKey] = useState(0);
+  const [isTesting, setIsTesting] = useState(false);
+  const cantChange = saving || isTesting;
   const onCancel = () => {
     setSelecting(selected);
     setResetKey((prev) => prev + 1);
+  };
+  const onClickTest = async (pluginName: string, params: unknown) => {
+    setIsTesting(true);
+    try {
+      const result = await commands.testEmbedder(
+        indexId,
+        pluginName,
+        JSON.stringify(params),
+      );
+      if (result.status === "error") {
+        await showErrorDialog(result.error);
+      } else {
+        showInfoNotification(result.data);
+      }
+    } finally {
+      setIsTesting(false);
+    }
   };
   useEffect(() => {
     const asyncSchema = async () => {
@@ -88,12 +109,12 @@ export const PluginSelector = (props: PluginSelectorProps) => {
               }
               setSelecting(value);
             }}
-            disabled={saving}
+            disabled={cantChange}
             error={error && "保存できませんでした。"}
             style={{ flex: 1 }}
           />
           <Group gap="xs" mt={24} wrap="nowrap">
-            <Button variant="default" onClick={onCancel} disabled={saving}>
+            <Button variant="default" onClick={onCancel} disabled={cantChange}>
               リセット
             </Button>
           </Group>
@@ -103,13 +124,40 @@ export const PluginSelector = (props: PluginSelectorProps) => {
             {children}
             <Divider my="sm" />
             <JsonSchemaForm
-              disabled={saving}
+              disabled={cantChange}
               key={resetKey}
               initParams={initParams}
               jsonSchema={paramSchema}
               onSubmit={(event) => {
                 if (selecting === null) return;
                 onSubmit(event, selecting);
+              }}
+              submitButtonClosure={(getForm) => {
+                return (_) => {
+                  const isEmbedder = plugin_type === "embedder";
+                  return (
+                    <Group gap="xs" mt={24} wrap="nowrap">
+                      <Button type="submit">保存</Button>
+                      {isEmbedder && (
+                        <Button
+                          variant="outline"
+                          loading={isTesting}
+                          disabled={cantChange}
+                          onClick={() => {
+                            if (selecting === null) return;
+                            const form = getForm();
+                            if (form === null) return;
+                            const validation = form.validateForm();
+                            if (validation !== true) return;
+                            onClickTest(selecting, form.state.formData);
+                          }}
+                        >
+                          テスト
+                        </Button>
+                      )}
+                    </Group>
+                  );
+                };
               }}
             />
           </>

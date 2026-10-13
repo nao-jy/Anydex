@@ -28,6 +28,7 @@ export const commands = {
 	upsertFileExtractor: (indexId: string, fileExtractorName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("upsert_file_extractor", { indexId, fileExtractorName, paramsJson })),
 	upsertFileSource: (indexId: string, fileSourceName: string, paramsJson: string, oauthId: string | null) => typedError<null, string>(__TAURI_INVOKE("upsert_file_source", { indexId, fileSourceName, paramsJson, oauthId })),
 	testFileSource: (indexId: string, fileSourceName: string, paramsJson: string) => typedError<null, string>(__TAURI_INVOKE("test_file_source", { indexId, fileSourceName, paramsJson })),
+	testEmbedder: (indexId: string, embedderName: string, paramsJson: string) => typedError<string, string>(__TAURI_INVOKE("test_embedder", { indexId, embedderName, paramsJson })),
 	getParamSchema: (pluginType: PluginType, pluginName: string) => __TAURI_INVOKE<string | null>("get_param_schema", { pluginType, pluginName }),
 	listDirectory: (indexId: string, path: string) => typedError<ListDirectoryResult, string>(__TAURI_INVOKE("list_directory", { indexId, path })),
 	grep: (indexId: string, pattern: string, target: string) => typedError<GrepResult, string>(__TAURI_INVOKE("grep", { indexId, pattern, target })),
