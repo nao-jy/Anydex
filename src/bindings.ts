@@ -112,6 +112,7 @@ export type Job = {
 	indexId: string,
 	jobType: string,
 	status: string,
+	progressInfo: string,
 	priority: number,
 	attempts: number,
 	maxAttempts: number,

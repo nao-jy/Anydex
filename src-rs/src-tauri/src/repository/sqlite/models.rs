@@ -59,6 +59,7 @@ pub mod job {
         pub job_type: String,
         pub payload: Json,
         pub status: String,
+        pub progress_info: String,
         pub priority: i32,
         pub attempts: i32,
         pub max_attempts: i32,

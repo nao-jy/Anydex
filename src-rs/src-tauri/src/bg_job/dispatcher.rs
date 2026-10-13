@@ -63,7 +63,7 @@ async fn execute(db: DatabaseConnection, job: job::Model) -> Result<(), String> 
     let job_type = JobType::from_str(&job.job_type)
         .map_err(|_| format!("unknown job type: {}", job.job_type))?;
     match job_type {
-        JobType::CollectDiff => CollectDiff::new(db).process(job.payload).await,
-        JobType::ProcessFile => ProcessFile { db }.process(job.payload).await,
+        JobType::CollectDiff => CollectDiff::new(db).process(job.id, job.payload).await,
+        JobType::ProcessFile => ProcessFile { db }.process(job.id, job.payload).await,
     }
 }

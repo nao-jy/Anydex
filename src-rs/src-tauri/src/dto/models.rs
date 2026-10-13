@@ -28,6 +28,7 @@ pub struct Job {
     pub index_id: String,
     pub job_type: String,
     pub status: String,
+    pub progress_info: String,
     pub priority: i32,
     pub attempts: i32,
     pub max_attempts: i32,

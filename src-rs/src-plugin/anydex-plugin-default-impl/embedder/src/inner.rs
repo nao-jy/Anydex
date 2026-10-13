@@ -25,6 +25,7 @@ use crate::{
 
 struct HandleInfo {
     pub _param: Param,
+    pub dimensions: usize,
     pub model: Qwen3VLEmbedding,
 }
 
@@ -43,21 +44,28 @@ pub fn get_param_schema(_args: GetParamSchemaArgs) -> Result<GetParamSchemaData,
 pub fn get_handler(args: GetHandlerArgs) -> Result<GetHandlerData, String> {
     let param_result =
         serde_json::from_value::<Param>(args.params).map_err(|err| err.to_string())?;
+    if !(64..=2048).contains(&param_result.dimensions) {
+        return Err("vector dimensions must be between 64 and 2048".into());
+    }
     let mut handler_mtx = HANDLER_COUNTER.lock().unwrap();
     let handler = (*handler_mtx).clone();
     (*handler_mtx) += 1;
 
     let device = get_device(&param_result.device)?;
-    let model = Qwen3VLEmbedding::from_hf(
-        "Qwen/Qwen3-VL-Embedding-2B",
-        &device,
-        DType::F32,
-        param_result.dimensions as usize,
-    )
-    .map_err(|err| err.to_string())?;
+    let model = Qwen3VLEmbedding::from_hf("Qwen/Qwen3-VL-Embedding-2B", &device, DType::F32, 4096)
+        .map_err(|err| err.to_string())?;
+    let dimensions = param_result.dimensions as usize;
+    if dimensions > model.config().hidden_size {
+        return Err(format!(
+            "vector dimensions {} exceed model output size {}",
+            dimensions,
+            model.config().hidden_size
+        ));
+    }
 
     let info = HandleInfo {
         _param: param_result,
+        dimensions,
         model,
     };
 
@@ -100,11 +108,11 @@ pub fn embed(args: EmbedArgs) -> Result<EmbedData, String> {
                 .map_err(|err| err.to_string())?,
         };
 
+        let embedding = embedding
+            .first()
+            .ok_or_else(|| "embedding not yielded".to_string())?;
         Ok(EmbedData {
-            embeddings: embedding
-                .get(0)
-                .ok_or_else(|| "embedding not yielded".to_string())?
-                .to_vec(),
+            embeddings: truncate_and_normalize(embedding, info.dimensions)?,
         })
     })();
 
@@ -122,6 +130,26 @@ pub fn embed(args: EmbedArgs) -> Result<EmbedData, String> {
             )),
         },
     }
+}
+
+fn truncate_and_normalize(embedding: &[f32], dimensions: usize) -> Result<Vec<f32>, String> {
+    if dimensions == 0 || dimensions > embedding.len() {
+        return Err(format!(
+            "requested vector dimensions {dimensions}, but model returned {}",
+            embedding.len()
+        ));
+    }
+    let mut truncated = embedding[..dimensions].to_vec();
+    let norm = truncated
+        .iter()
+        .map(|value| value * value)
+        .sum::<f32>()
+        .sqrt();
+    if !norm.is_finite() || norm == 0.0 {
+        return Err("cannot normalize truncated embedding vector".into());
+    }
+    truncated.iter_mut().for_each(|value| *value /= norm);
+    Ok(truncated)
 }
 
 fn get_device(backend: &BackendDevice) -> Result<Device, String> {
@@ -159,6 +187,27 @@ fn get_device(backend: &BackendDevice) -> Result<Device, String> {
                 Err("Metal support is not enabled; rebuild with --features metal".into())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::truncate_and_normalize;
+
+    #[test]
+    fn truncates_and_normalizes_embedding() {
+        let embedding = truncate_and_normalize(&[3.0, 4.0, 12.0], 2).unwrap();
+
+        assert_eq!(embedding.len(), 2);
+        assert!((embedding[0] - 0.6).abs() < f32::EPSILON);
+        assert!((embedding[1] - 0.8).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn rejects_dimensions_larger_than_model_output() {
+        let error = truncate_and_normalize(&[1.0, 0.0], 3).unwrap_err();
+
+        assert!(error.contains("model returned 2"));
     }
 }
 

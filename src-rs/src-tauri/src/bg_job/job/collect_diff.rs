@@ -11,6 +11,7 @@ use crate::{
     },
     plugin::{entry::FILE_SOURCE_MGR, file_source::interface::FileSource},
     repository::json::load,
+    repository::sqlite::job::update_progress,
     usecase::{
         files::{delete_files, get_all_indexed_files},
         indexes::is_index_ready,
@@ -36,9 +37,10 @@ pub struct CollectDiffArgs {
 
 impl Job for CollectDiff {
     type JobArgsType = CollectDiffArgs;
-    async fn process(&self, payload: Value) -> Result<(), String> {
+    async fn process(&self, job_id: i64, payload: Value) -> Result<(), String> {
         let args: CollectDiffArgs =
             serde_json::from_value(payload).map_err(|err| err.to_string())?;
+        update_progress(&self.db, job_id, "インデックスを確認しています").await?;
         is_index_ready(args.index_id, &self.db).await?;
         let userdata = load()?;
         let index = userdata
@@ -92,15 +94,28 @@ impl Job for CollectDiff {
             .collect::<Result<_, String>>()?;
 
         let file_source_params = file_source.params.clone();
+        update_progress(&self.db, job_id, "ファイルの差分を取得しています").await?;
         let diff = tokio::task::spawn_blocking(move || {
             let handler = plugin.get_handler(&file_source_params)?;
             plugin.get_diff(handler.handler, &files, access_token)
         })
         .await
         .map_err(|err| err.to_string())??;
+        let deleted_count = diff.deleted.len();
+        let added_or_updated = [diff.added, diff.updated].concat();
+        update_progress(
+            &self.db,
+            job_id,
+            format!(
+                "差分を確認しました（追加・更新 {} 件、削除 {} 件）",
+                added_or_updated.len(),
+                deleted_count
+            ),
+        )
+        .await?;
+        update_progress(&self.db, job_id, "削除されたファイルを反映しています").await?;
         delete_files(args.index_id, &diff.deleted, &self.db).await?;
 
-        let added_or_updated = [diff.added, diff.updated].concat();
         let jobs = added_or_updated
             .iter()
             .map(|v| JobInfo {
@@ -117,6 +132,7 @@ impl Job for CollectDiff {
             })
             .collect::<Vec<_>>();
 
+        update_progress(&self.db, job_id, "追加・更新ファイルの処理を登録しています").await?;
         add_jobs(&self.db, args.index_id, jobs).await?;
 
         Ok(())

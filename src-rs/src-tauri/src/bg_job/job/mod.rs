@@ -7,5 +7,5 @@ pub mod process_file;
 #[allow(async_fn_in_trait)]
 pub trait Job {
     type JobArgsType: Serialize + for<'a> Deserialize<'a>;
-    async fn process(&self, payload: Value) -> Result<(), String>;
+    async fn process(&self, job_id: i64, payload: Value) -> Result<(), String>;
 }

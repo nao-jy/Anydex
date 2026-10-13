@@ -48,20 +48,40 @@ pub async fn finish(
         ..Default::default()
     };
     match result {
-        Ok(()) => active_job.status = Set(STATUS_DONE.to_owned()),
+        Ok(()) => {
+            active_job.status = Set(STATUS_DONE.to_owned());
+            active_job.progress_info = Set("完了".to_owned());
+        }
         Err(error) if job.attempts >= job.max_attempts => {
             active_job.status = Set(STATUS_DEAD.to_owned());
+            active_job.progress_info = Set(format!("失敗: {error}"));
             active_job.last_error = Set(Some(error));
         }
         Err(error) => {
             // 指数バックオフ（上限付き）
             let delay = (1_000i64 << job.attempts.min(10)).min(600_000);
             active_job.status = Set(STATUS_PENDING.to_owned());
+            active_job.progress_info = Set(format!("失敗、再試行待ち: {error}"));
             active_job.run_at = Set(now + Duration::milliseconds(delay));
             active_job.last_error = Set(Some(error));
         }
     }
     active_job.update(db).await?;
+    Ok(())
+}
+
+pub async fn update_progress(
+    db: &DatabaseConnection,
+    job_id: i64,
+    progress_info: impl Into<String>,
+) -> Result<(), String> {
+    job::Entity::update_many()
+        .col_expr(job::Column::ProgressInfo, Expr::value(progress_info.into()))
+        .col_expr(job::Column::UpdatedAt, Expr::value(Utc::now()))
+        .filter(job::Column::Id.eq(job_id))
+        .exec(db)
+        .await
+        .map_err(|err| err.to_string())?;
     Ok(())
 }
 

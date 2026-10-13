@@ -78,8 +78,11 @@ export const Tasks = () => {
                       <Box>
                         <Group gap="sm">
                           <Text fw={700}>{task.jobType}</Text>
-                          <Badge color="blue" variant="light">
-                            実行中
+                          <Badge
+                            color={task.status === "running" ? "blue" : "gray"}
+                            variant="light"
+                          >
+                            {task.status === "running" ? "実行中" : "待機中"}
                           </Badge>
                         </Group>
                         <Text size="sm" c="dimmed" mt={4}>
@@ -99,11 +102,9 @@ export const Tasks = () => {
                     radius="md"
                     bg="var(--mantine-color-default-hover)"
                   >
-                    <Group justify="space-between">
-                      <Text size="sm" fw={600}>
-                        {jobTypeValue(task.jobType)}
-                      </Text>
-                    </Group>
+                    <Text size="sm" mt="xs">
+                      {task.progressInfo || "進捗情報なし"}
+                    </Text>
                   </Paper>
                 </Card>
               );
@@ -125,10 +126,6 @@ function buildIndexerLabels(indexes: IndexWithLastHistory[]) {
         ] as const,
     ),
   );
-}
-
-function jobTypeValue(value: unknown) {
-  return typeof value === "string" ? value : null;
 }
 
 function Message({ text, color = "dimmed" }: { text: string; color?: string }) {

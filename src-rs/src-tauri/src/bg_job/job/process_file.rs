@@ -1,11 +1,14 @@
 use anydex_plugin_api_lib::file_source::types::OutputFileInfo;
 use anydex_plugin_api_lib::vector_store::types::{Chunk, FileId, IndexId};
 use mime_guess::mime;
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs;
 use std::path::{Component, Path};
+use tokio::sync::{mpsc, Mutex};
 use uuid::Uuid;
 
 use crate::bg_job::entry::get_tmp_dir;
@@ -18,9 +21,12 @@ use crate::{
         file_source::interface::FileSource,
         vector_store::interface::VectorStore,
     },
+    repository::sqlite::job::update_progress,
     repository::{self, sqlite},
     usecase::oauth::get_authentication,
 };
+
+static NEW_FILE_LOCK: Mutex<()> = Mutex::const_new(());
 
 pub struct ProcessFile {
     pub db: DatabaseConnection,
@@ -38,42 +44,75 @@ pub struct ProcessFileArgs {
 
 impl Job for ProcessFile {
     type JobArgsType = ProcessFileArgs;
-    async fn process(&self, payload: Value) -> Result<(), String> {
+    async fn process(&self, job_id: i64, payload: Value) -> Result<(), String> {
         let args: ProcessFileArgs =
             serde_json::from_value(payload).map_err(|err| err.to_string())?;
 
-        let plugin_index_id = to_plugin_index_id(args.index_id);
+        update_progress(
+            &self.db,
+            job_id,
+            format!("ファイル処理を準備しています: {}", args.file_info.file_name),
+        )
+        .await?;
 
-        let existing_file = sqlite::models::file::Entity::find()
+        let file_entity = sqlite::models::file::Entity::find()
             .filter(sqlite::models::file::Column::IndexId.eq(args.index_id.to_string()))
-            .filter(sqlite::models::file::Column::FileUri.eq(args.file_info.file_uri.clone()))
+            .filter(sqlite::models::file::Column::FileUri.eq(args.file_info.file_uri.clone()));
+        let existing_file = file_entity
+            .clone()
             .one(&self.db)
             .await
             .map_err(|err| err.to_string())?;
-        let is_new_file = existing_file.is_none();
-        let file = match existing_file {
-            Some(file) => file,
-            None => new_file_model(args.index_id, &args.file_info)?
-                .insert(&self.db)
-                .await
-                .map_err(|err| err.to_string())?,
-        };
-        let file_id = FileId::try_from(file.id).map_err(|err| err.to_string())?;
 
-        let process_result = process_file_plugins(&args, plugin_index_id, file_id, &self.db).await;
-        if let Err(err) = process_result {
-            if is_new_file {
-                if let Err(delete_err) = sqlite::models::file::Entity::delete_by_id(file.id)
-                    .exec(&self.db)
-                    .await
-                {
-                    return Err(format!(
-                        "{err}; failed to remove the new file record: {delete_err}"
-                    ));
-                }
-            }
-            return Err(err);
+        if let Some(file) = existing_file {
+            return self.update_existing_file(&args, file, job_id).await;
         }
+
+        let _new_file_guard = NEW_FILE_LOCK.lock().await;
+        let existing_file = file_entity
+            .one(&self.db)
+            .await
+            .map_err(|err| err.to_string())?;
+        if let Some(file) = existing_file {
+            return self.update_existing_file(&args, file, job_id).await;
+        }
+
+        let plugin_index_id = to_plugin_index_id(args.index_id);
+        let last_file = sqlite::models::file::Entity::find()
+            .order_by_desc(sqlite::models::file::Column::Id)
+            .one(&self.db)
+            .await
+            .map_err(|err| err.to_string())?;
+        let file_id = last_file
+            .map_or(Some(1), |file| file.id.checked_add(1))
+            .ok_or_else(|| "file ID space exhausted".to_owned())?;
+        let plugin_file_id = FileId::try_from(file_id).map_err(|err| err.to_string())?;
+        process_file_plugins(&args, plugin_index_id, plugin_file_id, &self.db, job_id).await?;
+
+        new_file_model(args.index_id, &args.file_info, file_id)?
+            .insert(&self.db)
+            .await
+            .map_err(|err| err.to_string())?;
+        Ok(())
+    }
+}
+
+impl ProcessFile {
+    async fn update_existing_file(
+        &self,
+        args: &ProcessFileArgs,
+        file: sqlite::models::file::Model,
+        job_id: i64,
+    ) -> Result<(), String> {
+        let file_id = FileId::try_from(file.id).map_err(|err| err.to_string())?;
+        process_file_plugins(
+            args,
+            to_plugin_index_id(args.index_id),
+            file_id,
+            &self.db,
+            job_id,
+        )
+        .await?;
 
         let mut active_file: sqlite::models::file::ActiveModel = file.into();
         set_file_info(&mut active_file, args.index_id, &args.file_info)?;
@@ -90,6 +129,7 @@ async fn process_file_plugins(
     index_id: IndexId,
     file_id: FileId,
     db: &DatabaseConnection,
+    job_id: i64,
 ) -> Result<(), String> {
     let oauth_token = match args.file_source.oauth_id {
         Some(oauth_id) => {
@@ -118,7 +158,8 @@ async fn process_file_plugins(
         .to_owned();
 
     let args = args.clone();
-    tokio::task::spawn_blocking(move || {
+    let (progress_tx, mut progress_rx) = mpsc::unbounded_channel();
+    let mut process_task = tokio::task::spawn_blocking(move || {
         process_file_plugins_sync(
             &args,
             index_id,
@@ -126,10 +167,33 @@ async fn process_file_plugins(
             oauth_token,
             &downloaded_dir,
             &extracted_dir_string,
+            &progress_tx,
         )
-    })
-    .await
-    .map_err(|err| err.to_string())?
+    });
+    let mut progress_error = None;
+    let result = loop {
+        tokio::select! {
+            result = &mut process_task => {
+                break result.map_err(|err| err.to_string())?;
+            }
+            progress = progress_rx.recv() => {
+                if let Some(progress) = progress {
+                    if progress_error.is_none() {
+                        progress_error = update_progress(db, job_id, progress).await.err();
+                    }
+                }
+            }
+        }
+    };
+    while let Ok(progress) = progress_rx.try_recv() {
+        if progress_error.is_none() {
+            progress_error = update_progress(db, job_id, progress).await.err();
+        }
+    }
+    if let Some(error) = progress_error {
+        return Err(format!("failed to update job progress: {error}"));
+    }
+    result
 }
 
 fn process_file_plugins_sync(
@@ -139,7 +203,9 @@ fn process_file_plugins_sync(
     oauth_token: Option<String>,
     downloaded_dir: &str,
     extracted_dir_string: &str,
+    progress_tx: &mpsc::UnboundedSender<String>,
 ) -> Result<(), String> {
+    let file_name = &args.file_info.file_name;
     let extracted_dir = Path::new(extracted_dir_string);
     let file_source = {
         let mut manager = FILE_SOURCE_MGR.lock().map_err(|err| err.to_string())?;
@@ -205,6 +271,7 @@ fn process_file_plugins_sync(
     let vector_store_handler =
         vector_store.get_handler(&args.vector_store.params, index_id.clone())?;
 
+    send_progress(progress_tx, format!("ダウンロード中: {file_name}"))?;
     let downloaded_file = file_source.download(
         file_source_handler.handler,
         &args.file_info.file_uri,
@@ -217,6 +284,7 @@ fn process_file_plugins_sync(
         ));
     }
 
+    send_progress(progress_tx, format!("ファイルを展開中: {file_name}"))?;
     let extracted_files =
         file_extractor.extract(file_extractor_handler.handler, &downloaded_file)?;
     let mut chunks = Vec::with_capacity(extracted_files.len());
@@ -247,6 +315,15 @@ fn process_file_plugins_sync(
         } else {
             std::fs::read_to_string(&extracted_file).map_err(|err| err.to_string())?
         };
+        send_progress(
+            progress_tx,
+            format!(
+                "埋め込みを作成中: {} ({}/{})",
+                file_name,
+                chunks.len() + 1,
+                extracted_files.len()
+            ),
+        )?;
         let content_vector = embedder.embed(
             embedder_handler.handler,
             extracted_file
@@ -263,12 +340,22 @@ fn process_file_plugins_sync(
         fs::remove_file(extracted_file).map_err(|err| err.to_string())?;
     }
 
+    send_progress(progress_tx, format!("ベクトルストアを更新中: {file_name}"))?;
     vector_store.delete_chunks_file(vector_store_handler.handler, file_id)?;
     vector_store.insert_chunks(vector_store_handler.handler, &chunks)?;
 
     fs::remove_file(Path::new(&downloaded_file)).map_err(|err| err.to_string())?;
 
     Ok(())
+}
+
+fn send_progress(
+    progress_tx: &mpsc::UnboundedSender<String>,
+    progress_info: String,
+) -> Result<(), String> {
+    progress_tx
+        .send(progress_info)
+        .map_err(|err| err.to_string())
 }
 
 fn to_plugin_index_id(index_id: Uuid) -> IndexId {
@@ -278,8 +365,10 @@ fn to_plugin_index_id(index_id: Uuid) -> IndexId {
 fn new_file_model(
     index_id: Uuid,
     file_info: &OutputFileInfo,
+    id: i64,
 ) -> Result<sqlite::models::file::ActiveModel, String> {
     Ok(sqlite::models::file::ActiveModel {
+        id: Set(id),
         index_id: Set(index_id.to_string()),
         name: Set(file_info.file_name.clone()),
         file_uri: Set(file_info.file_uri.clone()),
