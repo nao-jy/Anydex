@@ -283,7 +283,7 @@ export const Search = () => {
 
   return (
     <Box bg="var(--mantine-color-body)" py={20}>
-      <Container size="xl">
+      <Container size="lg">
         <PageHeader
           pageName="検索"
           description="インデックス内のファイルを閲覧し、メタデータを確認します"
