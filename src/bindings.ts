@@ -34,6 +34,7 @@ export const commands = {
 	grep: (indexId: string, pattern: string, target: string) => typedError<GrepResult, string>(__TAURI_INVOKE("grep", { indexId, pattern, target })),
 	semanticSearch: (indexId: string, query: SemanticSearchQuery, target: string) => typedError<SemanticSearchResult, string>(__TAURI_INVOKE("semantic_search", { indexId, query, target })),
 	getFileInfo: (indexId: string, uri: string) => typedError<GetFileInfoResult, string>(__TAURI_INVOKE("get_file_info", { indexId, uri })),
+	downloadFile: (indexId: string, uri: string, destination: string) => typedError<null, string>(__TAURI_INVOKE("download_file", { indexId, uri, destination })),
 	listOauthClient: () => typedError<OAuthClient[], string>(__TAURI_INVOKE("list_oauth_client")),
 	createEmptyOauthClient: () => typedError<null, string>(__TAURI_INVOKE("create_empty_oauth_client")),
 	updateOauthClient: (data: OAuthClient) => typedError<null, string>(__TAURI_INVOKE("update_oauth_client", { data })),
@@ -53,6 +54,10 @@ export type DirectoryEntry = {
 	name: string,
 	path: string,
 	isDirectory: boolean,
+	fileUri: string | null,
+	/**  A decimal string avoids losing precision when represented by JavaScript. */
+	size: string,
+	updatedAt: string | null,
 };
 
 export type Embedder = {

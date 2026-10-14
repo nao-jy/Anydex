@@ -49,6 +49,7 @@ macro_rules! app_commands {
             ipc::search::grep,
             ipc::search::semantic_search,
             ipc::search::get_file_info,
+            ipc::search::download_file,
             ipc::oauth::list_oauth_client,
             ipc::oauth::create_empty_oauth_client,
             ipc::oauth::update_oauth_client,

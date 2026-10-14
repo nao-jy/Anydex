@@ -33,7 +33,7 @@ pub async fn list_directory(
 ) -> Result<ListDirectoryResult, String> {
     let path = normalize_path(path)?;
     let files = get_indexed_files(index_id, database).await?;
-    let mut entries = BTreeMap::<String, bool>::new();
+    let mut entries = BTreeMap::<String, DirectoryEntry>::new();
     let prefix = if path == "/" {
         "/".to_owned()
     } else {
@@ -51,21 +51,54 @@ pub async fn list_directory(
 
         if let Some((directory, _)) = relative_path.split_once('/') {
             let directory_path = join_path(&path, directory);
-            entries.insert(directory_path, true);
+            match entries.entry(directory_path.clone()) {
+                std::collections::btree_map::Entry::Vacant(entry) => {
+                    entry.insert(DirectoryEntry {
+                        name: directory.to_owned(),
+                        path: directory_path,
+                        is_directory: true,
+                        file_uri: None,
+                        size: file.size.to_string(),
+                        updated_at: file.updated_at.clone(),
+                    });
+                }
+                std::collections::btree_map::Entry::Occupied(mut entry) => {
+                    let directory_entry = entry.get_mut();
+                    let size = directory_entry
+                        .size
+                        .parse::<i64>()
+                        .map_err(|err| err.to_string())?;
+                    directory_entry.size = size
+                        .checked_add(file.size)
+                        .ok_or_else(|| "directory size exceeds the supported range".to_owned())?
+                        .to_string();
+                    if file.updated_at.as_ref().is_some_and(|updated_at| {
+                        directory_entry
+                            .updated_at
+                            .as_ref()
+                            .is_none_or(|current| updated_at > current)
+                    }) {
+                        directory_entry.updated_at = file.updated_at.clone();
+                    }
+                }
+            }
         } else {
-            entries.insert(file_path, false);
+            entries.insert(
+                file_path.clone(),
+                DirectoryEntry {
+                    name: file_path.rsplit('/').next().unwrap_or_default().to_owned(),
+                    path: file_path,
+                    is_directory: false,
+                    file_uri: Some(file.file_uri),
+                    size: file.size.to_string(),
+                    updated_at: file.updated_at,
+                },
+            );
         }
     }
 
     Ok(ListDirectoryResult {
-        entries: entries
-            .into_iter()
-            .map(|(path, is_directory)| DirectoryEntry {
-                name: path.rsplit('/').next().unwrap_or_default().to_owned(),
-                path,
-                is_directory,
-            })
-            .collect(),
+        entries: entries.into_values().collect(),
     })
 }
 

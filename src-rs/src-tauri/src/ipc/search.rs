@@ -1,4 +1,5 @@
 use sea_orm::DatabaseConnection;
+use std::path::Path;
 use tauri::State;
 use uuid::Uuid;
 
@@ -54,4 +55,20 @@ pub async fn get_file_info(
     database: State<'_, DatabaseConnection>,
 ) -> Result<GetFileInfoResult, String> {
     usecase::search::get_file_info(index_id, &uri, database.inner()).await
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(database, uri, destination))]
+pub async fn download_file(
+    index_id: Uuid,
+    uri: String,
+    destination: String,
+    database: State<'_, DatabaseConnection>,
+) -> Result<(), String> {
+    usecase::search::get_file_info(index_id, &uri, database.inner()).await?;
+    let downloaded_path = usecase::files::download_file(index_id, &uri, database.inner()).await?;
+    std::fs::copy(downloaded_path, Path::new(&destination))
+        .map_err(|err| format!("failed to save downloaded file to '{destination}': {err}"))?;
+    Ok(())
 }

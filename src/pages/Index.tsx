@@ -126,7 +126,7 @@ export const Index = () => {
     }
   };
   return (
-    <Box bg="var(--mantine-color-body)" mih="calc(100vh - 60px)" py={40}>
+    <Box bg="var(--mantine-color-body)" py={40}>
       <Container size="lg">
         <Group justify="space-between" align="flex-end" mb={28}>
           <PageHeader

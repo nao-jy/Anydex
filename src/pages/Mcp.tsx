@@ -64,10 +64,10 @@ export const Mcp = () => {
   const isError = isServerError || isIndexError;
 
   return (
-    <Box bg="var(--mantine-color-body)" mih="calc(100vh - 60px)" py={40}>
+    <Box bg="var(--mantine-color-body)" py={40}>
       <Container size="lg">
         <PageHeader
-          pageName="MCPサーバー"
+          pageName="MCP & ファイルサーバー"
           description="MCP から公開するインデックスとローカルサーバーを管理します"
         />
 

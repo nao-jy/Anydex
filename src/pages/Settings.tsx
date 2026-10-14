@@ -29,7 +29,7 @@ export const Settings = () => {
   const settings = settingsQuery.data;
 
   return (
-    <Box bg="var(--mantine-color-body)" mih="calc(100vh - 60px)" py={40}>
+    <Box bg="var(--mantine-color-body)" py={40}>
       <Container size="lg">
         <PageHeader pageName="設定" description="各種設定を閲覧・変更します" />
 

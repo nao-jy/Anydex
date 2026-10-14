@@ -1,0 +1,93 @@
+.listHeader,
+.entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 180px) 100px 88px 20px;
+  align-items: center;
+  column-gap: var(--mantine-spacing-sm);
+}
+
+.listHeader {
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-md);
+}
+
+.entry {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 var(--mantine-spacing-sm);
+  border-radius: var(--mantine-radius-sm);
+  text-align: left;
+  transition: background-color 60ms ease-out;
+}
+
+.entry:hover:not(:disabled) {
+  background-color: var(--mantine-color-default-hover);
+}
+
+.entry:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: -2px;
+}
+
+.entry:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.selectedEntry {
+  background-color: var(--mantine-color-default-hover);
+}
+
+.entryName {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.folderIcon {
+  flex: 0 0 auto;
+  color: color-mix(
+    in srgb,
+    var(--mantine-color-yellow-7) 65%,
+    var(--mantine-color-dimmed)
+  );
+}
+
+.fileIcon {
+  flex: 0 0 auto;
+  color: var(--mantine-color-dimmed);
+}
+
+.disclosureIcon {
+  color: var(--mantine-color-dimmed);
+}
+
+.sortButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: var(--mantine-radius-xs);
+  color: var(--mantine-color-dimmed);
+  cursor: pointer;
+}
+
+.sortButton:hover {
+  background-color: var(--mantine-color-default-hover);
+  color: var(--mantine-color-text);
+}
+
+.sortButton:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 1px;
+}
+
+@media (max-width: 640px) {
+  .listHeader,
+  .entry {
+    grid-template-columns: minmax(0, 1fr) 88px 20px;
+  }
+
+  .dateColumn,
+  .sizeColumn {
+    display: none;
+  }
+}

@@ -64,7 +64,6 @@ pub async fn download_file(
             ))?
             .clone()
     };
-    let handler = plugin.get_handler(&file_source.params)?;
     let cache_dir = get_dir().app_cache_dir.join(index_id.to_string());
     let access_token = match file_source.oauth_id {
         Some(oauth_client_id) => {
@@ -76,6 +75,7 @@ pub async fn download_file(
         }
         None => None,
     };
+    let handler = plugin.get_handler(&file_source.params)?;
     fs::create_dir_all(&cache_dir).map_err(|err| err.to_string())?;
     let downloaded_path = plugin.download(
         handler.handler,

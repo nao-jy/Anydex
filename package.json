@@ -29,6 +29,7 @@
     "@tauri-apps/plugin-store": "^2.5.0",
     "ajv": "^8.20.0",
     "dayjs": "^1.11.23",
+    "flexlayout-react": "^0.11.1",
     "install": "^0.13.0",
     "json-edit-react": "^2.0.1",
     "npm": "^12.1.0",

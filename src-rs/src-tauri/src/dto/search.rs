@@ -40,6 +40,10 @@ pub struct DirectoryEntry {
     pub name: String,
     pub path: String,
     pub is_directory: bool,
+    pub file_uri: Option<String>,
+    /// A decimal string avoids losing precision when represented by JavaScript.
+    pub size: String,
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
