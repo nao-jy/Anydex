@@ -67,7 +67,7 @@ export const Mcp = () => {
     <Box bg="var(--mantine-color-body)" py={20}>
       <Container size="lg">
         <PageHeader
-          pageName="MCP & ファイルサーバー"
+          pageName="MCPサーバー"
           description="MCP から公開するインデックスとローカルサーバーを管理します"
         />
 

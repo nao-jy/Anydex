@@ -24,7 +24,7 @@ const mockdata = [
   { label: "インデックス", icon: IconGauge, link: "/index" },
   { label: "検索", icon: IconSearch, link: "/search" },
   { label: "OAuth", icon: IconKey, link: "/oauth" },
-  { label: "MCP&ファイルサーバー", icon: IconServer, link: "/mcp" },
+  { label: "MCPサーバー", icon: IconServer, link: "/mcp" },
   { label: "タスク", icon: IconListCheck, link: "/tasks" },
   { label: "設定", icon: IconSettings, link: "/settings" },
 ];
