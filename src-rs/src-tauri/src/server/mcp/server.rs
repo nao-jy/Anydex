@@ -9,6 +9,8 @@ use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use base64::Engine;
+
 #[derive(Clone)]
 pub struct McpServer {
     db: DatabaseConnection,
@@ -59,6 +61,21 @@ pub struct GetFileInfoParams {
     pub index_id: String,
     #[schemars(description = "ファイルのURI")]
     pub uri: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct DownloadFileParams {
+    #[schemars(description = "検索対象インデックスのID")]
+    pub index_id: String,
+    #[schemars(description = "ダウンロードするファイルのURI")]
+    pub uri: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DownloadFileResult {
+    file: crate::dto::search::FileMetadata,
+    content_base64: String,
 }
 
 #[derive(Serialize)]
@@ -154,11 +171,42 @@ impl McpServer {
             .map_err(usecase_error)?;
         serialize_result(result)
     }
+
+    #[tool(
+        description = "URIを指定してインデックス内のファイルをダウンロードします。ファイル名、Content-Type、Base64エンコードされた内容を返します。"
+    )]
+    async fn download_file(
+        &self,
+        Parameters(params): Parameters<DownloadFileParams>,
+    ) -> Result<String, ErrorData> {
+        let index_id = parse_index_id(&params.index_id)?;
+        let file = crate::usecase::search::get_file_info(index_id, &params.uri, &self.db)
+            .await
+            .map_err(usecase_error)?
+            .file;
+        let downloaded_path = crate::usecase::files::download_file(index_id, &params.uri, &self.db)
+            .await
+            .map_err(usecase_error)?;
+        let content = std::fs::read(&downloaded_path).map_err(|err| {
+            ErrorData::internal_error(
+                format!(
+                    "failed to read downloaded file '{}': {err}",
+                    downloaded_path.display()
+                ),
+                None,
+            )
+        })?;
+
+        serialize_result(DownloadFileResult {
+            file,
+            content_base64: base64::engine::general_purpose::STANDARD.encode(content),
+        })
+    }
 }
 
 #[tool_handler(
     name = "anydex",
-    instructions = "AnyDex のファイル検索サーバー。参照可能なインデックスの確認、ディレクトリ一覧、テキスト検索、意味検索、ファイル情報取得ができます。"
+    instructions = "AnyDex のファイル検索サーバー。参照可能なインデックスの確認、ディレクトリ一覧、テキスト検索、意味検索、ファイル情報取得、ファイルのダウンロードができます。ダウンロード結果のcontentBase64はBase64エンコードされたファイル内容です。"
 )]
 impl ServerHandler for McpServer {}
 

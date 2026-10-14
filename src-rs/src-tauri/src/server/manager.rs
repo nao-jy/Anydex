@@ -131,14 +131,12 @@ pub fn end(name: &str) -> Result<(), String> {
 }
 
 pub fn get_info(name: &str) -> Result<(DateTime<Utc>, SocketAddr), String> {
-    let server = {
-        let mut servers = servers()
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        servers
-            .remove(name)
-            .ok_or_else(|| format!("server '{name}' is not running"))?
-    };
+    let servers = servers()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let server = servers
+        .get(name)
+        .ok_or_else(|| format!("server '{name}' is not running"))?;
     Ok((server.started_at, server.hosted_at))
 }
 
@@ -186,6 +184,19 @@ mod tests {
         let error = start(name, Router::new(), Some(available_port()))
             .expect_err("duplicate name must fail");
         assert!(error.contains("already running"));
+
+        end(name).expect("stop server");
+    }
+
+    #[test]
+    fn reading_server_info_does_not_stop_or_unregister_it() {
+        let port = available_port();
+        let name = "manager-info-preserves-server";
+        start(name, Router::new(), Some(port)).expect("start server");
+
+        let (_, address) = super::get_info(name).expect("read server info");
+        assert_eq!(address.port(), port);
+        assert_eq!(super::get_info(name).expect("read info again").1, address);
 
         end(name).expect("stop server");
     }
