@@ -36,7 +36,7 @@ export const Tasks = () => {
   const tasks = tasksQuery.data ?? [];
 
   return (
-    <Box bg="var(--mantine-color-body)" py={40}>
+    <Box bg="var(--mantine-color-body)" py={20}>
       <Container size="lg">
         <Group justify="space-between" align="flex-end" mb={28}>
           <PageHeader

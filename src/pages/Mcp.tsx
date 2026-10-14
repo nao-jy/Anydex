@@ -64,7 +64,7 @@ export const Mcp = () => {
   const isError = isServerError || isIndexError;
 
   return (
-    <Box bg="var(--mantine-color-body)" py={40}>
+    <Box bg="var(--mantine-color-body)" py={20}>
       <Container size="lg">
         <PageHeader
           pageName="MCP & ファイルサーバー"

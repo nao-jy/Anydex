@@ -37,6 +37,29 @@
   background-color: var(--mantine-color-default-hover);
 }
 
+.searchResult {
+  display: block;
+  width: 100%;
+  padding: var(--mantine-spacing-sm);
+  border-radius: var(--mantine-radius-sm);
+  text-align: left;
+}
+
+.searchResult + .searchResult {
+  border-top: 1px solid var(--mantine-color-default-border);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.searchResult:hover {
+  background-color: var(--mantine-color-default-hover);
+}
+
+.searchResult:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: -2px;
+}
+
 .entryName {
   min-width: 0;
   overflow: hidden;
