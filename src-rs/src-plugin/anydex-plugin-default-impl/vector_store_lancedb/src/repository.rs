@@ -67,7 +67,7 @@ impl DB {
                 Field::new(
                     VECTOR_COLUMN,
                     DataType::FixedSizeList(
-                        Arc::new(Field::new("item", DataType::Float32, false)),
+                        Arc::new(Field::new("item", param.vector_type.into(), false)),
                         param.dimensions,
                     ),
                     false,
@@ -324,6 +324,8 @@ impl DB {
 
 #[cfg(test)]
 mod tests {
+    use crate::param::VectorType;
+
     use super::*;
     use serde_json::json;
     use std::path::Path;
@@ -370,7 +372,15 @@ mod tests {
         );
         let _cleanup = TestDatabasePath(path);
 
-        let db = DB::init_table(index_id.clone(), "./", &Param { dimensions: 2 }).unwrap();
+        let db = DB::init_table(
+            index_id.clone(),
+            "./",
+            &Param {
+                dimensions: 2,
+                vector_type: VectorType::Float32,
+            },
+        )
+        .unwrap();
         let mut aligned = test_chunk("1".into(), index_id.clone(), 100);
         aligned.content_vector = vec![10.0, 0.0];
         let mut other_file = test_chunk("2".into(), index_id.clone(), 200);
@@ -425,7 +435,15 @@ mod tests {
         );
         let _cleanup = TestDatabasePath(path);
 
-        let db = DB::init_table(index_id.clone(), "./", &Param { dimensions: 2 }).unwrap();
+        let db = DB::init_table(
+            index_id.clone(),
+            "./",
+            &Param {
+                dimensions: 2,
+                vector_type: VectorType::Float32,
+            },
+        )
+        .unwrap();
         let mut semantic_match = test_chunk("1".into(), index_id.clone(), 100);
         semantic_match.content = "unrelated content".into();
         semantic_match.content_vector = vec![1.0, 0.0];
@@ -472,7 +490,15 @@ mod tests {
         );
         let _cleanup = TestDatabasePath(path);
 
-        let db = DB::init_table(index_id.clone(), "./", &Param { dimensions: 2 }).unwrap();
+        let db = DB::init_table(
+            index_id.clone(),
+            "./",
+            &Param {
+                dimensions: 2,
+                vector_type: VectorType::Float32,
+            },
+        )
+        .unwrap();
         let mut matching = test_chunk("1".into(), index_id.clone(), 100);
         matching.content = "distinctive exact phrase".into();
         matching.content_vector = vec![0.0, 1.0];
@@ -506,7 +532,15 @@ mod tests {
             "test database path already exists"
         );
         let _cleanup = TestDatabasePath(path);
-        let db = DB::init_table(index_id, "./", &Param { dimensions: 2 }).unwrap();
+        let db = DB::init_table(
+            index_id,
+            "./",
+            &Param {
+                dimensions: 2,
+                vector_type: VectorType::Float32,
+            },
+        )
+        .unwrap();
 
         assert!(db.search(None, None, &[100], 0, 10).is_err());
         assert!(db.search(Some("  ".into()), None, &[100], 0, 10).is_err());
