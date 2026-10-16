@@ -298,7 +298,7 @@ fn process_file_plugins_sync(
 
     if !file_extractor.is_supported(file_extractor_handler.handler, &downloaded_file)? {
         return Err(JobError::non_retryable(format!(
-            "file {downloaded_file} not supported by extractor"
+            "file {file_name} not supported by extractor"
         )));
     }
 
