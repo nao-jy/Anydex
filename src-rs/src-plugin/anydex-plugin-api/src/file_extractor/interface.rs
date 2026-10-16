@@ -19,7 +19,6 @@ pub struct DynamicFileExtractorV1 {
         unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
     pub get_handler: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
     pub free_handler: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
-    pub is_supported: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
     pub extract: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
     /// Releases allocations returned by this plugin's ABI functions.
     pub free: unsafe extern "C" fn(value: APIResultSerialized),
@@ -40,12 +39,6 @@ impl PluginFn<GetHandlerArgs, GetHandlerData> for DynamicFileExtractorV1 {
 impl PluginFn<FreeHandlerArgs, FreeHandlerData> for DynamicFileExtractorV1 {
     fn apply_and_unwrap(&self, args: FreeHandlerArgs) -> Result<FreeHandlerData, String> {
         super::super::common::apply_and_unwrap(args, self.free_handler, self.free)
-    }
-}
-
-impl PluginFn<IsSupportedArgs, IsSupportedData> for DynamicFileExtractorV1 {
-    fn apply_and_unwrap(&self, args: IsSupportedArgs) -> Result<IsSupportedData, String> {
-        super::super::common::apply_and_unwrap(args, self.is_supported, self.free)
     }
 }
 

@@ -296,71 +296,69 @@ fn process_file_plugins_sync(
         );
     }
 
-    if !file_extractor.is_supported(file_extractor_handler.handler, &downloaded_file)? {
-        return Err(JobError::non_retryable(format!(
-            "file {file_name} not supported by extractor"
-        )));
-    }
-
     send_progress(progress_tx, format!("ファイルを展開中: {file_name}"))?;
-    let extracted_files =
+    let extracted_data =
         file_extractor.extract(file_extractor_handler.handler, &downloaded_file)?;
-    let mut chunks = Vec::with_capacity(extracted_files.len());
-    for (_size, relative_path) in extracted_files.iter().enumerate() {
-        let relative_path = Path::new(relative_path);
-        if relative_path.is_absolute()
-            || relative_path
-                .components()
-                .any(|component| !matches!(component, Component::Normal(_)))
-        {
-            return Err(JobError::non_retryable(format!(
-                "file extractor returned an invalid relative path: {}",
-                relative_path.display()
-            )));
-        }
-        let extracted_file = extracted_dir.join(relative_path);
-        if !extracted_file.is_file() {
-            return Err(JobError::non_retryable(format!(
-                "file extractor output does not exist: {}",
-                extracted_file.display()
-            )));
+
+    if extracted_data.is_supported {
+        let extracted_files = extracted_data.extracted_file_paths;
+        let mut chunks = Vec::with_capacity(extracted_files.len());
+        for (_size, relative_path) in extracted_files.iter().enumerate() {
+            let relative_path = Path::new(relative_path);
+            if relative_path.is_absolute()
+                || relative_path
+                    .components()
+                    .any(|component| !matches!(component, Component::Normal(_)))
+            {
+                return Err(JobError::non_retryable(format!(
+                    "file extractor returned an invalid relative path: {}",
+                    relative_path.display()
+                )));
+            }
+            let extracted_file = extracted_dir.join(relative_path);
+            if !extracted_file.is_file() {
+                return Err(JobError::non_retryable(format!(
+                    "file extractor output does not exist: {}",
+                    extracted_file.display()
+                )));
+            }
+
+            let file_mime = mime_guess::from_path(&extracted_file).first_or_octet_stream();
+            let is_image_file = file_mime.type_() == mime::IMAGE;
+            let content = if is_image_file {
+                format!("[Image: {}]", relative_path.display())
+            } else {
+                std::fs::read_to_string(&extracted_file).map_err(|err| err.to_string())?
+            };
+            send_progress(
+                progress_tx,
+                format!(
+                    "埋め込みを作成中: {} ({}/{})",
+                    file_name,
+                    chunks.len() + 1,
+                    extracted_files.len()
+                ),
+            )?;
+            let content_vector = embedder.embed(
+                embedder_handler.handler,
+                extracted_file
+                    .to_str()
+                    .ok_or_else(|| "extracted file path is not valid UTF-8".to_owned())?,
+            )?;
+            chunks.push(Chunk {
+                id: Uuid::now_v7().to_string(),
+                file_id,
+                index_id: index_id.clone(),
+                content,
+                content_vector,
+            });
+            fs::remove_file(extracted_file).map_err(|err| err.to_string())?;
         }
 
-        let file_mime = mime_guess::from_path(&extracted_file).first_or_octet_stream();
-        let is_image_file = file_mime.type_() == mime::IMAGE;
-        let content = if is_image_file {
-            format!("[Image: {}]", relative_path.display())
-        } else {
-            std::fs::read_to_string(&extracted_file).map_err(|err| err.to_string())?
-        };
-        send_progress(
-            progress_tx,
-            format!(
-                "埋め込みを作成中: {} ({}/{})",
-                file_name,
-                chunks.len() + 1,
-                extracted_files.len()
-            ),
-        )?;
-        let content_vector = embedder.embed(
-            embedder_handler.handler,
-            extracted_file
-                .to_str()
-                .ok_or_else(|| "extracted file path is not valid UTF-8".to_owned())?,
-        )?;
-        chunks.push(Chunk {
-            id: Uuid::now_v7().to_string(),
-            file_id,
-            index_id: index_id.clone(),
-            content,
-            content_vector,
-        });
-        fs::remove_file(extracted_file).map_err(|err| err.to_string())?;
+        send_progress(progress_tx, format!("ベクトルストアを更新中: {file_name}"))?;
+        vector_store.delete_chunks_file(vector_store_handler.handler, file_id)?;
+        vector_store.insert_chunks(vector_store_handler.handler, &chunks)?;
     }
-
-    send_progress(progress_tx, format!("ベクトルストアを更新中: {file_name}"))?;
-    vector_store.delete_chunks_file(vector_store_handler.handler, file_id)?;
-    vector_store.insert_chunks(vector_store_handler.handler, &chunks)?;
 
     fs::remove_file(Path::new(&downloaded_file)).map_err(|err| err.to_string())?;
 

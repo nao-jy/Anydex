@@ -46,7 +46,6 @@ pub unsafe extern "C" fn get_plugin(init: *const PluginInit) -> *const DynamicFi
             get_param_schema,
             get_handler,
             free_handler,
-            is_supported,
             extract,
             free,
         };
@@ -83,7 +82,6 @@ macro_rules! define_api_callback {
 define_api_callback!(get_param_schema, GetParamSchemaArgs);
 define_api_callback!(get_handler, GetHandlerArgs);
 define_api_callback!(free_handler, FreeHandlerArgs);
-define_api_callback!(is_supported, IsSupportedArgs);
 define_api_callback!(extract, ExtractArgs);
 
 unsafe extern "C" fn free(value: APIResultSerialized) {

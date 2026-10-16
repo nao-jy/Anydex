@@ -37,19 +37,6 @@ pub struct FreeHandlerData {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct IsSupportedArgs {
-    pub handler: Handler,
-    pub file_path: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct IsSupportedData {
-    pub is_supported: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ExtractArgs {
     pub handler: Handler,
     pub file_path: String,
@@ -58,5 +45,6 @@ pub struct ExtractArgs {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractData {
+    pub is_supported: bool,
     pub extracted_file_paths: Vec<String>,
 }

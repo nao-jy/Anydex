@@ -1,4 +1,4 @@
-use anydex_plugin_api_lib::common::Handler;
+use anydex_plugin_api_lib::{common::Handler, file_extractor::params::ExtractData};
 
 use crate::plugin::common::DisposableHnandler;
 
@@ -13,11 +13,5 @@ pub trait FileExtractor {
         base_dir: &str,
     ) -> Result<DisposableHnandler, String>;
 
-    fn is_supported(&self, handler: Handler, file_abs_path: &str) -> Result<bool, String>;
-
-    fn extract(
-        &self,
-        handler: Handler,
-        file_abs_path: &str,
-    ) -> Result<Vec<ExtractedFileRelativePath>, String>;
+    fn extract(&self, handler: Handler, file_abs_path: &str) -> Result<ExtractData, String>;
 }
