@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::{
     bg_job::{
         entry::JobType,
-        job::{process_file::ProcessFileArgs, Job},
+        job::{process_file::ProcessFileArgs, Job, JobError},
     },
     plugin::{entry::FILE_SOURCE_MGR, file_source::interface::FileSource},
     repository::json::load,
@@ -37,9 +37,9 @@ pub struct CollectDiffArgs {
 
 impl Job for CollectDiff {
     type JobArgsType = CollectDiffArgs;
-    async fn process(&self, job_id: i64, payload: Value) -> Result<(), String> {
-        let args: CollectDiffArgs =
-            serde_json::from_value(payload).map_err(|err| err.to_string())?;
+    async fn process(&self, job_id: i64, payload: Value) -> Result<(), JobError> {
+        let args: CollectDiffArgs = serde_json::from_value(payload)
+            .map_err(|err| JobError::non_retryable(err.to_string()))?;
         update_progress(&self.db, job_id, "インデックスを確認しています").await?;
         is_index_ready(args.index_id, &self.db).await?;
         let userdata = load()?;
@@ -47,33 +47,44 @@ impl Job for CollectDiff {
             .indexes
             .iter()
             .find(|v| v.id == args.index_id)
-            .ok_or("index not found".to_string())?;
-        let file_source = index.clone().file_source.ok_or("file source not found")?;
+            .ok_or_else(|| JobError::non_retryable("index not found"))?;
+        let file_source = index
+            .clone()
+            .file_source
+            .ok_or_else(|| JobError::non_retryable("file source not found"))?;
         let file_extractor = index
             .clone()
             .file_extractor
-            .ok_or("file extractor not found")?;
-        let embedder = index.embedder.clone().ok_or("embedder not found")?;
-        let vector_store = index.vector_store.clone().ok_or("vector store not found")?;
+            .ok_or_else(|| JobError::non_retryable("file extractor not found"))?;
+        let embedder = index
+            .embedder
+            .clone()
+            .ok_or_else(|| JobError::non_retryable("embedder not found"))?;
+        let vector_store = index
+            .vector_store
+            .clone()
+            .ok_or_else(|| JobError::non_retryable("vector store not found"))?;
         let file_source_name = &file_source.name;
 
         let plugin = {
             let mut manager = FILE_SOURCE_MGR.lock().unwrap();
-            let manager = manager
-                .as_mut()
-                .ok_or("file source plugin manager is not initialized".to_owned())?;
+            let manager = manager.as_mut().ok_or_else(|| {
+                JobError::non_retryable("file source plugin manager is not initialized")
+            })?;
             manager
                 .get_plugin(file_source_name)
-                .ok_or(format!(
-                    "File Source plugin {file_source_name} was not found in the plugin manager"
-                ))?
+                .ok_or_else(|| {
+                    JobError::non_retryable(format!(
+                        "File Source plugin {file_source_name} was not found in the plugin manager"
+                    ))
+                })?
                 .clone()
         };
         let access_token = match &file_source.oauth_id {
             Some(v) => {
                 let mut res = get_authentication(args.index_id, *v, &self.db)
                     .await?
-                    .ok_or("oauth is set but not authenticated".to_owned())?;
+                    .ok_or_else(|| JobError::non_retryable("oauth is set but not authenticated"))?;
 
                 Some(res.load_access_token().await?)
             }

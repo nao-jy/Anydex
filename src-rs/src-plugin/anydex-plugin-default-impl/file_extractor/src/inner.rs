@@ -14,8 +14,8 @@ use schemars::schema_for;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 use xberg::{
-    extract as xberg_extract, ChunkerType, ChunkingConfig, ExtractInput, ExtractionConfig,
-    OcrConfig,
+    extract as xberg_extract, list_supported_formats, ChunkerType, ChunkingConfig, ExtractInput,
+    ExtractionConfig, OcrConfig,
 };
 
 use crate::{log, param::Param};
@@ -58,6 +58,22 @@ pub fn get_handler(args: GetHandlerArgs) -> Result<GetHandlerData, String> {
 pub fn free_handler(args: FreeHandlerArgs) -> Result<FreeHandlerData, String> {
     HANDLERS.lock().unwrap().remove(&args.handler);
     Ok(FreeHandlerData {})
+}
+
+pub fn is_supported(args: IsSupportedArgs) -> Result<IsSupportedData, String> {
+    let filepath = &args.file_path;
+    let guess = mime_guess::from_path(filepath);
+    let mime = guess
+        .first()
+        .ok_or(format!("can't detect mime {filepath}"))?;
+    let supported = list_supported_formats();
+    let supported = supported
+        .iter()
+        .find(|&v| v.mime_type == mime.to_string())
+        .is_some();
+    return Ok(IsSupportedData {
+        is_supported: supported,
+    });
 }
 
 pub fn extract(args: ExtractArgs) -> Result<ExtractData, String> {

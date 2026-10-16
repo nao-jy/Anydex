@@ -74,6 +74,19 @@ impl FileExtractor for DynamicFileExtractor {
         }
     }
 
+    fn is_supported(&self, handler: Handler, file_abs_path: &str) -> Result<bool, String> {
+        match self {
+            DynamicFileExtractor::V1(plugin_v1) => {
+                let args = IsSupportedArgs {
+                    handler: handler,
+                    file_path: file_abs_path.to_string(),
+                };
+                let result = plugin_v1.apply_and_unwrap(args)?;
+                return Ok(result.is_supported);
+            }
+        }
+    }
+
     fn extract(
         &self,
         handler: Handler,

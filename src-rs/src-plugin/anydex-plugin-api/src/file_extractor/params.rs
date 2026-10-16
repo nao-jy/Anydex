@@ -37,6 +37,19 @@ pub struct FreeHandlerData {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct IsSupportedArgs {
+    pub handler: Handler,
+    pub file_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IsSupportedData {
+    pub is_supported: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExtractArgs {
     pub handler: Handler,
     pub file_path: String,

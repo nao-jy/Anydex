@@ -3,7 +3,7 @@ use std::{str::FromStr, sync::Arc, time::Duration};
 use crate::{
     bg_job::{
         entry::JobType,
-        job::{collect_diff::CollectDiff, process_file::ProcessFile, Job},
+        job::{collect_diff::CollectDiff, process_file::ProcessFile, Job, JobError},
     },
     repository::sqlite::{
         job::{claim, finish},
@@ -59,9 +59,9 @@ pub async fn run(
     while tasks.join_next().await.is_some() {}
 }
 
-async fn execute(db: DatabaseConnection, job: job::Model) -> Result<(), String> {
+async fn execute(db: DatabaseConnection, job: job::Model) -> Result<(), JobError> {
     let job_type = JobType::from_str(&job.job_type)
-        .map_err(|_| format!("unknown job type: {}", job.job_type))?;
+        .map_err(|_| JobError::non_retryable(format!("unknown job type: {}", job.job_type)))?;
     match job_type {
         JobType::CollectDiff => CollectDiff::new(db).process(job.id, job.payload).await,
         JobType::ProcessFile => ProcessFile { db }.process(job.id, job.payload).await,

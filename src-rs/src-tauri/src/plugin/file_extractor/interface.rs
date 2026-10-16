@@ -13,6 +13,8 @@ pub trait FileExtractor {
         base_dir: &str,
     ) -> Result<DisposableHnandler, String>;
 
+    fn is_supported(&self, handler: Handler, file_abs_path: &str) -> Result<bool, String>;
+
     fn extract(
         &self,
         handler: Handler,

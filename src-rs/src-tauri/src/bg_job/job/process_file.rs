@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::bg_job::entry::get_tmp_dir;
 use crate::path;
 use crate::{
-    bg_job::job::Job,
+    bg_job::job::{Job, JobError},
     plugin::{
         embedder::interface::Embedder,
         entry::{EMBEDDER_MGR, FILE_EXTRACTOR_MGR, FILE_SOURCE_MGR, VECTOR_STORE_MGR},
@@ -45,9 +45,9 @@ pub struct ProcessFileArgs {
 
 impl Job for ProcessFile {
     type JobArgsType = ProcessFileArgs;
-    async fn process(&self, job_id: i64, payload: Value) -> Result<(), String> {
-        let args: ProcessFileArgs =
-            serde_json::from_value(payload).map_err(|err| err.to_string())?;
+    async fn process(&self, job_id: i64, payload: Value) -> Result<(), JobError> {
+        let args: ProcessFileArgs = serde_json::from_value(payload)
+            .map_err(|err| JobError::non_retryable(err.to_string()))?;
 
         update_progress(
             &self.db,
@@ -86,7 +86,7 @@ impl Job for ProcessFile {
             .map_err(|err| err.to_string())?;
         let file_id = last_file
             .map_or(Some(1), |file| file.id.checked_add(1))
-            .ok_or_else(|| "file ID space exhausted".to_owned())?;
+            .ok_or_else(|| JobError::non_retryable("file ID space exhausted"))?;
         let plugin_file_id = FileId::try_from(file_id).map_err(|err| err.to_string())?;
         process_file_plugins(&args, plugin_index_id, plugin_file_id, &self.db, job_id).await?;
 
@@ -104,7 +104,7 @@ impl ProcessFile {
         args: &ProcessFileArgs,
         file: sqlite::models::file::Model,
         job_id: i64,
-    ) -> Result<(), String> {
+    ) -> Result<(), JobError> {
         let file_id = FileId::try_from(file.id).map_err(|err| err.to_string())?;
         process_file_plugins(
             args,
@@ -131,13 +131,15 @@ async fn process_file_plugins(
     file_id: FileId,
     db: &DatabaseConnection,
     job_id: i64,
-) -> Result<(), String> {
+) -> Result<(), JobError> {
     let oauth_token = match args.file_source.oauth_id {
         Some(oauth_id) => {
             let mut authentication = get_authentication(args.index_id, oauth_id, db)
                 .await?
                 .ok_or_else(|| {
-                    "OAuth is configured but the index is not authenticated".to_owned()
+                    JobError::non_retryable(
+                        "OAuth is configured but the index is not authenticated",
+                    )
                 })?;
             Some(authentication.load_access_token().await?)
         }
@@ -192,7 +194,7 @@ async fn process_file_plugins(
         }
     }
     if let Some(error) = progress_error {
-        return Err(format!("failed to update job progress: {error}"));
+        return Err(format!("failed to update job progress: {error}").into());
     }
     result
 }
@@ -205,20 +207,22 @@ fn process_file_plugins_sync(
     downloaded_dir: &str,
     extracted_dir_string: &str,
     progress_tx: &mpsc::UnboundedSender<String>,
-) -> Result<(), String> {
+) -> Result<(), JobError> {
     let file_name = &args.file_info.file_name;
     let extracted_dir = Path::new(extracted_dir_string);
     let file_source = {
         let mut manager = FILE_SOURCE_MGR.lock().map_err(|err| err.to_string())?;
         manager
             .as_mut()
-            .ok_or_else(|| "file source plugin manager is not initialized".to_owned())?
+            .ok_or_else(|| {
+                JobError::non_retryable("file source plugin manager is not initialized")
+            })?
             .get_plugin(&args.file_source.name)
             .ok_or_else(|| {
-                format!(
+                JobError::non_retryable(format!(
                     "file source plugin {} was not found in the plugin manager",
                     args.file_source.name
-                )
+                ))
             })?
             .clone()
     };
@@ -226,13 +230,15 @@ fn process_file_plugins_sync(
         let mut manager = FILE_EXTRACTOR_MGR.lock().map_err(|err| err.to_string())?;
         manager
             .as_mut()
-            .ok_or_else(|| "file extractor plugin manager is not initialized".to_owned())?
+            .ok_or_else(|| {
+                JobError::non_retryable("file extractor plugin manager is not initialized")
+            })?
             .get_plugin(&args.file_extractor.name)
             .ok_or_else(|| {
-                format!(
+                JobError::non_retryable(format!(
                     "file extractor plugin {} was not found in the plugin manager",
                     args.file_extractor.name
-                )
+                ))
             })?
             .clone()
     };
@@ -240,13 +246,13 @@ fn process_file_plugins_sync(
         let mut manager = EMBEDDER_MGR.lock().map_err(|err| err.to_string())?;
         manager
             .as_mut()
-            .ok_or_else(|| "embedder plugin manager is not initialized".to_owned())?
+            .ok_or_else(|| JobError::non_retryable("embedder plugin manager is not initialized"))?
             .get_plugin(&args.embedder.name)
             .ok_or_else(|| {
-                format!(
+                JobError::non_retryable(format!(
                     "embedder plugin {} was not found in the plugin manager",
                     args.embedder.name
-                )
+                ))
             })?
             .clone()
     };
@@ -254,13 +260,15 @@ fn process_file_plugins_sync(
         let mut manager = VECTOR_STORE_MGR.lock().map_err(|err| err.to_string())?;
         manager
             .as_mut()
-            .ok_or_else(|| "vector store plugin manager is not initialized".to_owned())?
+            .ok_or_else(|| {
+                JobError::non_retryable("vector store plugin manager is not initialized")
+            })?
             .get_plugin(&args.vector_store.name)
             .ok_or_else(|| {
-                format!(
+                JobError::non_retryable(format!(
                     "vector store plugin {} was not found in the plugin manager",
                     args.vector_store.name
-                )
+                ))
             })?
             .clone()
     };
@@ -283,9 +291,15 @@ fn process_file_plugins_sync(
         downloaded_dir,
     )?;
     if !Path::new(&downloaded_file).is_file() {
-        return Err(format!(
-            "file source did not create a downloaded file at {downloaded_file}"
-        ));
+        return Err(
+            format!("file source did not create a downloaded file at {downloaded_file}").into(),
+        );
+    }
+
+    if !file_extractor.is_supported(file_extractor_handler.handler, &downloaded_file)? {
+        return Err(JobError::non_retryable(format!(
+            "file {downloaded_file} not supported by extractor"
+        )));
     }
 
     send_progress(progress_tx, format!("ファイルを展開中: {file_name}"))?;
@@ -299,17 +313,17 @@ fn process_file_plugins_sync(
                 .components()
                 .any(|component| !matches!(component, Component::Normal(_)))
         {
-            return Err(format!(
+            return Err(JobError::non_retryable(format!(
                 "file extractor returned an invalid relative path: {}",
                 relative_path.display()
-            ));
+            )));
         }
         let extracted_file = extracted_dir.join(relative_path);
         if !extracted_file.is_file() {
-            return Err(format!(
+            return Err(JobError::non_retryable(format!(
                 "file extractor output does not exist: {}",
                 extracted_file.display()
-            ));
+            )));
         }
 
         let file_mime = mime_guess::from_path(&extracted_file).first_or_octet_stream();

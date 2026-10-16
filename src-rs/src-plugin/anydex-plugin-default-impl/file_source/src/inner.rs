@@ -225,7 +225,7 @@ pub fn get_diff(args: GetDiffArgs) -> Result<GetDiffData, String> {
             content_hash: etag.clone(),
         };
 
-        let prev_entry = last_indexed_files.get(&file_path);
+        let prev_entry = last_indexed_files.get(uri);
         if prev_entry.is_none() {
             added_entries.push(info);
         } else if let Some(e) = prev_entry {

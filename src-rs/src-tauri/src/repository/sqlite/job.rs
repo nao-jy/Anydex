@@ -4,6 +4,7 @@ use sea_orm::{
     QueryFilter, Set, Statement,
 };
 
+use crate::bg_job::job::JobError;
 use crate::repository::sqlite::models::{
     self,
     job::{self, STATUS_DEAD, STATUS_DONE, STATUS_PENDING, STATUS_RUNNING},
@@ -39,7 +40,7 @@ pub async fn claim(
 pub async fn finish(
     db: &DatabaseConnection,
     job: &job::Model,
-    result: Result<(), String>,
+    result: Result<(), JobError>,
 ) -> Result<(), sea_orm::DbErr> {
     let now = Utc::now();
     let mut active_job = job::ActiveModel {
@@ -52,12 +53,14 @@ pub async fn finish(
             active_job.status = Set(STATUS_DONE.to_owned());
             active_job.progress_info = Set("完了".to_owned());
         }
-        Err(error) if job.attempts >= job.max_attempts => {
+        Err(error) if !should_retry(&error, job.attempts, job.max_attempts) => {
+            let error = error.to_string();
             active_job.status = Set(STATUS_DEAD.to_owned());
             active_job.progress_info = Set(format!("失敗: {error}"));
             active_job.last_error = Set(Some(error));
         }
         Err(error) => {
+            let error = error.to_string();
             // 指数バックオフ（上限付き）
             let delay = (1_000i64 << job.attempts.min(10)).min(600_000);
             active_job.status = Set(STATUS_PENDING.to_owned());
@@ -68,6 +71,10 @@ pub async fn finish(
     }
     active_job.update(db).await?;
     Ok(())
+}
+
+fn should_retry(error: &JobError, attempts: i32, max_attempts: i32) -> bool {
+    error.is_retryable() && attempts < max_attempts
 }
 
 pub async fn update_progress(
@@ -83,6 +90,19 @@ pub async fn update_progress(
         .await
         .map_err(|err| err.to_string())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_retry;
+    use crate::bg_job::job::JobError;
+
+    #[test]
+    fn retries_only_retryable_errors_with_attempts_remaining() {
+        assert!(should_retry(&JobError::retryable("temporary"), 1, 3));
+        assert!(!should_retry(&JobError::retryable("temporary"), 3, 3));
+        assert!(!should_retry(&JobError::non_retryable("permanent"), 1, 3));
+    }
 }
 
 pub async fn init_job(db: &DatabaseConnection) -> Result<(), sea_orm::DbErr> {
