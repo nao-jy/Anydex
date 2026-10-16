@@ -1,5 +1,5 @@
 ## Build Command
 
 - `cargo xtask build`
-- `cargo xtask build --features anydex-plugin-default-impl-embedder/cuda`
-- `cargo xtask build --features anydex-plugin-default-impl-embedder/metal`
+- `cargo xtask build --features embedder-qwen3-vl/cuda`
+- `cargo xtask build --features embedder-qwen3-vl/metal`

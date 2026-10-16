@@ -1,7 +1,7 @@
 [package]
-name = "anydex-plugin-default-impl-vector-store"
+name = "embedder-qwen3-vl"
 version = "0.1.0"
-description = "Anydex Plugin Default Impl Vector Store"
+description = "Anydex Embedder Qwen3 VL Embedding"
 authors = ["you"]
 edition = "2021"
 
@@ -9,15 +9,24 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "anydex_plugin_default_impl_vector_store_lib"
+name = "embedder_qwen3_lib"
 crate-type = ["cdylib"]
 
 [dependencies]
+fastembed = { version = "7", features = ["qwen3", "accelerate", "metal"] }
+jsonpath-rust = "1.0.11"
 anydex-plugin-api.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 schemars.workspace = true
-process_path.workspace = true
-lancedb = "0.37.1"
-tokio.workspace = true
-futures = "0.3.34"
+mime_guess.workspace = true
+encoding_rs.workspace = true
+chardetng.workspace = true
+image.workspace = true
+candle-core = "0.11.0"
+uuid.workspace = true
+
+[features]
+default = []
+cuda = ["fastembed/cuda"]
+metal = ["fastembed/metal"]

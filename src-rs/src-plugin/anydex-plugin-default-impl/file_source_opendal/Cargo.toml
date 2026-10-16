@@ -1,7 +1,7 @@
 [package]
-name = "anydex-plugin-default-impl-file-source"
+name = "file-source"
 version = "0.1.0"
-description = "Anydex Plugin Default Impl File Source"
+description = "File Source OpenDAL"
 authors = ["you"]
 edition = "2021"
 
@@ -9,7 +9,7 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "anydex_plugin_default_impl_file_source_lib"
+name = "file_source_opendal_lib"
 crate-type = ["cdylib"]
 
 [dependencies]
@@ -24,4 +24,8 @@ serde_json.workspace = true
 schemars.workspace = true
 tokio.workspace = true
 chrono.workspace = true
-rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls = { version = "0.23", default-features = false, features = [
+    "ring",
+    "std",
+    "tls12",
+] }

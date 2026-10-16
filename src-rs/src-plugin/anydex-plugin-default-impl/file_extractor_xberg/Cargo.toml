@@ -1,7 +1,7 @@
 [package]
-name = "anydex-plugin-default-impl-embedder"
+name = "file-extractor-xberg"
 version = "0.1.0"
-description = "Anydex Plugin Default Impl Embedder"
+description = "File Extractor XBerg"
 authors = ["you"]
 edition = "2021"
 
@@ -9,24 +9,22 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "anydex_plugin_default_impl_embedder_lib"
+name = "file_extractor_xberg_lib"
 crate-type = ["cdylib"]
 
 [dependencies]
-fastembed = { version = "7", features = ["qwen3", "accelerate", "metal"] }
-jsonpath-rust = "1.0.11"
+xberg = { version = "1.2.8", features = [
+    "pdf",
+    "office",
+    "excel",
+    "html",
+    "chunking",
+    "ocr",
+] }
 anydex-plugin-api.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 schemars.workspace = true
-mime_guess.workspace = true
-encoding_rs.workspace = true
-chardetng.workspace = true
-image.workspace = true
-candle-core = "0.11.0"
+tokio.workspace = true
 uuid.workspace = true
-
-[features]
-default = []
-cuda = ["fastembed/cuda"]
-metal = ["fastembed/metal"]
+mime_guess.workspace = true

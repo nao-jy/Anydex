@@ -1,5 +1,11 @@
 [workspace]
-members = ["embedder", "file_extractor", "file_source", "vector_store", "xtask"]
+members = [
+    "embedder_qwen3_vl",
+    "file_extractor_xberg",
+    "file_source_opendal",
+    "vector_store_lancedb",
+    "xtask",
+]
 resolver = "3"
 
 [workspace.dependencies]

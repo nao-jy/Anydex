@@ -128,70 +128,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anydex-plugin-default-impl-embedder"
-version = "0.1.0"
-dependencies = [
- "anydex-plugin-api",
- "candle-core",
- "chardetng",
- "encoding_rs",
- "fastembed",
- "image",
- "jsonpath-rust",
- "mime_guess",
- "schemars 1.2.2",
- "serde",
- "serde_json",
- "uuid",
-]
-
-[[package]]
-name = "anydex-plugin-default-impl-file-extractor"
-version = "0.1.0"
-dependencies = [
- "anydex-plugin-api",
- "mime_guess",
- "schemars 1.2.2",
- "serde",
- "serde_json",
- "tokio",
- "uuid",
- "xberg",
-]
-
-[[package]]
-name = "anydex-plugin-default-impl-file-source"
-version = "0.1.0"
-dependencies = [
- "anydex-plugin-api",
- "chrono",
- "google-drive3",
- "http-body-util",
- "mime_guess",
- "opendal",
- "rustls",
- "schemars 1.2.2",
- "serde",
- "serde_json",
- "tokio",
- "uuid",
-]
-
-[[package]]
-name = "anydex-plugin-default-impl-vector-store"
-version = "0.1.0"
-dependencies = [
- "anydex-plugin-api",
- "futures",
- "lancedb",
- "process_path",
- "schemars 1.2.2",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2609,6 +2545,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "252afb9ae5eaa683babdc6a068b3f5726eb19e05070c731f9b2a23a7c3e8ed34"
 
 [[package]]
+name = "embedder-qwen3-vl"
+version = "0.1.0"
+dependencies = [
+ "anydex-plugin-api",
+ "candle-core",
+ "chardetng",
+ "encoding_rs",
+ "fastembed",
+ "image",
+ "jsonpath-rust",
+ "mime_guess",
+ "schemars 1.2.2",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "encode_unicode"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2827,6 +2781,38 @@ name = "fearless_simd"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3772b63c40606beea8fe1f7b06a60de27ceb9bfc2d9dad3427368ca41dc7e62"
+
+[[package]]
+name = "file-extractor-xberg"
+version = "0.1.0"
+dependencies = [
+ "anydex-plugin-api",
+ "mime_guess",
+ "schemars 1.2.2",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid",
+ "xberg",
+]
+
+[[package]]
+name = "file-source"
+version = "0.1.0"
+dependencies = [
+ "anydex-plugin-api",
+ "chrono",
+ "google-drive3",
+ "http-body-util",
+ "mime_guess",
+ "opendal",
+ "rustls",
+ "schemars 1.2.2",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid",
+]
 
 [[package]]
 name = "find-msvc-tools"
@@ -9153,6 +9139,20 @@ name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
+
+[[package]]
+name = "vector-store-lancedb"
+version = "0.1.0"
+dependencies = [
+ "anydex-plugin-api",
+ "futures",
+ "lancedb",
+ "process_path",
+ "schemars 1.2.2",
+ "serde",
+ "serde_json",
+ "tokio",
+]
 
 [[package]]
 name = "version_check"
