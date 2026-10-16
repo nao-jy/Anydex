@@ -208,16 +208,23 @@ export const Index = () => {
                 event: IChangeEvent<any, RJSFSchema, any>,
                 plugin_name: string,
               ) => {
-                const result = await commands.upsertVectorStore(
-                  index.id,
-                  plugin_name,
-                  JSON.stringify(event.formData),
+                await showConfirmDialog(
+                  "ベクトルストアの変更は索引をクリアする必要があります、よろしいですか？",
+                  async (ok) => {
+                    if (ok) {
+                      const result = await commands.upsertVectorStore(
+                        index.id,
+                        plugin_name,
+                        JSON.stringify(event.formData),
+                      );
+                      if (result.status === "error") {
+                        await showErrorDialog(result.error);
+                      }
+                      queryClient.invalidateQueries({ queryKey: ["indexes"] });
+                      showInfoNotification("ベクトルストアを変更しました");
+                    }
+                  },
                 );
-                if (result.status === "error") {
-                  await showErrorDialog(result.error);
-                }
-                queryClient.invalidateQueries({ queryKey: ["indexes"] });
-                showInfoNotification("ベクトルストアを変更しました");
               };
               return (
                 <Accordion.Item value={index.id.toString()} key={index.id}>

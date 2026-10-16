@@ -18,7 +18,7 @@ use crate::{
         models::{self, *},
         save,
     },
-    usecase::oauth::get_authentication,
+    usecase::{indexes::clear_index, oauth::get_authentication},
 };
 
 fn parse_plugin_params(params: &str) -> Result<serde_json::Value, String> {
@@ -88,25 +88,14 @@ pub async fn upsert_vector_store(
     index_id: Uuid,
     vector_store_name: String,
     params: String,
+    database: &DatabaseConnection,
 ) -> Result<(), String> {
+    clear_index(index_id, database).await?;
+
     let params = parse_plugin_params(&params)?;
     let mut userdata = load()?;
     for index in userdata.indexes.iter_mut() {
         if index.id == index_id {
-            if let Some(prev) = &index.vector_store {
-                let mut mgr_mtx = VECTOR_STORE_MGR.lock().unwrap();
-                let mgr = mgr_mtx.as_mut().unwrap();
-                let plugin_opt = mgr.get_plugin(&prev.name);
-                if let Some(plugin) = plugin_opt {
-                    if let Ok(handler) = plugin.get_handler(
-                        &prev.params,
-                        index_id.to_string(),
-                        &path::get_dir().app_data_dir.to_string_lossy().to_string(),
-                    ) {
-                        let _ = plugin.clear_db(handler.handler);
-                    }
-                }
-            }
             index.vector_store = Some(crate::usecase::plugins::models::VectorStore {
                 name: vector_store_name,
                 params,

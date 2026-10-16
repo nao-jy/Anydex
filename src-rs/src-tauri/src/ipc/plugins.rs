@@ -38,8 +38,15 @@ pub async fn upsert_vector_store(
     index_id: Uuid,
     vector_store_name: String,
     params_json: String,
+    database: State<'_, DatabaseConnection>,
 ) -> Result<(), String> {
-    usecase::plugins::upsert_vector_store(index_id, vector_store_name, params_json).await
+    usecase::plugins::upsert_vector_store(
+        index_id,
+        vector_store_name,
+        params_json,
+        database.inner(),
+    )
+    .await
 }
 
 #[tauri::command]
