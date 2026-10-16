@@ -293,7 +293,7 @@ export const Index = () => {
                               color="red"
                               onClick={async () => {
                                 await showConfirmDialog(
-                                  "インデックスを削除します、よろしいですか？",
+                                  "インデックス定義を削除します、よろしいですか？",
                                   async (ok) => {
                                     if (ok) {
                                       const result = await commands.deleteIndex(
@@ -310,7 +310,31 @@ export const Index = () => {
                                 );
                               }}
                             >
-                              {"インデックスを削除"}
+                              {"インデックス定義を削除"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              color="red"
+                              onClick={async () => {
+                                await showConfirmDialog(
+                                  "索引をクリアします、よろしいですか？",
+                                  async (ok) => {
+                                    if (ok) {
+                                      const result = await commands.clearIndex(
+                                        index.id,
+                                      );
+                                      if (result.status === "error") {
+                                        await showErrorDialog(result.error);
+                                      }
+                                      queryClient.invalidateQueries({
+                                        queryKey: ["indexes"],
+                                      });
+                                    }
+                                  },
+                                );
+                              }}
+                            >
+                              {"索引をクリア"}
                             </Button>
                           </Group>
                         </Stack>

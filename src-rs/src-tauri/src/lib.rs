@@ -31,6 +31,7 @@ macro_rules! app_commands {
             ipc::indexes::put_description,
             ipc::indexes::set_index_mcp_server,
             ipc::indexes::delete_index,
+            ipc::indexes::clear_index,
             ipc::indexes::upsert_schedule,
             ipc::indexes::start_indexing,
             ipc::mcp::get_mcp_server_state,

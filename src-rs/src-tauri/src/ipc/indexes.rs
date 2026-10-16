@@ -52,6 +52,16 @@ pub async fn set_index_mcp_server(index_id: Uuid, enabled: bool) -> Result<(), S
 #[tauri::command]
 #[specta::specta]
 #[tracing::instrument(skip(database))]
+pub async fn clear_index(
+    index_id: Uuid,
+    database: State<'_, DatabaseConnection>,
+) -> Result<(), String> {
+    usecase::indexes::clear_index(index_id, database.inner()).await
+}
+
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip(database))]
 pub async fn delete_index(
     index_id: Uuid,
     database: State<'_, DatabaseConnection>,

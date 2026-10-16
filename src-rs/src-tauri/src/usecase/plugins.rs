@@ -60,6 +60,30 @@ pub async fn upsert_embedder(
     save(&userdata)
 }
 
+pub async fn clear_vector_store(index_id: Uuid) -> Result<(), String> {
+    let userdata = load()?;
+    for index in &userdata.indexes {
+        if index.id == index_id {
+            if let Some(prev) = &index.vector_store {
+                let mut mgr_mtx = VECTOR_STORE_MGR.lock().unwrap();
+                let mgr = mgr_mtx.as_mut().unwrap();
+                let plugin_opt = mgr.get_plugin(&prev.name);
+                if let Some(plugin) = plugin_opt {
+                    if let Ok(handler) = plugin.get_handler(
+                        &prev.params,
+                        index_id.to_string(),
+                        &path::get_dir().app_data_dir.to_string_lossy().to_string(),
+                    ) {
+                        let _ = plugin.clear_db(handler.handler);
+                    }
+                }
+            }
+            break;
+        }
+    }
+    Ok(())
+}
+
 pub async fn upsert_vector_store(
     index_id: Uuid,
     vector_store_name: String,

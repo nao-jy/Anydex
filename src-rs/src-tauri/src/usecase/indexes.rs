@@ -1,7 +1,7 @@
 use chrono::Utc;
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect, Set,
-    TransactionTrait,
+    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
+    QuerySelect, Set, TransactionTrait,
 };
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -24,7 +24,7 @@ use crate::{
     usecase::{
         jobs::{add_jobs, JobInfo},
         oauth::delete_authentication,
-        plugins::test_file_source,
+        plugins::{clear_vector_store, test_file_source},
     },
 };
 
@@ -92,9 +92,27 @@ pub async fn set_index_mcp_server(index_id: Uuid, enabled: bool) -> Result<(), S
     save(&userdata)
 }
 
+pub async fn clear_index<T: ConnectionTrait>(index_id: Uuid, database: &T) -> Result<(), String> {
+    let _result = sqlite::models::file::Entity::delete_many()
+        .filter(sqlite::models::file::Column::IndexId.eq(index_id.to_string()))
+        .exec(database)
+        .await
+        .map_err(|err| err.to_string())?;
+
+    let _result = sqlite::models::job::Entity::delete_many()
+        .filter(sqlite::models::job::Column::IndexId.eq(index_id.to_string()))
+        .exec(database)
+        .await
+        .map_err(|err| err.to_string())?;
+    clear_vector_store(index_id).await?;
+
+    Ok(())
+}
+
 pub async fn delete_index(index_id: Uuid, database: &DatabaseConnection) -> Result<(), String> {
     let transaction = database.begin().await.map_err(|err| err.to_string())?;
 
+    clear_index(index_id, &transaction).await?;
     delete_authentication(index_id, &transaction).await?;
 
     let _result = sqlite::models::file::Entity::delete_many()
@@ -110,6 +128,8 @@ pub async fn delete_index(index_id: Uuid, database: &DatabaseConnection) -> Resu
         .map_err(|err| err.to_string())?;
 
     transaction.commit().await.map_err(|err| err.to_string())?;
+
+    clear_vector_store(index_id).await?;
 
     let mut userdata = load()?;
     userdata.indexes = userdata

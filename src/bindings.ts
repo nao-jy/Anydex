@@ -10,6 +10,7 @@ export const commands = {
 	putDescription: (indexId: string, description: string) => typedError<null, string>(__TAURI_INVOKE("put_description", { indexId, description })),
 	setIndexMcpServer: (indexId: string, enabled: boolean) => typedError<null, string>(__TAURI_INVOKE("set_index_mcp_server", { indexId, enabled })),
 	deleteIndex: (indexId: string) => typedError<null, string>(__TAURI_INVOKE("delete_index", { indexId })),
+	clearIndex: (indexId: string) => typedError<null, string>(__TAURI_INVOKE("clear_index", { indexId })),
 	upsertSchedule: (indexId: string, schedule: {
 	rfc5545Rrule: string,
 	catchupWhenMissed: boolean,
