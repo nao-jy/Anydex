@@ -12,6 +12,7 @@ use tokio::sync::{mpsc, Mutex};
 use uuid::Uuid;
 
 use crate::bg_job::entry::get_tmp_dir;
+use crate::path;
 use crate::{
     bg_job::job::Job,
     plugin::{
@@ -268,8 +269,11 @@ fn process_file_plugins_sync(
     let file_extractor_handler =
         file_extractor.get_handler(&args.file_extractor.params, &extracted_dir_string)?;
     let embedder_handler = embedder.get_handler(&args.embedder.params)?;
-    let vector_store_handler =
-        vector_store.get_handler(&args.vector_store.params, index_id.clone())?;
+    let vector_store_handler = vector_store.get_handler(
+        &args.vector_store.params,
+        index_id.clone(),
+        &path::get_dir().app_data_dir.to_string_lossy().to_string(),
+    )?;
 
     send_progress(progress_tx, format!("ダウンロード中: {file_name}"))?;
     let downloaded_file = file_source.download(

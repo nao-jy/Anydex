@@ -12,6 +12,7 @@ use lancedb::index::scalar::FullTextSearchQuery;
 use lancedb::index::{scalar::FtsIndexBuilder, Index, IndexType};
 use lancedb::query::{ExecutableQuery, QueryBase};
 use lancedb::{DistanceType, Table};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::runtime::Runtime;
 
@@ -21,8 +22,14 @@ const TABLE_NAME: &str = "chunks";
 const CONTENT_COLUMN: &str = "content";
 const VECTOR_COLUMN: &str = "content_vector";
 
-pub fn init_db() -> Result<(), String> {
-    std::fs::create_dir_all("./data").map_err(|err| err.to_string())?;
+fn get_db_path(db_dir: &str, index_id: &str) -> PathBuf {
+    let path = Path::new(db_dir).join("lancedb").join(index_id);
+    return path;
+}
+
+fn init_db(db_dir: &str) -> Result<(), String> {
+    let path = Path::new(db_dir).join("lancedb");
+    std::fs::create_dir_all(path).map_err(|err| err.to_string())?;
     Ok(())
 }
 
@@ -34,11 +41,13 @@ pub struct DB {
 }
 
 impl DB {
-    pub fn init_table(index_id: IndexId, param: &Param) -> Result<Self, String> {
+    pub fn init_table(index_id: IndexId, db_dir: &str, param: &Param) -> Result<Self, String> {
+        init_db(db_dir)?;
+
         if param.dimensions <= 0 {
             return Err("vector dimensions must be greater than zero".into());
         }
-        let data = format!("./data/{index_id}");
+        let data = get_db_path(db_dir, &index_id).to_string_lossy().to_string();
         let rt = Runtime::new().map_err(|err| err.to_string())?;
         let db = rt
             .block_on(connect(&data).execute())
@@ -353,7 +362,6 @@ mod tests {
 
     #[test]
     fn searches_only_target_files_and_supports_deletion() {
-        init_db().unwrap();
         let index_id = test_index_id();
         let path = format!("./data/{index_id}");
         assert!(
@@ -362,7 +370,7 @@ mod tests {
         );
         let _cleanup = TestDatabasePath(path);
 
-        let db = DB::init_table(index_id.clone(), &Param { dimensions: 2 }).unwrap();
+        let db = DB::init_table(index_id.clone(), "./", &Param { dimensions: 2 }).unwrap();
         let mut aligned = test_chunk("1".into(), index_id.clone(), 100);
         aligned.content_vector = vec![10.0, 0.0];
         let mut other_file = test_chunk("2".into(), index_id.clone(), 200);
@@ -409,7 +417,6 @@ mod tests {
 
     #[test]
     fn uses_hybrid_search_when_text_is_present() {
-        init_db().unwrap();
         let index_id = test_index_id();
         let path = format!("./data/{index_id}");
         assert!(
@@ -418,7 +425,7 @@ mod tests {
         );
         let _cleanup = TestDatabasePath(path);
 
-        let db = DB::init_table(index_id.clone(), &Param { dimensions: 2 }).unwrap();
+        let db = DB::init_table(index_id.clone(), "./", &Param { dimensions: 2 }).unwrap();
         let mut semantic_match = test_chunk("1".into(), index_id.clone(), 100);
         semantic_match.content = "unrelated content".into();
         semantic_match.content_vector = vec![1.0, 0.0];
@@ -457,7 +464,6 @@ mod tests {
 
     #[test]
     fn searches_text_without_an_embedding() {
-        init_db().unwrap();
         let index_id = test_index_id();
         let path = format!("./data/{index_id}");
         assert!(
@@ -466,7 +472,7 @@ mod tests {
         );
         let _cleanup = TestDatabasePath(path);
 
-        let db = DB::init_table(index_id.clone(), &Param { dimensions: 2 }).unwrap();
+        let db = DB::init_table(index_id.clone(), "./", &Param { dimensions: 2 }).unwrap();
         let mut matching = test_chunk("1".into(), index_id.clone(), 100);
         matching.content = "distinctive exact phrase".into();
         matching.content_vector = vec![0.0, 1.0];
@@ -493,7 +499,6 @@ mod tests {
 
     #[test]
     fn rejects_textless_search_without_an_embedding() {
-        init_db().unwrap();
         let index_id = test_index_id();
         let path = format!("./data/{index_id}");
         assert!(
@@ -501,7 +506,7 @@ mod tests {
             "test database path already exists"
         );
         let _cleanup = TestDatabasePath(path);
-        let db = DB::init_table(index_id, &Param { dimensions: 2 }).unwrap();
+        let db = DB::init_table(index_id, "./", &Param { dimensions: 2 }).unwrap();
 
         assert!(db.search(None, None, &[100], 0, 10).is_err());
         assert!(db.search(Some("  ".into()), None, &[100], 0, 10).is_err());

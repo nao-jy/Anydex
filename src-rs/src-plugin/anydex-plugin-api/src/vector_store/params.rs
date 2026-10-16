@@ -18,6 +18,7 @@ pub struct GetParamSchemaData {
 pub struct GetHandlerArgs {
     pub params: serde_json::Value,
     pub index_id: IndexId,
+    pub db_dir: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,13 +61,13 @@ pub struct InsertChunksData {}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ClearChunksArgs {
+pub struct ClearDbArgs {
     pub handler: Handler,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ClearChunksData {}
+pub struct ClearDbData {}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

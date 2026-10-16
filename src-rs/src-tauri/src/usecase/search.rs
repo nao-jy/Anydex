@@ -16,6 +16,7 @@ use crate::{
         DirectoryEntry, FileMetadata, GetFileInfoResult, GrepResult, ListDirectoryResult,
         SearchMatch, SemanticSearchQuery, SemanticSearchResult,
     },
+    path,
     plugin::{
         embedder::interface::Embedder,
         entry::{EMBEDDER_MGR, VECTOR_STORE_MGR},
@@ -149,8 +150,11 @@ pub async fn grep(
     let search_text = pattern.to_owned();
     let file_ids: Vec<i64> = target_files.iter().map(|file| file.id).collect();
     let hits = tokio::task::spawn_blocking(move || {
-        let vector_store_handler =
-            vector_store.get_handler(&vector_store_params, index_id.to_string())?;
+        let vector_store_handler = vector_store.get_handler(
+            &vector_store_params,
+            index_id.to_string(),
+            &path::get_dir().app_data_dir.to_string_lossy().to_string(),
+        )?;
         vector_store.search(
             vector_store_handler.handler,
             &SearchRequest {
@@ -258,8 +262,11 @@ pub async fn semantic_search(
     let file_ids: Vec<i64> = target_files.iter().map(|file| file.id).collect();
     let hits = tokio::task::spawn_blocking(move || {
         let embedding = embed_query(&embedder, &embedder_params, query)?;
-        let vector_store_handler =
-            vector_store.get_handler(&vector_store_params, index_id.to_string())?;
+        let vector_store_handler = vector_store.get_handler(
+            &vector_store_params,
+            index_id.to_string(),
+            &path::get_dir().app_data_dir.to_string_lossy().to_string(),
+        )?;
         vector_store.search(
             vector_store_handler.handler,
             &SearchRequest {

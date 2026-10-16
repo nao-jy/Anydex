@@ -49,12 +49,14 @@ impl VectorStore for DynamicVectorStore {
         &self,
         param: &serde_json::Value,
         index_id: IndexId,
+        db_dir: &str,
     ) -> Result<DisposableHnandler, String> {
         match self {
             DynamicVectorStore::V1(plugin_v1) => {
                 let args = GetHandlerArgs {
                     params: param.clone(),
                     index_id: index_id,
+                    db_dir: db_dir.to_string(),
                 };
                 let result = plugin_v1.apply_and_unwrap(args)?;
 
@@ -87,10 +89,10 @@ impl VectorStore for DynamicVectorStore {
         }
     }
 
-    fn clear_chunks(&self, handler: Handler) -> Result<(), String> {
+    fn clear_db(&self, handler: Handler) -> Result<(), String> {
         match self {
             DynamicVectorStore::V1(plugin_v1) => {
-                let args = ClearChunksArgs { handler };
+                let args = ClearDbArgs { handler };
                 let _result = plugin_v1.apply_and_unwrap(args)?;
                 return Ok(());
             }

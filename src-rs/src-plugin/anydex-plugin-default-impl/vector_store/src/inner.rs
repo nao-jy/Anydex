@@ -31,7 +31,7 @@ pub fn get_handler(args: GetHandlerArgs) -> Result<GetHandlerData, String> {
     (*handler_mtx) += 1;
 
     let params = param.clone();
-    let db = DB::init_table(index_id, &params)?;
+    let db = DB::init_table(index_id, &args.db_dir, &params)?;
 
     let info = HandleInfo { db: db };
     HANDLERS.lock().unwrap().insert(handler, info);
@@ -54,7 +54,7 @@ pub fn delete_chunks(args: DeleteChunksArgs) -> Result<DeleteChunksData, String>
     Ok(DeleteChunksData {})
 }
 
-pub fn clear_chunks(args: ClearChunksArgs) -> Result<ClearChunksData, String> {
+pub fn clear_db(args: ClearDbArgs) -> Result<ClearDbData, String> {
     let handler = args.handler;
     let info_mtx = HANDLERS.lock().unwrap();
     let info = (*info_mtx)
@@ -62,7 +62,7 @@ pub fn clear_chunks(args: ClearChunksArgs) -> Result<ClearChunksData, String> {
         .ok_or(format!("handler {handler} not found"))?;
     let db = &info.db;
     db.clear()?;
-    Ok(ClearChunksData {})
+    Ok(ClearDbData {})
 }
 
 pub fn insert_chunks(args: InsertChunksArgs) -> Result<InsertChunksData, String> {

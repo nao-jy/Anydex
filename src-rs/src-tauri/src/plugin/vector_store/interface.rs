@@ -12,10 +12,11 @@ pub trait VectorStore {
         &self,
         param: &serde_json::Value,
         index_id: IndexId,
+        db_dir: &str,
     ) -> Result<DisposableHnandler, String>;
 
     fn delete_chunks_file(&self, handler: Handler, fild_id: FileId) -> Result<(), String>;
-    fn clear_chunks(&self, handler: Handler) -> Result<(), String>;
+    fn clear_db(&self, handler: Handler) -> Result<(), String>;
     fn insert_chunks(&self, handler: Handler, chunks: &[Chunk]) -> Result<(), String>;
     fn search(
         &self,

@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::ffi::{c_char, CString};
 use std::sync::{LazyLock, Mutex};
 
-use crate::repository::*;
 use anydex_plugin_api_lib::common::{
     result_to_api_result, to_string, APIResult, APIResultSerialized, LogLevel,
 };
@@ -21,7 +20,7 @@ static PLUGIN_INIT: Mutex<Option<PluginInit>> = Mutex::new(None);
 
 static mut LOGGER: Option<unsafe extern "C" fn(log_level: LogLevel, message: *const c_char)> = None;
 
-fn log(level: LogLevel, msg: &str) {
+fn _log(level: LogLevel, msg: &str) {
     let logger = unsafe { std::ptr::read_volatile(std::ptr::addr_of!(LOGGER)) };
     let Some(logger_fn) = logger else {
         return;
@@ -38,12 +37,6 @@ pub unsafe extern "C" fn get_plugin(init: *const PluginInit) -> *const DynamicVe
         std::ptr::write(std::ptr::addr_of_mut!(LOGGER), Some(plugin_read.log));
     }
 
-    let init_result = init_db();
-    if let Err(err) = init_result {
-        log(LogLevel::Error, &err);
-        return std::ptr::null();
-    }
-
     let mut plugin_mtx = PLUGIN.lock().unwrap();
     if (*plugin_mtx).is_none() {
         let mut plugin_init_mtx = PLUGIN_INIT.lock().unwrap();
@@ -57,7 +50,7 @@ pub unsafe extern "C" fn get_plugin(init: *const PluginInit) -> *const DynamicVe
             free_handler,
             delete_chunks,
             insert_chunks,
-            clear_chunks,
+            clear_db,
             search,
             free,
         };
@@ -96,7 +89,7 @@ define_api_callback!(get_handler, GetHandlerArgs);
 define_api_callback!(free_handler, FreeHandlerArgs);
 define_api_callback!(delete_chunks, DeleteChunksArgs);
 define_api_callback!(insert_chunks, InsertChunksArgs);
-define_api_callback!(clear_chunks, ClearChunksArgs);
+define_api_callback!(clear_db, ClearDbArgs);
 define_api_callback!(search, SearchArgs);
 
 unsafe extern "C" fn free(value: APIResultSerialized) {

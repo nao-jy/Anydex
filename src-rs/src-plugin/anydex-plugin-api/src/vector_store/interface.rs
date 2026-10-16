@@ -22,7 +22,7 @@ pub struct DynamicVectorStoreV1 {
 
     pub delete_chunks: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
     pub insert_chunks: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
-    pub clear_chunks: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
+    pub clear_db: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
     pub search: unsafe extern "C" fn(args_serialized: *const c_char) -> APIResultSerialized,
 
     /// Releases allocations returned by this plugin's ABI functions.
@@ -59,9 +59,9 @@ impl PluginFn<InsertChunksArgs, InsertChunksData> for DynamicVectorStoreV1 {
     }
 }
 
-impl PluginFn<ClearChunksArgs, ClearChunksData> for DynamicVectorStoreV1 {
-    fn apply_and_unwrap(&self, args: ClearChunksArgs) -> Result<ClearChunksData, String> {
-        super::super::common::apply_and_unwrap(args, self.clear_chunks, self.free)
+impl PluginFn<ClearDbArgs, ClearDbData> for DynamicVectorStoreV1 {
+    fn apply_and_unwrap(&self, args: ClearDbArgs) -> Result<ClearDbData, String> {
+        super::super::common::apply_and_unwrap(args, self.clear_db, self.free)
     }
 }
 

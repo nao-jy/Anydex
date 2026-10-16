@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::{
     dto::models::PluginInfo,
+    path,
     plugin::{
         embedder::interface::Embedder as EmbedderPlugin,
         entry::{PluginType, EMBEDDER_MGR, FILE_SOURCE_MGR, VECTOR_STORE_MGR},
@@ -73,8 +74,12 @@ pub async fn upsert_vector_store(
                 let mgr = mgr_mtx.as_mut().unwrap();
                 let plugin_opt = mgr.get_plugin(&prev.name);
                 if let Some(plugin) = plugin_opt {
-                    if let Ok(handler) = plugin.get_handler(&prev.params, index_id.to_string()) {
-                        let _ = plugin.clear_chunks(handler.handler);
+                    if let Ok(handler) = plugin.get_handler(
+                        &prev.params,
+                        index_id.to_string(),
+                        &path::get_dir().app_data_dir.to_string_lossy().to_string(),
+                    ) {
+                        let _ = plugin.clear_db(handler.handler);
                     }
                 }
             }
