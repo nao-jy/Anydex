@@ -45,7 +45,7 @@ impl PluginFn<FreeHandlerArgs, FreeHandlerData> for DynamicFileExtractorV1 {
 
 impl PluginFn<IsSupportedArgs, IsSupportedData> for DynamicFileExtractorV1 {
     fn apply_and_unwrap(&self, args: IsSupportedArgs) -> Result<IsSupportedData, String> {
-        super::super::common::apply_and_unwrap(args, self.extract, self.free)
+        super::super::common::apply_and_unwrap(args, self.is_supported, self.free)
     }
 }
 

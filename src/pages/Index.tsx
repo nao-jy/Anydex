@@ -459,12 +459,19 @@ export const Index = () => {
                         <Button
                           size="sm"
                           onClick={async () => {
-                            const result = await commands.startIndexing(
-                              index.id,
+                            await showConfirmDialog(
+                              "インデクシングを実行します、よろしいですか？",
+                              async (ok) => {
+                                if (ok) {
+                                  const result = await commands.startIndexing(
+                                    index.id,
+                                  );
+                                  if (result.status === "error") {
+                                    await showErrorDialog(result.error);
+                                  }
+                                }
+                              },
                             );
-                            if (result.status === "error") {
-                              await showErrorDialog(result.error);
-                            }
                           }}
                         >
                           {"今すぐ実行"}
