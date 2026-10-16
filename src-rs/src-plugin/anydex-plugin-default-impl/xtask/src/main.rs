@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     env::{
         self,
         consts::{ARCH, OS},
@@ -114,17 +114,12 @@ fn get_plugin_path(conf: &Config, original_path: &PathBuf) -> Option<PathBuf> {
         .unwrap()
         .to_string_lossy()
         .to_string();
-    let name_map = HashMap::from([
-        ("embedder", "qwen3-vl"),
-        ("file_extractor", "xberg"),
-        ("file_source", "opendal"),
-        ("vector_store", "lancedb"),
-    ]);
+    let plugin_types = vec!["embedder", "file_extractor", "file_source", "vector_store"];
     let mut file_name: Option<String> = None;
     let mut dir_name: Option<String> = None;
-    for (&kw, &name) in &name_map {
+    for &kw in &plugin_types {
         if file_stem.contains(kw) {
-            file_name = Some(name.into());
+            file_name = Some(file_stem.replace(&format!("lib{kw}_"), "").into());
             dir_name = Some(kw.replace("_", "-"));
             break;
         }

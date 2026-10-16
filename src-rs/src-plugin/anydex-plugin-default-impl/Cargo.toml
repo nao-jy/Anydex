@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "embedder_qwen3_vl",
+    "embedder_json_web_api",
     "file_extractor_xberg",
     "file_source_opendal",
     "vector_store_lancedb",

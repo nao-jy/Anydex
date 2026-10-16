@@ -9,12 +9,11 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "embedder_qwen3_lib"
+name = "embedder_qwen3"
 crate-type = ["cdylib"]
 
 [dependencies]
 fastembed = { version = "7", features = ["qwen3", "accelerate", "metal"] }
-jsonpath-rust = "1.0.11"
 anydex-plugin-api.workspace = true
 serde.workspace = true
 serde_json.workspace = true

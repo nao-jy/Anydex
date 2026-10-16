@@ -1,0 +1,30 @@
+[package]
+name = "embedder-json-web-api"
+version = "0.1.0"
+description = "Anydex Embedder JSON Web API"
+authors = ["you"]
+edition = "2021"
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "embedder_json_web_api"
+crate-type = ["cdylib"]
+
+[dependencies]
+jsonpath-rust = "1.0.11"
+anydex-plugin-api.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+mime_guess.workspace = true
+encoding_rs.workspace = true
+chardetng.workspace = true
+image.workspace = true
+uuid.workspace = true
+reqwest = { version = "0.13.5", features = ["blocking"] }
+base64 = "0.23.1"
+
+[features]
+default = []
