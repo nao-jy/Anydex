@@ -86,9 +86,11 @@ export const Settings = () => {
                         {info.path}
                       </Code>
                     </Group>
-                    {info.plugins.map((v) => (
-                      <Badge key={v}>{v}</Badge>
-                    ))}
+                    <Group>
+                      {info.plugins.map((v) => (
+                        <Badge key={v}>{v}</Badge>
+                      ))}
+                    </Group>
                   </Paper>
                 ))}
               </Stack>

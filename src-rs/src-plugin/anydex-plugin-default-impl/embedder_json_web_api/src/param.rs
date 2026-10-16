@@ -56,11 +56,11 @@ impl APIParam {
         }
 
         let client = reqwest::blocking::Client::new();
-        let response = client
-            .post(&self.request_endpoint)
-            .body(body_json)
-            .send()
-            .map_err(|err| err.to_string())?;
+        let mut response = client.post(&self.request_endpoint).body(body_json);
+        if let Some(api_key) = &self.api_key {
+            response = response.header("Authorization", format!("Bearer {api_key}"))
+        }
+        let response = response.send().map_err(|err| err.to_string())?;
 
         let response_text = response.text().map_err(|err| err.to_string())?;
         let response_json = serde_json::Value::from(response_text);
