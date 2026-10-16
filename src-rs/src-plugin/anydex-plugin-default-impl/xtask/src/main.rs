@@ -119,7 +119,12 @@ fn get_plugin_path(conf: &Config, original_path: &PathBuf) -> Option<PathBuf> {
     let mut dir_name: Option<String> = None;
     for &kw in &plugin_types {
         if file_stem.contains(kw) {
-            file_name = Some(file_stem.replace(&format!("lib{kw}_"), "").into());
+            file_name = Some(
+                file_stem
+                    .replace(&format!("lib{kw}_"), "")
+                    .replace("_", "-")
+                    .into(),
+            );
             dir_name = Some(kw.replace("_", "-"));
             break;
         }
