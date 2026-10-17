@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+
 const weekdays: Record<string, string> = {
   MO: "月",
   TU: "火",
@@ -33,7 +35,8 @@ export function formatSchedule(rrule: string) {
 export function formatDateTime(value: string, timezone?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return value;
-  return new Intl.DateTimeFormat("ja-JP", {
+  const locale = i18n.language === "ja" ? "ja-JP" : "en-US";
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "short",
     timeStyle: "short",
     timeZone: timezone,

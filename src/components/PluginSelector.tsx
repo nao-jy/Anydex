@@ -15,6 +15,7 @@ import {
 import { JsonSchemaForm } from "./JsonSchemaForm";
 import { showErrorDialog } from "./Dialogs";
 import { showInfoNotification } from "./Notifications";
+import { useTranslation } from "react-i18next";
 
 interface PluginSelectorProps {
   indexId: string;
@@ -33,6 +34,7 @@ interface PluginSelectorProps {
 }
 
 export const PluginSelector = (props: PluginSelectorProps) => {
+  const { t } = useTranslation();
   const {
     indexId,
     label,
@@ -100,7 +102,7 @@ export const PluginSelector = (props: PluginSelectorProps) => {
         </Text>
         <Group align="flex-start" wrap="nowrap">
           <Select
-            label={info.pluginType}
+            label={t(info.pluginType)}
             value={selecting}
             data={info.plugins}
             onChange={async (value, _option) => {
@@ -110,12 +112,12 @@ export const PluginSelector = (props: PluginSelectorProps) => {
               setSelecting(value);
             }}
             disabled={cantChange}
-            error={error && "保存できませんでした。"}
+            error={error && t("保存できませんでした。")}
             style={{ flex: 1 }}
           />
           <Group gap="xs" mt={24} wrap="nowrap">
             <Button variant="default" onClick={onCancel} disabled={cantChange}>
-              リセット
+              {t("リセット")}
             </Button>
           </Group>
         </Group>
@@ -137,7 +139,7 @@ export const PluginSelector = (props: PluginSelectorProps) => {
                   const isEmbedder = plugin_type === "embedder";
                   return (
                     <Group gap="xs" mt={24} wrap="nowrap">
-                      <Button type="submit">保存</Button>
+                      <Button type="submit">{t("保存")}</Button>
                       {isEmbedder && (
                         <Button
                           variant="outline"
@@ -152,7 +154,7 @@ export const PluginSelector = (props: PluginSelectorProps) => {
                             onClickTest(selecting, form.state.formData);
                           }}
                         >
-                          テスト
+                          {t("テスト")}
                         </Button>
                       )}
                     </Group>
@@ -184,6 +186,7 @@ interface FileSourceSelectorProps {
 }
 
 export const FileSourceSelector = (props: FileSourceSelectorProps) => {
+  const { t } = useTranslation();
   const {
     label,
     info,
@@ -222,7 +225,7 @@ export const FileSourceSelector = (props: FileSourceSelectorProps) => {
       if (result.status === "error") {
         await showErrorDialog(result.error);
       } else {
-        showInfoNotification("ファイルソースのテストに成功しました");
+        showInfoNotification(t("ファイルソースのテストに成功しました"));
       }
     } finally {
       setIsTesting(false);
@@ -242,7 +245,7 @@ export const FileSourceSelector = (props: FileSourceSelectorProps) => {
       if (result.status === "error") {
         await showErrorDialog(result.error);
       } else {
-        showInfoNotification("OAuth認証に成功しました");
+        showInfoNotification(t("OAuth認証に成功しました"));
       }
     } finally {
       setIsAuthenticating(false);
@@ -282,7 +285,7 @@ export const FileSourceSelector = (props: FileSourceSelectorProps) => {
         </Text>
         <Group align="flex-start" wrap="nowrap">
           <Select
-            label={plugin_type}
+            label={t(plugin_type)}
             value={selecting}
             data={info.plugins}
             onChange={async (value, _option) => {
@@ -292,19 +295,19 @@ export const FileSourceSelector = (props: FileSourceSelectorProps) => {
               setSelecting(value);
             }}
             disabled={cantChange}
-            error={error && "保存できませんでした。"}
+            error={error && t("保存できませんでした。")}
             style={{ flex: 1 }}
           />
           <Group gap="xs" mt={24} wrap="nowrap">
             <Button variant="default" onClick={onCancel} disabled={cantChange}>
-              リセット
+              {t("リセット")}
             </Button>
           </Group>
         </Group>
         {paramSchema !== null && (
           <>
             <Select
-              label={"OAuthクライアント"}
+              label={t("OAuthクライアント")}
               value={oauthId}
               data={oauthClients.map((v) => ({ label: v.name, value: v.id }))}
               clearable
@@ -333,7 +336,7 @@ export const FileSourceSelector = (props: FileSourceSelectorProps) => {
                 return (_) => {
                   return (
                     <Group gap="xs" mt={24} wrap="nowrap">
-                      <Button type="submit">{"保存"}</Button>
+                      <Button type="submit">{t("保存")}</Button>
                       {index.fileSource?.oauthId &&
                         (isAuthenticating ? (
                           <Button variant="outline" onClick={onAbortOAuth}>
@@ -341,7 +344,7 @@ export const FileSourceSelector = (props: FileSourceSelectorProps) => {
                               size={"sm"}
                               style={{ marginRight: "10px" }}
                             />
-                            認証を中断
+                            {t("認証を中断")}
                           </Button>
                         ) : (
                           <Button
@@ -349,7 +352,7 @@ export const FileSourceSelector = (props: FileSourceSelectorProps) => {
                             onClick={onClickAuthenticate}
                             disabled={isOAuthDirty || cantChange}
                           >
-                            OAuth認証
+                            {t("OAuth認証")}
                           </Button>
                         ))}
                       <Button
@@ -364,7 +367,7 @@ export const FileSourceSelector = (props: FileSourceSelectorProps) => {
                           onClickTest(selecting, form.state.formData);
                         }}
                       >
-                        テスト
+                        {t("テスト")}
                       </Button>
                     </Group>
                   );

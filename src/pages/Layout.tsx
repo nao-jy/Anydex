@@ -3,6 +3,7 @@ import {
   AppShell,
   Burger,
   Group,
+  Select,
   ScrollArea,
   Stack,
   Title,
@@ -19,20 +20,22 @@ import {
   IconSettings,
 } from "@tabler/icons-react";
 import { LinksGroup } from "../components/LinksGroup";
-
-const mockdata = [
-  { label: "インデックス", icon: IconGauge, link: "/index" },
-  { label: "検索", icon: IconSearch, link: "/search" },
-  { label: "OAuth", icon: IconKey, link: "/oauth" },
-  { label: "MCPサーバー", icon: IconServer, link: "/mcp" },
-  { label: "タスク", icon: IconListCheck, link: "/tasks" },
-  { label: "設定", icon: IconSettings, link: "/settings" },
-];
+import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 
 export const Layout = () => {
+  const { t } = useTranslation();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
+  const mockdata = [
+    { label: t("インデックス"), icon: IconGauge, link: "/index" },
+    { label: t("検索"), icon: IconSearch, link: "/search" },
+    { label: "OAuth", icon: IconKey, link: "/oauth" },
+    { label: t("MCPサーバー"), icon: IconServer, link: "/mcp" },
+    { label: t("タスク"), icon: IconListCheck, link: "/tasks" },
+    { label: t("設定"), icon: IconSettings, link: "/settings" },
+  ];
   const links = mockdata.map((item) => (
     <LinksGroup {...item} key={item.label} />
   ));
@@ -66,10 +69,24 @@ export const Layout = () => {
             </Title>
           </Group>
           <Group gap="sm">
+            <Select
+              aria-label={t("言語")}
+              value={i18n.language.startsWith("ja") ? "ja" : "en"}
+              data={[
+                { label: "日本語", value: "ja" },
+                { label: "English", value: "en" },
+              ]}
+              onChange={(language) => {
+                if (language) void i18n.changeLanguage(language);
+              }}
+              w={112}
+              size="sm"
+              allowDeselect={false}
+            />
             <ActionIcon
               variant="default"
               size="lg"
-              aria-label="ダークモードを切り替え"
+              aria-label={t("ダークモードを切り替え")}
               onClick={() => toggleColorScheme()}
             >
               {colorScheme === "dark" ? "☀" : "◐"}

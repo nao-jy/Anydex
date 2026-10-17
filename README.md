@@ -9,6 +9,8 @@ Anydex is a desktop application for collecting and searching files from a variet
 
 The idea is to get started with sensible defaults, then adapt the setup to your environment as your needs grow.
 
+The app UI is available in Japanese and English. Use the language selector in the top bar; your choice is saved on this device.
+
 > **In development:** Anydex is currently under active development. Features and configuration may change.
 
 ## Bring Your Own [ANY]

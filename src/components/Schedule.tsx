@@ -19,6 +19,8 @@ import {
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { CaretDownIcon, WarningIcon } from "@phosphor-icons/react";
+import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 
 const getDefaultStartDt = () =>
   Temporal.Now.zonedDateTimeISO().add({ days: 1 }).startOfDay();
@@ -39,6 +41,7 @@ interface ScheduleProps {
 }
 
 export const ScheduleInput = (props: ScheduleProps) => {
+  const { t } = useTranslation();
   const { schedule, index_id, onUpsertSchedule, onDeleteSchedule } = props;
   const defaultRuleStr =
     schedule?.rfc5545Rrule ??
@@ -52,23 +55,23 @@ export const ScheduleInput = (props: ScheduleProps) => {
 
   const frequency = [
     {
-      label: "時間おき",
+      label: t("時間おき"),
       value: "HOURLY",
     },
     {
-      label: "日おき",
+      label: t("日おき"),
       value: "DAILY",
     },
     {
-      label: "週おき",
+      label: t("週おき"),
       value: "WEEKLY",
     },
     {
-      label: "月おき",
+      label: t("月おき"),
       value: "MONTHLY",
     },
     {
-      label: "年おき",
+      label: t("年おき"),
       value: "YEARLY",
     },
   ];
@@ -85,17 +88,17 @@ export const ScheduleInput = (props: ScheduleProps) => {
     <Paper withBorder p="md" radius="md">
       <Stack gap="md">
         <Text size="xs" c="dimmed">
-          {"定期実行スケジュール"}
+          {t("定期実行スケジュール")}
         </Text>
         <Group align="flex-start" wrap="nowrap">
           <DateTimePicker
-            label={"開始日"}
+            label={t("開始日")}
             valueFormat="YYYY-MM-DD HH:mm"
             style={{ flex: 1 }}
             value={new Date(rruleOptions.dtstart.epochMilliseconds)}
           />
           <DateTimePicker
-            label={"終了日"}
+            label={t("終了日")}
             valueFormat="YYYY-MM-DD HH:mm"
             style={{ flex: 1 }}
             value={
@@ -122,7 +125,7 @@ export const ScheduleInput = (props: ScheduleProps) => {
           />
         </Group>
         <Group align="flex-start" wrap="nowrap">
-          <Input.Wrapper label="頻度" style={{ flex: 1 }}>
+          <Input.Wrapper label={t("頻度")} style={{ flex: 1 }}>
             <Group align="flex-start" gap="md" wrap="nowrap">
               <NumberInput
                 style={{ width: "100px" }}
@@ -154,7 +157,7 @@ export const ScheduleInput = (props: ScheduleProps) => {
           </Input.Wrapper>
         </Group>
         <Checkbox
-          label="非起動時に予定を過ぎた場合、次回起動時に処理を開始する"
+          label={t("非起動時に予定を過ぎた場合、次回起動時に処理を開始する")}
           checked={catchupWhenMissed}
           onChange={(e) => {
             setCatchupWhenMissed(e.currentTarget.checked);
@@ -163,7 +166,7 @@ export const ScheduleInput = (props: ScheduleProps) => {
         <Divider />
         <Group align="flex-start" wrap="nowrap">
           <TextInput
-            label={"RFC5545 RRULE 直接入力"}
+            label={t("RFC5545 RRULE 直接入力")}
             value={rruleText}
             onChange={(e) => {
               const v = e.currentTarget.value;
@@ -187,15 +190,15 @@ export const ScheduleInput = (props: ScheduleProps) => {
                 setRrule(newRule);
               }}
             >
-              リセット
+              {t("リセット")}
             </Button>
           </Group>
         </Group>
-        <Input.Wrapper label={"実行予定日時プレビュー"}>
+        <Input.Wrapper label={t("実行予定日時プレビュー")}>
           <Code style={{ display: "block", whiteSpace: "pre-wrap" }}>
             {rrule
               .all((_, i) => i < 6)
-              .map((v) => v.toLocaleString())
+              .map((v) => v.toLocaleString(i18n.language))
               .join("\n")}
           </Code>
         </Input.Wrapper>
@@ -210,7 +213,7 @@ export const ScheduleInput = (props: ScheduleProps) => {
               onUpsertSchedule(index_id, newSchedule);
             }}
           >
-            {"保存"}
+            {t("保存")}
           </Button>
           {schedule !== null && (
             <Button
@@ -220,13 +223,13 @@ export const ScheduleInput = (props: ScheduleProps) => {
                 onDeleteSchedule(index_id);
               }}
             >
-              {"削除"}
+              {t("削除")}
             </Button>
           )}
           {schedule === null && (
             <Alert
               color="yellow"
-              title="定期実行は未設定です"
+              title={t("定期実行は未設定です")}
               icon={<WarningIcon />}
             />
           )}

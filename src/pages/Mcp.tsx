@@ -19,8 +19,10 @@ import { commands } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
 import { formatDateTime } from "../components/utils";
 import { PageHeader } from "../components/PageHeader";
+import { useTranslation } from "react-i18next";
 
 export const Mcp = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedPort, setSelectedPort] = useState<string>("8080");
   const {
@@ -67,15 +69,15 @@ export const Mcp = () => {
     <Box bg="var(--mantine-color-body)" py={20}>
       <Container size="lg">
         <PageHeader
-          pageName="MCPサーバー"
-          description="MCP から公開するインデックスとローカルサーバーを管理します"
+          pageName={t("MCPサーバー")}
+          description={t("MCP から公開するインデックスとローカルサーバーを管理します")}
         />
 
         {isLoading && (
-          <LoadingMessage text="MCP サーバーの状態を読み込んでいます…" />
+          <LoadingMessage text={t("MCP サーバーの状態を読み込んでいます…")} />
         )}
         {isError && (
-          <ErrorMessage text="MCP サーバーの情報を取得できませんでした。" />
+          <ErrorMessage text={t("MCP サーバーの情報を取得できませんでした。")} />
         )}
 
         {!isLoading && !isError && (
@@ -97,7 +99,7 @@ export const Mcp = () => {
                         color={isRunning ? "teal" : "gray"}
                         variant="light"
                       >
-                        {isRunning ? "稼働中" : "停止中"}
+                        {isRunning ? t("稼働中") : t("停止中")}
                       </Badge>
                     </Group>
                     {server && (
@@ -108,18 +110,20 @@ export const Mcp = () => {
                   </Box>
                 </Group>
                 <Text size="sm" c="dimmed">
-                  起動:{" "}
+                  {t("起動:")}{" "}
                   {server?.startedAt ? formatDateTime(server.startedAt) : "-"}
                 </Text>
               </Group>
               <SimpleGrid cols={{ base: 1, sm: 2 }} mt="lg">
                 <Metric
-                  label="公開中のインデックス"
-                  value={`${indexes.filter((v) => v.index.useMcpServer).length} 件`}
+                  label={t("公開中のインデックス")}
+                  value={t("{{count}} 件", {
+                    count: indexes.filter((v) => v.index.useMcpServer).length,
+                  })}
                 />
                 <Metric
-                  label="ステータス"
-                  value={isRunning ? "稼働中" : "停止中"}
+                  label={t("ステータス")}
+                  value={isRunning ? t("稼働中") : t("停止中")}
                 />
               </SimpleGrid>
               <Group justify="flex-end" mt="lg">
@@ -129,19 +133,19 @@ export const Mcp = () => {
                   onClick={() => setServerRunning.mutate(!isRunning)}
                   loading={setServerRunning.isPending}
                 >
-                  {isRunning ? "サーバーを停止" : "サーバーを起動"}
+                  {isRunning ? t("サーバーを停止") : t("サーバーを起動")}
                 </Button>
               </Group>
             </Card>
 
             <Card withBorder radius="md" padding="lg">
-              <Text fw={700}>待受ポート</Text>
+              <Text fw={700}>{t("待受ポート")}</Text>
               <Text size="sm" c="dimmed" mt={4}>
-                MCP クライアントが接続するローカルポートを選択します。
+                {t("MCP クライアントが接続するローカルポートを選択します。")}
               </Text>
               <Group mt="md" align="flex-end">
                 <NumberInput
-                  label="ポート"
+                  label={t("ポート")}
                   value={selectedPort}
                   onChange={(v) => {
                     setSelectedPort(v.toString());
@@ -154,9 +158,9 @@ export const Mcp = () => {
 
             <Card withBorder radius="md" padding="lg">
               <Group justify="space-between" mb="xs">
-                <Text fw={700}>公開するインデックス</Text>
+                <Text fw={700}>{t("公開するインデックス")}</Text>
                 <Text size="sm" c="dimmed">
-                  有効なインデックスだけを MCP から検索できます
+                  {t("有効なインデックスだけを MCP から検索できます")}
                 </Text>
               </Group>
               <Stack gap="xs" mt="md">
@@ -178,8 +182,10 @@ export const Mcp = () => {
                           })
                         }
                         disabled={setIndexEnabled.isPending}
-                        aria-label={`${index.name} を MCP から公開`}
-                        label={index.useMcpServer ? "公開中" : "非公開"}
+                        aria-label={t("{{name}} を MCP から公開", {
+                          name: index.name,
+                        })}
+                        label={index.useMcpServer ? t("公開中") : t("非公開")}
                       />
                     </Group>
                   </Paper>

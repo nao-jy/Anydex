@@ -1,4 +1,5 @@
 import { Box, Text } from "@mantine/core";
+import { useTranslation } from "react-i18next";
 
 interface DateInfoProps {
   label: string;
@@ -6,10 +7,11 @@ interface DateInfoProps {
 }
 
 export const DateInfo = (params: DateInfoProps) => {
+  const { i18n } = useTranslation();
   const { label, value } = params;
   const localValue = value === null || Number.isNaN(value.getTime())
     ? "-"
-    : value.toLocaleString();
+    : value.toLocaleString(i18n.language);
 
   return (
     <Box>

@@ -28,11 +28,13 @@ import {
   EditableTextArea,
   EditableTextInput,
 } from "../components/EditableTextInput";
+import { useTranslation } from "react-i18next";
 
 type SortKey = "name" | "lastIndexingStartedAt";
 type Direction = "asc" | "desc";
 
 export const Index = () => {
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [direction, setDirection] = useState<Direction>("desc");
@@ -71,7 +73,7 @@ export const Index = () => {
     mutationFn: () => unwrapCommandResult(commands.createEmptyIndex()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["indexes"] });
-      showInfoNotification("空のインデクサを追加しました");
+      showInfoNotification(t("空のインデクサを追加しました"));
     },
   });
   const renameIndex = useMutation({
@@ -79,7 +81,7 @@ export const Index = () => {
       unwrapCommandResult(commands.renameIndex(indexId, name)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["indexes"] });
-      showInfoNotification("インデックス名を変更しました");
+      showInfoNotification(t("インデックス名を変更しました"));
     },
   });
   const putDescription = useMutation({
@@ -92,14 +94,17 @@ export const Index = () => {
     }) => unwrapCommandResult(commands.putDescription(indexId, description)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["indexes"] });
-      showInfoNotification("インデックスの説明を変更しました");
+      showInfoNotification(t("インデックスの説明を変更しました"));
     },
   });
   const sortedIndexes = useMemo(
     () =>
       [...indexes].sort((a, b) => {
         if (sortKey === "name") {
-          const result = a.index.name.localeCompare(b.index.name, "ja");
+          const result = a.index.name.localeCompare(
+            b.index.name,
+            i18n.language,
+          );
           return direction === "asc" ? result : -result;
         }
 
@@ -115,7 +120,7 @@ export const Index = () => {
         const result = aStartedAt - bStartedAt;
         return direction === "asc" ? result : -result;
       }),
-    [sortKey, direction, indexes],
+    [sortKey, direction, indexes, i18n.language],
   );
   const chooseSort = (key: SortKey) => {
     if (sortKey === key)
@@ -130,27 +135,27 @@ export const Index = () => {
       <Container size="lg">
         <Group justify="space-between" align="flex-end" mb={28}>
           <PageHeader
-            pageName="インデックス"
-            description="ファイルソースと検索設定を管理します"
+            pageName={t("インデックス")}
+            description={t("ファイルソースと検索設定を管理します")}
           />
           <Button
             size="md"
             onClick={() => createIndex.mutate()}
             loading={createIndex.isPending}
           >
-            ＋ 新しいインデックス
+            {t("＋ 新しいインデックス")}
           </Button>
         </Group>
         <Card withBorder radius="md" padding="sm" mb="md">
           <Group justify="space-between">
             <Group gap={4}>
               <Text size="sm" fw={600} c="dimmed" mr="xs">
-                並び替え
+                {t("並び替え")}
               </Text>
               {(
                 [
-                  ["name", "名前"],
-                  ["lastIndexingStartedAt", "最終実行日時"],
+                  ["name", t("名前")],
+                  ["lastIndexingStartedAt", t("最終実行日時")],
                 ] as [SortKey, string][]
               ).map(([key, label]) => (
                 <Button
@@ -166,18 +171,18 @@ export const Index = () => {
               ))}
             </Group>
             <Text size="sm" c="dimmed">
-              {indexes.length} 件のインデックス
+              {t("{{count}} 件のインデックス", { count: indexes.length })}
             </Text>
           </Group>
         </Card>
         {isLoading && (
           <Text c="dimmed" ta="center" py="xl">
-            インデックスを読み込んでいます…
+            {t("インデックスを読み込んでいます…")}
           </Text>
         )}
         {isError && (
           <Text c="red" ta="center" py="xl">
-            インデックスを取得できませんでした。
+            {t("インデックスを取得できませんでした。")}
           </Text>
         )}
         {!isLoading && !isError && (
@@ -202,14 +207,14 @@ export const Index = () => {
                   await showErrorDialog(result.error);
                 }
                 queryClient.invalidateQueries({ queryKey: ["indexes"] });
-                showInfoNotification("ベクトル化プラグインを変更しました");
+                showInfoNotification(t("ベクトル化プラグインを変更しました"));
               };
               const onSubmitVectorStore = async (
                 event: IChangeEvent<any, RJSFSchema, any>,
                 plugin_name: string,
               ) => {
                 await showConfirmDialog(
-                  "ベクトルストアの変更は索引をクリアする必要があります、よろしいですか？",
+                  t("ベクトルストアの変更は索引をクリアする必要があります、よろしいですか？"),
                   async (ok) => {
                     if (ok) {
                       const result = await commands.upsertVectorStore(
@@ -221,7 +226,7 @@ export const Index = () => {
                         await showErrorDialog(result.error);
                       }
                       queryClient.invalidateQueries({ queryKey: ["indexes"] });
-                      showInfoNotification("ベクトルストアを変更しました");
+                      showInfoNotification(t("ベクトルストアを変更しました"));
                     }
                   },
                 );
@@ -248,7 +253,7 @@ export const Index = () => {
                         </Box>
                         <Group gap="xl" visibleFrom="sm">
                           <DateInfo
-                            label="最終実行日時"
+                            label={t("最終実行日時")}
                             value={
                               lastIndexingStartedAt
                                 ? new Date(lastIndexingStartedAt)
@@ -264,12 +269,12 @@ export const Index = () => {
                       <Paper withBorder p="md" radius="md">
                         <Group justify="space-between" mb="md">
                           <Box>
-                            <Text fw={700}>基本情報</Text>
+                            <Text fw={700}>{t("基本情報")}</Text>
                           </Box>
                         </Group>
                         <Stack gap={"md"}>
                           <EditableTextInput
-                            label="インデックス名"
+                            label={t("インデックス名")}
                             value={index.name}
                             saving={renameIndex.isPending}
                             error={renameIndex.isError}
@@ -284,8 +289,8 @@ export const Index = () => {
                             saving={putDescription.isPending}
                             error={putDescription.isError}
                             value={index.description}
-                            emptyValue="情報がありません"
-                            label="インデックスの詳細情報"
+                            emptyValue={t("情報がありません")}
+                            label={t("インデックスの詳細情報")}
                             onSave={(newDescription) =>
                               putDescription.mutate({
                                 indexId: index.id,
@@ -300,7 +305,7 @@ export const Index = () => {
                               color="red"
                               onClick={async () => {
                                 await showConfirmDialog(
-                                  "インデックス定義を削除します、よろしいですか？",
+                                  t("インデックス定義を削除します、よろしいですか？"),
                                   async (ok) => {
                                     if (ok) {
                                       const result = await commands.deleteIndex(
@@ -317,14 +322,14 @@ export const Index = () => {
                                 );
                               }}
                             >
-                              {"インデックス定義を削除"}
+                              {t("インデックス定義を削除")}
                             </Button>
                             <Button
                               size="sm"
                               color="red"
                               onClick={async () => {
                                 await showConfirmDialog(
-                                  "索引をクリアします、よろしいですか？",
+                                  t("索引をクリアします、よろしいですか？"),
                                   async (ok) => {
                                     if (ok) {
                                       const result = await commands.clearIndex(
@@ -341,7 +346,7 @@ export const Index = () => {
                                 );
                               }}
                             >
-                              {"索引をクリア"}
+                              {t("索引をクリア")}
                             </Button>
                           </Group>
                         </Stack>
@@ -360,11 +365,11 @@ export const Index = () => {
                           queryClient.invalidateQueries({
                             queryKey: ["indexes"],
                           });
-                          showInfoNotification("スケジュールを保存しました");
+                          showInfoNotification(t("スケジュールを保存しました"));
                         }}
                         onDeleteSchedule={async (index_id) => {
                           await showConfirmDialog(
-                            "定期実行スケジュールを削除します、よろしいですか？",
+                            t("定期実行スケジュールを削除します、よろしいですか？"),
                             async (ok) => {
                               if (ok) {
                                 const result = await commands.upsertSchedule(
@@ -378,7 +383,7 @@ export const Index = () => {
                                   queryKey: ["indexes"],
                                 });
                                 showInfoNotification(
-                                  "スケジュールを削除しました",
+                                  t("スケジュールを削除しました"),
                                 );
                               }
                             },
@@ -386,7 +391,7 @@ export const Index = () => {
                         }}
                       />
                       <FileSourceSelector
-                        label="ファイルソース：ファイルの取得元です"
+                        label={t("ファイルソース：ファイルの取得元です")}
                         saving={false}
                         error={false}
                         info={
@@ -407,14 +412,14 @@ export const Index = () => {
                           queryClient.invalidateQueries({
                             queryKey: ["indexes"],
                           });
-                          showInfoNotification("ファイルソースを保存しました");
+                          showInfoNotification(t("ファイルソースを保存しました"));
                         }}
                         initParams={index.fileSource?.params}
                         oauthClients={listOauthClient.data ?? []}
                       />
                       <PluginSelector
                         indexId={index.id}
-                        label="ファイル抽出：ファイルを抽出します"
+                        label={t("ファイル抽出：ファイルを抽出します")}
                         saving={false}
                         error={false}
                         info={
@@ -434,13 +439,13 @@ export const Index = () => {
                           queryClient.invalidateQueries({
                             queryKey: ["indexes"],
                           });
-                          showInfoNotification("ファイル抽出を変更しました");
+                          showInfoNotification(t("ファイル抽出を変更しました"));
                         }}
                         initParams={index.fileExtractor?.params}
                       />
                       <PluginSelector
                         indexId={index.id}
-                        label="ベクトル化：ファイルを検索可能に変換します"
+                        label={t("ベクトル化：ファイルを検索可能に変換します")}
                         saving={false}
                         error={false}
                         info={plugins.find((v) => v.pluginType === "embedder")!}
@@ -451,7 +456,7 @@ export const Index = () => {
                       />
                       <PluginSelector
                         indexId={index.id}
-                        label="ベクトルストア：生成したベクトルを保存し、検索に使います"
+                        label={t("ベクトルストア：生成したベクトルを保存し、検索に使います")}
                         saving={false}
                         error={false}
                         info={
@@ -467,7 +472,7 @@ export const Index = () => {
                           size="sm"
                           onClick={async () => {
                             await showConfirmDialog(
-                              "インデクシングを実行します、よろしいですか？",
+                              t("インデクシングを実行します、よろしいですか？"),
                               async (ok) => {
                                 if (ok) {
                                   const result = await commands.startIndexing(
@@ -481,7 +486,7 @@ export const Index = () => {
                             );
                           }}
                         >
-                          {"今すぐ実行"}
+                          {t("今すぐ実行")}
                         </Button>
                       </Group>
                     </Stack>

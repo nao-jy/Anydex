@@ -11,6 +11,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { PageHeader } from "../components/PageHeader";
+import { useTranslation } from "react-i18next";
 
 interface DependencyLicense {
   ecosystem: string;
@@ -21,13 +22,18 @@ interface DependencyLicense {
 }
 
 export const Licenses = () => {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const licensesQuery = useQuery({
     queryKey: ["dependencyLicenses"],
     queryFn: async () => {
       const response = await fetch("/licenses.json");
       if (!response.ok) {
-        throw new Error(`ライセンス一覧の取得に失敗しました: ${response.status}`);
+        throw new Error(
+          t("ライセンス一覧の取得に失敗しました: {{status}}", {
+            status: response.status,
+          }),
+        );
       }
       return (await response.json()) as DependencyLicense[];
     },
@@ -50,31 +56,34 @@ export const Licenses = () => {
     <Box bg="var(--mantine-color-body)" py={20}>
       <Container size="lg">
         <PageHeader
-          pageName="オープンソースライセンス"
-          description="アプリで利用している npm パッケージと Rust クレートのライセンス表記です。"
+          pageName={t("オープンソースライセンス")}
+          description={t("アプリで利用している npm パッケージと Rust クレートのライセンス表記です。")}
         />
 
         {licensesQuery.isLoading && (
-          <Message text="ライセンス一覧を読み込んでいます…" />
+          <Message text={t("ライセンス一覧を読み込んでいます…")} />
         )}
         {licensesQuery.isError && (
-          <Message text="ライセンス一覧を取得できませんでした。" color="red" />
+          <Message text={t("ライセンス一覧を取得できませんでした。")} color="red" />
         )}
         {licensesQuery.data && (
           <Stack gap="md">
             <TextInput
-              label="依存ライブラリを検索"
-              placeholder="名前、バージョン、ライセンス"
+              label={t("依存ライブラリを検索")}
+              placeholder={t("名前、バージョン、ライセンス")}
               value={search}
               onChange={(event) => setSearch(event.currentTarget.value)}
             />
             <Text size="sm" c="dimmed">
-              {filteredLicenses.length} / {licenses.length} 件
+              {t("{{shown}} / {{total}} 件", {
+                shown: filteredLicenses.length,
+                total: licenses.length,
+              })}
             </Text>
             {filteredLicenses.length === 0 ? (
               <Card withBorder radius="md" p="xl">
                 <Text ta="center" c="dimmed">
-                  該当するライブラリはありません。
+                  {t("該当するライブラリはありません。")}
                 </Text>
               </Card>
             ) : (
@@ -105,7 +114,10 @@ export const Licenses = () => {
                         }}
                       >
                         {item.licenseText ||
-                          `ライセンス本文をパッケージから取得できませんでした（${item.license}）。`}
+                          t(
+                            "ライセンス本文をパッケージから取得できませんでした（{{license}}）。",
+                            { license: item.license },
+                          )}
                       </Text>
                     </Accordion.Panel>
                   </Accordion.Item>

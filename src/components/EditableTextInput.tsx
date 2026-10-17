@@ -1,5 +1,6 @@
 import { Button, Group, Text, Textarea, TextInput } from "@mantine/core";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface EditableTextInputProps {
   label: string;
@@ -10,6 +11,7 @@ interface EditableTextInputProps {
   onSave: (newValue: string) => void;
 }
 export const EditableTextInput = (props: EditableTextInputProps) => {
+  const { t } = useTranslation();
   const { onSave, saving, error, value, emptyValue, label } = props;
   const [isEditting, setIsEditting] = useState(false);
   const [newValue, setNewValue] = useState(value);
@@ -38,15 +40,15 @@ export const EditableTextInput = (props: EditableTextInputProps) => {
             if (event.key === "Escape") onCancel();
           }}
           disabled={saving}
-          error={error && "保存できませんでした。"}
+          error={error && t("保存できませんでした。")}
           style={{ flex: 1 }}
         />
         <Group gap="xs" mt={24} wrap="nowrap">
           <Button variant="default" onClick={onCancel} disabled={saving}>
-            キャンセル
+            {t("キャンセル")}
           </Button>
           <Button onClick={save} loading={saving}>
-            保存
+            {t("保存")}
           </Button>
         </Group>
       </Group>
@@ -65,7 +67,7 @@ export const EditableTextInput = (props: EditableTextInputProps) => {
         onClick={() => setIsEditting(true)}
         style={{ flexShrink: "0" }}
       >
-        変更
+        {t("変更")}
       </Button>
     </Group>
   );
@@ -81,6 +83,7 @@ interface EditableTextAreaProps {
   onSave: (newValue: string) => void;
 }
 export const EditableTextArea = (props: EditableTextAreaProps) => {
+  const { t } = useTranslation();
   const { onSave, saving, error, value, emptyValue, label, row } = props;
   const [isEditting, setIsEditting] = useState(false);
   const [newValue, setNewValue] = useState(value);
@@ -109,16 +112,16 @@ export const EditableTextArea = (props: EditableTextAreaProps) => {
             if (event.key === "Escape") onCancel();
           }}
           disabled={saving}
-          error={error && "保存できませんでした。"}
+          error={error && t("保存できませんでした。")}
           style={{ flex: 1 }}
           rows={row}
         />
         <Group gap="xs" mt={24} wrap="nowrap">
           <Button variant="default" onClick={onCancel} disabled={saving}>
-            キャンセル
+            {t("キャンセル")}
           </Button>
           <Button onClick={save} loading={saving}>
-            保存
+            {t("保存")}
           </Button>
         </Group>
       </Group>
@@ -137,7 +140,7 @@ export const EditableTextArea = (props: EditableTextAreaProps) => {
         onClick={() => setIsEditting(true)}
         style={{ flexShrink: "0" }}
       >
-        変更
+        {t("変更")}
       </Button>
     </Group>
   );

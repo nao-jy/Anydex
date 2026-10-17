@@ -15,8 +15,10 @@ import { commands, type IndexWithLastHistory } from "../bindings";
 import { unwrapCommandResult } from "../tauri";
 import { formatDateTime } from "../components/utils";
 import { PageHeader } from "../components/PageHeader";
+import { useTranslation } from "react-i18next";
 
 export const Tasks = () => {
+  const { t } = useTranslation();
   const tasksQuery = useQuery({
     queryKey: ["activeTasks"],
     queryFn: () => unwrapCommandResult(commands.listActiveJobs()),
@@ -40,22 +42,24 @@ export const Tasks = () => {
       <Container size="lg">
         <Group justify="space-between" align="flex-end" mb={28}>
           <PageHeader
-            pageName="タスク"
-            description="現在実行中のインデックス処理を表示します"
+            pageName={t("タスク")}
+            description={t("現在実行中のインデックス処理を表示します")}
           />
           <Badge size="lg" variant="light" color="indigo">
-            実行中 {tasks.length} 件
+            {t("実行中 {{count}} 件", { count: tasks.length })}
           </Badge>
         </Group>
 
-        {isLoading && <Message text="実行中のタスクを読み込んでいます…" />}
+        {isLoading && (
+          <Message text={t("実行中のタスクを読み込んでいます…")} />
+        )}
         {isError && (
-          <Message text="タスクを取得できませんでした。" color="red" />
+          <Message text={t("タスクを取得できませんでした。")} color="red" />
         )}
         {!isLoading && !isError && tasks.length === 0 && (
           <Card withBorder radius="md" p="xl">
             <Text ta="center" c="dimmed">
-              現在実行中のタスクはありません。
+              {t("現在実行中のタスクはありません。")}
             </Text>
           </Card>
         )}
@@ -82,7 +86,9 @@ export const Tasks = () => {
                             color={task.status === "running" ? "blue" : "gray"}
                             variant="light"
                           >
-                            {task.status === "running" ? "実行中" : "待機中"}
+                            {task.status === "running"
+                              ? t("実行中")
+                              : t("待機中")}
                           </Badge>
                         </Group>
                         <Text size="sm" c="dimmed" mt={4}>
@@ -92,7 +98,7 @@ export const Tasks = () => {
                       </Box>
                     </Group>
                     <Text size="sm" c="dimmed">
-                      開始:{" "}
+                      {t("開始:")}{" "}
                       {task.createdAt ? formatDateTime(task.createdAt) : "-"}
                     </Text>
                   </Group>
@@ -103,7 +109,7 @@ export const Tasks = () => {
                     bg="var(--mantine-color-default-hover)"
                   >
                     <Text size="sm" mt="xs">
-                      {task.progressInfo || "進捗情報なし"}
+                      {task.progressInfo || t("進捗情報なし")}
                     </Text>
                   </Paper>
                 </Card>

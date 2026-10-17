@@ -17,8 +17,10 @@ import { commands, OAuthClient } from "../bindings";
 import { PageHeader } from "../components/PageHeader";
 import { showConfirmDialog, showErrorDialog } from "../components/Dialogs";
 import { showInfoNotification } from "../components/Notifications";
+import { useTranslation } from "react-i18next";
 
 export const OAuth = () => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState<string[]>([]);
   const queryClient = useQueryClient();
   const listOauthClient = useQuery({
@@ -43,7 +45,7 @@ export const OAuth = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["oauths"] });
-      showInfoNotification("空のOAuthを追加しました");
+      showInfoNotification(t("空のOAuthを追加しました"));
     },
   });
   return (
@@ -51,8 +53,8 @@ export const OAuth = () => {
       <Container size="lg">
         <Group justify="space-between" align="flex-end" mb={28}>
           <PageHeader
-            pageName="OAuth設定"
-            description="ファイルソースのためのOAuth認証（PKCE）を設定します"
+            pageName={t("OAuth設定")}
+            description={t("ファイルソースのためのOAuth認証（PKCE）を設定します")}
           />
           <Button
             size="md"
@@ -60,7 +62,7 @@ export const OAuth = () => {
               createOauth.mutate();
             }}
           >
-            ＋ 新しいOAuth
+            {t("＋ 新しいOAuth")}
           </Button>
         </Group>
         <Accordion
@@ -96,7 +98,7 @@ export const OAuth = () => {
                         throw new Error(result.error);
                       }
                       queryClient.invalidateQueries({ queryKey: ["oauths"] });
-                      showInfoNotification("OAuthを更新しました");
+                      showInfoNotification(t("OAuthを更新しました"));
                     }}
                     onDelete={async () => {
                       const result = await commands.deleteOauthClient(cl.id);
@@ -105,7 +107,7 @@ export const OAuth = () => {
                         throw new Error(result.error);
                       }
                       queryClient.invalidateQueries({ queryKey: ["oauths"] });
-                      showInfoNotification("OAuthを削除しました");
+                      showInfoNotification(t("OAuthを削除しました"));
                     }}
                   />
                 </Accordion.Panel>
@@ -125,6 +127,7 @@ interface OAuthContentProps {
 }
 
 const OAuthContent = (props: OAuthContentProps) => {
+  const { t } = useTranslation();
   const { data, onSave, onDelete } = props;
   const [name, setName] = useState(data.name);
   const [cliendId, setClientId] = useState(data.clientId);
@@ -161,27 +164,27 @@ const OAuthContent = (props: OAuthContentProps) => {
   return (
     <Stack gap={"md"}>
       <TextInput
-        label={"名前"}
+        label={t("名前")}
         value={name}
         onChange={(v) => setName(v.currentTarget.value)}
         required
         disabled={isTesting}
       />
       <TextInput
-        label={"クライアントID"}
+        label={t("クライアントID")}
         value={cliendId}
         onChange={(v) => setClientId(v.currentTarget.value)}
         required
         disabled={isTesting}
       />
       <PasswordInput
-        label={"クライアントシークレット"}
+        label={t("クライアントシークレット")}
         value={clientSecret ?? ""}
         onChange={(v) => setClientSecret(v.currentTarget.value)}
         disabled={isTesting}
       />
       <TextInput
-        label={"認可エンドポイント"}
+        label={t("認可エンドポイント")}
         type="url"
         value={authEndpoint}
         onChange={(v) => setAuthEndpoint(v.currentTarget.value)}
@@ -189,7 +192,7 @@ const OAuthContent = (props: OAuthContentProps) => {
         disabled={isTesting}
       />
       <TextInput
-        label={"トークンエンドポイント"}
+        label={t("トークンエンドポイント")}
         type="url"
         value={tokenEndpoint}
         onChange={(v) => setTokenEndpoint(v.currentTarget.value)}
@@ -197,21 +200,21 @@ const OAuthContent = (props: OAuthContentProps) => {
         disabled={isTesting}
       />
       <TextInput
-        label={"リフレッシュエンドポイント"}
+        label={t("リフレッシュエンドポイント")}
         type="url"
         value={refreshEndpoint}
         onChange={(v) => setRefreshEndpoint(v.currentTarget.value)}
         disabled={isTesting}
       />
       <TextInput
-        label={"失効エンドポイント"}
+        label={t("失効エンドポイント")}
         type="url"
         value={revokeEndpoint}
         onChange={(v) => setRevokeEndpoint(v.currentTarget.value)}
         disabled={isTesting}
       />
       <TagsInput
-        label={"スコープ"}
+        label={t("スコープ")}
         value={scopes}
         onChange={(v) => setScopes(v)}
         required
@@ -225,13 +228,13 @@ const OAuthContent = (props: OAuthContentProps) => {
           }}
           disabled={isTesting}
         >
-          保存
+          {t("保存")}
         </Button>
         <Button
           color="red"
           onClick={async () => {
             await showConfirmDialog(
-              "OAuthを削除します、よろしいですか？",
+              t("OAuthを削除します、よろしいですか？"),
               async (ok) => {
                 if (ok) {
                   onDelete(data.id);
@@ -241,7 +244,7 @@ const OAuthContent = (props: OAuthContentProps) => {
           }}
           disabled={isTesting}
         >
-          削除
+          {t("削除")}
         </Button>
 
         {isTesting ? (
@@ -252,7 +255,7 @@ const OAuthContent = (props: OAuthContentProps) => {
             }}
           >
             <Loader size={"sm"} style={{ marginRight: "10px" }} />
-            中断
+            {t("中断")}
           </Button>
         ) : (
           <Button
@@ -263,7 +266,7 @@ const OAuthContent = (props: OAuthContentProps) => {
                 const newData = get_current_info();
                 const result = await commands.testOauth(newData);
                 if (result.status === "ok") {
-                  showInfoNotification("認証に成功しました");
+                  showInfoNotification(t("認証に成功しました"));
                 } else {
                   await showErrorDialog(result.error);
                 }
@@ -272,7 +275,7 @@ const OAuthContent = (props: OAuthContentProps) => {
               }
             }}
           >
-            テスト
+            {t("テスト")}
           </Button>
         )}
       </Group>

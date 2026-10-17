@@ -18,8 +18,10 @@ import { commands } from "../bindings";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { unwrapCommandResult } from "../tauri";
 import { PageHeader } from "../components/PageHeader";
+import { useTranslation } from "react-i18next";
 
 export const Settings = () => {
+  const { t } = useTranslation();
   const settingsQuery = useQuery({
     queryKey: ["applicationSettings"],
     queryFn: commands.getApplicationSettings,
@@ -33,30 +35,35 @@ export const Settings = () => {
   return (
     <Box bg="var(--mantine-color-body)" py={20}>
       <Container size="lg">
-        <PageHeader pageName="設定" description="各種設定を閲覧・変更します" />
+        <PageHeader
+          pageName={t("設定")}
+          description={t("各種設定を閲覧・変更します")}
+        />
 
-        {settingsQuery.isLoading && <Message text="設定を読み込んでいます…" />}
+        {settingsQuery.isLoading && (
+          <Message text={t("設定を読み込んでいます…")} />
+        )}
         {settingsQuery.isError && (
-          <Message text="設定を取得できませんでした。" color="red" />
+          <Message text={t("設定を取得できませんでした。")} color="red" />
         )}
         {settings && (
           <Stack gap="lg">
             <Card withBorder radius="md" padding="lg">
-              <Text fw={700}>ローカルデータ</Text>
+              <Text fw={700}>{t("ローカルデータ")}</Text>
               <Stack gap="md" mt="md">
                 <PathRow
-                  label="SQLite データベース"
+                  label={t("SQLite データベース")}
                   path={settings.databasePath}
                 />
                 <PathRow
-                  label="ログディレクトリ"
+                  label={t("ログディレクトリ")}
                   path={settings.logDirectory}
                 />
               </Stack>
             </Card>
 
             <Card withBorder radius="md" padding="lg">
-              <Text fw={700}>プラグイン</Text>
+              <Text fw={700}>{t("プラグイン")}</Text>
               <Stack gap="xs" mt="lg">
                 {getPluginInfo.data?.map((info) => (
                   <Paper key={info.pluginType} withBorder p="md" radius="md">
@@ -72,7 +79,7 @@ export const Settings = () => {
                         <Text fw={600}>{info.pluginType}</Text>
                       </Group>
                       <Badge variant="light" color="gray">
-                        {info.plugins.length} 件
+                        {t("{{count}} 件", { count: info.plugins.length })}
                       </Badge>
                     </Group>
                     <Group>
@@ -101,12 +108,12 @@ export const Settings = () => {
         )}
 
         <Card withBorder radius="md" padding="lg" mt="lg">
-          <Text fw={700}>オープンソースライセンス</Text>
+          <Text fw={700}>{t("オープンソースライセンス")}</Text>
           <Text size="sm" c="dimmed" mt="xs">
-            アプリで利用している依存ライブラリのライセンス情報を確認できます。
+            {t("アプリで利用している依存ライブラリのライセンス情報を確認できます。")}
           </Text>
           <Button component={Link} to="/licenses" mt="md" variant="light">
-            ライセンス一覧を見る
+            {t("ライセンス一覧を見る")}
           </Button>
         </Card>
       </Container>

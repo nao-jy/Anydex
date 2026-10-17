@@ -49,6 +49,8 @@ import { PageHeader } from "../components/PageHeader";
 import { formatDateTime } from "../components/utils";
 import { unwrapCommandResult } from "../tauri";
 import styles from "./Search.module.css";
+import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 
 type SortColumn = "name" | "updatedAt" | "size" | "kind";
 type SortDirection = "asc" | "desc";
@@ -74,6 +76,7 @@ type SubmittedSearch =
     };
 
 export const Search = () => {
+  const { t } = useTranslation();
   const [selectedIndexId, setSelectedIndexId] = useState<string | null>(null);
   const [directoryPath, setDirectoryPath] = useState("/");
   const [selectedFileUri, setSelectedFileUri] = useState<string | null>(null);
@@ -156,11 +159,13 @@ export const Search = () => {
       return true;
     },
     onSuccess: (saved) => {
-      if (saved) showInfoNotification("ファイルをダウンロードしました");
+      if (saved) showInfoNotification(t("ファイルをダウンロードしました"));
     },
     onError: (error) => {
       void showErrorDialog(
-        `ファイルをダウンロードできませんでした: ${getErrorMessage(error)}`,
+        t("ファイルをダウンロードできませんでした: {{error}}", {
+          error: getErrorMessage(error),
+        }),
       );
     },
   });
@@ -171,8 +176,9 @@ export const Search = () => {
         directoryQuery.data?.entries ?? [],
         sortColumn,
         sortDirection,
+        i18n.language,
       ),
-    [directoryQuery.data, sortColumn, sortDirection],
+    [directoryQuery.data, sortColumn, sortDirection, i18n.language],
   );
   const selectedFile = fileInfoQuery.data?.file;
   const pathSegments = directoryPath.split("/").filter(Boolean);
@@ -217,7 +223,7 @@ export const Search = () => {
         indexId,
         mode: "semantic",
         query: { type: "imageBase64", value: imageQuery.base64 },
-        label: `画像: ${imageQuery.name}`,
+        label: imageQuery.name,
         target,
       });
       return;
@@ -239,7 +245,7 @@ export const Search = () => {
     if (!file) return;
     setImageQuery(null);
     if (!file.type.startsWith("image/")) {
-      setImageError("画像ファイルを選択してください。");
+      setImageError(t("画像ファイルを選択してください。"));
       return;
     }
 
@@ -247,20 +253,20 @@ export const Search = () => {
     reader.onload = () => {
       if (typeof reader.result !== "string") {
         setImageQuery(null);
-        setImageError("画像ファイルを読み込めませんでした。");
+        setImageError(t("画像ファイルを読み込めませんでした。"));
         return;
       }
       const base64 = reader.result.split(",")[1];
       if (!base64) {
         setImageQuery(null);
-        setImageError("画像ファイルを読み込めませんでした。");
+        setImageError(t("画像ファイルを読み込めませんでした。"));
         return;
       }
       setImageQuery({ name: file.name, base64 });
     };
     reader.onerror = () => {
       setImageQuery(null);
-      setImageError("画像ファイルを読み込めませんでした。");
+      setImageError(t("画像ファイルを読み込めませんでした。"));
     };
     reader.readAsDataURL(file);
   };
@@ -285,15 +291,15 @@ export const Search = () => {
     <Box bg="var(--mantine-color-body)" py={20}>
       <Container size="lg">
         <PageHeader
-          pageName="検索"
-          description="インデックス内のファイルを閲覧し、メタデータを確認します"
+          pageName={t("検索")}
+          description={t("インデックス内のファイルを閲覧し、メタデータを確認します")}
         />
 
         <Card withBorder radius="md" padding="md" mb="md">
           <Group justify="space-between" align="flex-end">
             <Select
-              label="インデックス"
-              placeholder="インデックスを選択"
+              label={t("インデックス")}
+              placeholder={t("インデックスを選択")}
               data={indexes.map(({ index }) => ({
                 value: index.id,
                 label: index.name,
@@ -309,25 +315,27 @@ export const Search = () => {
             />
             {currentIndex && (
               <Text size="sm" c="dimmed">
-                {currentIndex.description || "説明はありません"}
+                {currentIndex.description || t("説明はありません")}
               </Text>
             )}
           </Group>
         </Card>
 
         {indexesQuery.isLoading && (
-          <StatusMessage text="インデックスを読み込んでいます…" loading />
+          <StatusMessage text={t("インデックスを読み込んでいます…")} loading />
         )}
         {indexesQuery.isError && (
           <StatusMessage
-            text={`インデックスを取得できませんでした: ${getErrorMessage(indexesQuery.error)}`}
+            text={t("インデックスを取得できませんでした: {{error}}", {
+              error: getErrorMessage(indexesQuery.error),
+            })}
             color="red"
           />
         )}
         {!indexesQuery.isLoading &&
           !indexesQuery.isError &&
           indexes.length === 0 && (
-            <StatusMessage text="インデックスがありません。先にインデックスを作成してください。" />
+            <StatusMessage text={t("インデックスがありません。先にインデックスを作成してください。")} />
           )}
 
         {indexId && (
@@ -344,8 +352,8 @@ export const Search = () => {
                         }
                       }}
                       data={[
-                        { label: "キーワード検索", value: "keyword" },
-                        { label: "意味検索", value: "semantic" },
+                        { label: t("キーワード検索"), value: "keyword" },
+                        { label: t("意味検索"), value: "semantic" },
                       ]}
                     />
                     {searchMode === "semantic" && (
@@ -357,13 +365,13 @@ export const Search = () => {
                           }
                         }}
                         data={[
-                          { label: "テキスト", value: "text" },
-                          { label: "画像", value: "image" },
+                          { label: t("テキスト"), value: "text" },
+                          { label: t("画像"), value: "image" },
                         ]}
                       />
                     )}
                     <Select
-                      aria-label="検索範囲"
+                      aria-label={t("検索範囲")}
                       value={searchScope}
                       onChange={(value) => {
                         if (value === "current" || value === "index") {
@@ -373,9 +381,11 @@ export const Search = () => {
                       data={[
                         {
                           value: "current",
-                          label: `このフォルダ (${directoryPath})`,
+                          label: t("このフォルダ ({{path}})", {
+                            path: directoryPath,
+                          }),
                         },
-                        { value: "index", label: "インデックス全体" },
+                        { value: "index", label: t("インデックス全体") },
                       ]}
                       w={{ base: "100%", sm: 260 }}
                     />
@@ -404,7 +414,7 @@ export const Search = () => {
                           leftSection={<IconPhoto size={16} />}
                           onClick={() => imageInputRef.current?.click()}
                         >
-                          画像を選択
+                          {t("画像を選択")}
                         </Button>
                         {imageQuery ? (
                           <Group gap={4} wrap="nowrap" style={{ minWidth: 0 }}>
@@ -414,7 +424,7 @@ export const Search = () => {
                             <ActionIcon
                               variant="subtle"
                               color="gray"
-                              aria-label="選択した画像を解除"
+                              aria-label={t("選択した画像を解除")}
                               onClick={() => {
                                 setImageQuery(null);
                                 setImageError(null);
@@ -425,17 +435,17 @@ export const Search = () => {
                           </Group>
                         ) : (
                           <Text size="sm" c="dimmed">
-                            画像を選択してください
+                            {t("画像を選択してください")}
                           </Text>
                         )}
                       </Group>
                     ) : (
                       <TextInput
-                        aria-label="検索語"
+                        aria-label={t("検索語")}
                         placeholder={
                           searchMode === "keyword"
-                            ? "本文から探すキーワードを入力"
-                            : "例: 契約更新の条件について書かれた文書"
+                            ? t("本文から探すキーワードを入力")
+                            : t("例: 契約更新の条件について書かれた文書")
                         }
                         leftSection={<IconSearch size={16} />}
                         value={searchInput}
@@ -451,7 +461,7 @@ export const Search = () => {
                       disabled={!canSubmitSearch}
                       loading={searchQuery.isFetching}
                     >
-                      検索
+                      {t("検索")}
                     </Button>
                   </Group>
                   {imageError && (
@@ -461,10 +471,10 @@ export const Search = () => {
                   )}
                   <Text size="xs" c="dimmed">
                     {searchMode === "keyword"
-                      ? "本文に入力したキーワードを含む箇所を検索します。"
+                      ? t("本文に入力したキーワードを含む箇所を検索します。")
                       : semanticInputType === "image"
-                        ? "画像の内容に近いファイルを検索します。"
-                        : "言葉が完全に一致しなくても、内容が近い箇所を検索します。"}
+                        ? t("画像の内容に近いファイルを検索します。")
+                        : t("言葉が完全に一致しなくても、内容が近い箇所を検索します。")}
                   </Text>
                 </Stack>
               </form>
@@ -475,15 +485,24 @@ export const Search = () => {
                 {submittedSearch ? (
                   <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
                     <Text size="sm" fw={600} truncate>
-                      {submittedSearch.mode === "keyword"
-                        ? "キーワード検索"
-                        : "意味検索"}
-                      ：「{submittedSearch.label}」
+                      {t("{{mode}}： 「{{query}}」", {
+                        mode:
+                          submittedSearch.mode === "keyword"
+                            ? t("キーワード検索")
+                            : t("意味検索"),
+                        query:
+                          submittedSearch.mode === "semantic" &&
+                          submittedSearch.query.type === "imageBase64"
+                            ? t("画像: {{name}}", {
+                                name: submittedSearch.label,
+                              })
+                            : submittedSearch.label,
+                      })}
                     </Text>
                     <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-                      対象:{" "}
+                      {t("対象:")}{" "}
                       {submittedSearch.target === "/"
-                        ? "インデックス全体"
+                        ? t("インデックス全体")
                         : submittedSearch.target}
                     </Text>
                     <Button
@@ -491,15 +510,15 @@ export const Search = () => {
                       size="compact-sm"
                       onClick={() => setSubmittedSearch(null)}
                     >
-                      一覧に戻る
+                      {t("一覧に戻る")}
                     </Button>
                   </Group>
                 ) : (
                   <Group gap="xs" wrap="nowrap" style={{ overflowX: "auto" }}>
-                    <Tooltip label="上の階層へ">
+                    <Tooltip label={t("上の階層へ")}>
                       <ActionIcon
                         variant="subtle"
-                        aria-label="上の階層へ"
+                        aria-label={t("上の階層へ")}
                         onClick={() => navigateTo(parentPath)}
                         disabled={directoryPath === "/"}
                       >
@@ -540,9 +559,11 @@ export const Search = () => {
                 <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
                   {submittedSearch
                     ? searchQuery.isFetching
-                      ? "検索中…"
-                      : `${searchQuery.data?.length ?? 0} 件`
-                    : `${entries.length} 件`}
+                      ? t("検索中…")
+                      : t("{{count}} 件", {
+                          count: searchQuery.data?.length ?? 0,
+                        })
+                    : t("{{count}} 件", { count: entries.length })}
                 </Text>
               </Group>
             </Card>
@@ -550,10 +571,12 @@ export const Search = () => {
             {submittedSearch ? (
               <Card withBorder radius="md" padding={0} style={{ minWidth: 0 }}>
                 {searchQuery.isFetching ? (
-                  <StatusMessage text="検索しています…" loading />
+                  <StatusMessage text={t("検索しています…")} loading />
                 ) : searchQuery.isError ? (
                   <StatusMessage
-                    text={`検索できませんでした: ${getErrorMessage(searchQuery.error)}`}
+                    text={t("検索できませんでした: {{error}}", {
+                      error: getErrorMessage(searchQuery.error),
+                    })}
                     color="red"
                   />
                 ) : searchQuery.data?.length ? (
@@ -577,7 +600,7 @@ export const Search = () => {
                       <IconSearch size={22} />
                     </ThemeIcon>
                     <Text size="sm" c="dimmed">
-                      該当するファイルはありません
+                      {t("該当するファイルはありません")}
                     </Text>
                   </Stack>
                 )}
@@ -586,26 +609,28 @@ export const Search = () => {
               <Card withBorder radius="md" padding={0} style={{ minWidth: 0 }}>
                 {directoryQuery.isLoading ? (
                   <StatusMessage
-                    text="ファイル一覧を読み込んでいます…"
+                    text={t("ファイル一覧を読み込んでいます…")}
                     loading
                   />
                 ) : directoryQuery.isError ? (
                   <StatusMessage
-                    text={`ファイル一覧を取得できませんでした: ${getErrorMessage(directoryQuery.error)}`}
+                    text={t("ファイル一覧を取得できませんでした: {{error}}", {
+                      error: getErrorMessage(directoryQuery.error),
+                    })}
                     color="red"
                   />
                 ) : (
                   <>
                     <Box className={styles.listHeader}>
                       <SortHeader
-                        label="名前"
+                        label={t("名前")}
                         column="name"
                         activeColumn={sortColumn}
                         direction={sortDirection}
                         onClick={chooseSort}
                       />
                       <SortHeader
-                        label="最終更新日"
+                        label={t("最終更新日")}
                         column="updatedAt"
                         activeColumn={sortColumn}
                         direction={sortDirection}
@@ -613,7 +638,7 @@ export const Search = () => {
                         className={styles.dateColumn}
                       />
                       <SortHeader
-                        label="サイズ"
+                        label={t("サイズ")}
                         column="size"
                         activeColumn={sortColumn}
                         direction={sortDirection}
@@ -622,7 +647,7 @@ export const Search = () => {
                         align="right"
                       />
                       <SortHeader
-                        label="種類"
+                        label={t("種類")}
                         column="kind"
                         activeColumn={sortColumn}
                         direction={sortDirection}
@@ -643,7 +668,7 @@ export const Search = () => {
                           <IconFolderOpen size={22} />
                         </ThemeIcon>
                         <Text size="sm" c="dimmed">
-                          このフォルダは空です
+                          {t("このフォルダは空です")}
                         </Text>
                       </Stack>
                     ) : (
@@ -680,7 +705,7 @@ export const Search = () => {
                   >
                     <IconFile size={20} />
                   </ThemeIcon>
-                  <Title order={3}>ファイル情報</Title>
+                  <Title order={3}>{t("ファイル情報")}</Title>
                 </Group>
               }
               overlayProps={{ backgroundOpacity: 0.35, blur: 2 }}
@@ -708,11 +733,14 @@ function SearchResult({
   match: SearchMatch;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <UnstyledButton
       className={styles.searchResult}
       onClick={onClick}
-      aria-label={`ファイル情報を表示: ${match.file.name}`}
+      aria-label={t("ファイル情報を表示: {{name}}", {
+        name: match.file.name,
+      })}
     >
       <Group gap="xs" wrap="nowrap" mb={4}>
         <IconFile size={17} className={styles.fileIcon} />
@@ -745,6 +773,7 @@ function FileEntry({
   selected: boolean;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   const disabled = !entry.isDirectory && !entry.fileUri;
 
   return (
@@ -752,7 +781,10 @@ function FileEntry({
       className={`${styles.entry} ${selected ? styles.selectedEntry : ""}`}
       onClick={onClick}
       disabled={disabled}
-      aria-label={`${entry.isDirectory ? "フォルダ" : "ファイル"}: ${entry.name}`}
+      aria-label={t("{{kind}}: {{name}}", {
+        kind: entry.isDirectory ? t("フォルダ") : t("ファイル"),
+        name: entry.name,
+      })}
       aria-current={selected ? "true" : undefined}
     >
       <Group gap="sm" wrap="nowrap" className={styles.entryName}>
@@ -772,7 +804,7 @@ function FileEntry({
         {formatFileSize(entry.size)}
       </Text>
       <Text size="xs" c="dimmed" ta="right">
-        {entry.isDirectory ? "フォルダ" : "ファイル"}
+        {entry.isDirectory ? t("フォルダ") : t("ファイル")}
       </Text>
       {entry.isDirectory ? (
         <IconChevronRight size={16} className={styles.disclosureIcon} />
@@ -800,15 +832,19 @@ function SortHeader({
   className?: string;
   align?: "left" | "right";
 }) {
+  const { t } = useTranslation();
   const active = column === activeColumn;
-  const sortDirection = direction === "asc" ? "昇順" : "降順";
+  const sortDirection = direction === "asc" ? t("昇順") : t("降順");
   const SortIcon = direction === "asc" ? IconChevronUp : IconChevronDown;
 
   return (
     <UnstyledButton
       className={`${styles.sortButton} ${className ?? ""}`}
       onClick={() => onClick(column)}
-      aria-label={`${label}で並べ替え${active ? `（${sortDirection}）` : ""}`}
+      aria-label={t("{{label}}で並べ替え{{direction}}", {
+        label,
+        direction: active ? ` (${sortDirection})` : "",
+      })}
       style={{ justifySelf: align === "right" ? "end" : "start" }}
     >
       <Text size="xs" fw={600} c="inherit">
@@ -832,29 +868,35 @@ function FileDetails({
   isDownloading: boolean;
   onDownload: (file: FileMetadata) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Box>
       {isLoading ? (
-        <StatusMessage text="メタデータを読み込んでいます…" loading />
+        <StatusMessage text={t("メタデータを読み込んでいます…")} loading />
       ) : error ? (
         <StatusMessage
-          text={`メタデータを取得できませんでした: ${getErrorMessage(error)}`}
+          text={t("メタデータを取得できませんでした: {{error}}", {
+            error: getErrorMessage(error),
+          })}
           color="red"
         />
       ) : file ? (
         <>
           <Stack gap="sm" mb="lg">
-            <MetadataRow label="名前" value={file.name} />
-            <MetadataRow label="コンテンツタイプ" value={file.contentType} />
-            <MetadataRow label="サイズ" value={formatFileSize(file.size)} />
+            <MetadataRow label={t("名前")} value={file.name} />
             <MetadataRow
-              label="更新日時"
-              value={file.updatedAt ? formatDateTime(file.updatedAt) : "不明"}
+              label={t("コンテンツタイプ")}
+              value={file.contentType}
             />
-            <MetadataRow label="ファイル URI" value={file.fileUri} />
+            <MetadataRow label={t("サイズ")} value={formatFileSize(file.size)} />
             <MetadataRow
-              label="ファイルハッシュ"
-              value={file.fileHash ?? "不明"}
+              label={t("更新日時")}
+              value={file.updatedAt ? formatDateTime(file.updatedAt) : t("不明")}
+            />
+            <MetadataRow label={t("ファイル URI")} value={file.fileUri} />
+            <MetadataRow
+              label={t("ファイルハッシュ")}
+              value={file.fileHash ?? t("不明")}
             />
           </Stack>
           <Group justify="flex-end">
@@ -863,13 +905,13 @@ function FileDetails({
               loading={isDownloading}
               onClick={() => onDownload(file)}
             >
-              ダウンロード
+              {t("ダウンロード")}
             </Button>
           </Group>
         </>
       ) : (
         <Text c="dimmed" size="sm">
-          ファイルを選択するとメタデータが表示されます。
+          {t("ファイルを選択するとメタデータが表示されます。")}
         </Text>
       )}
     </Box>
@@ -909,7 +951,7 @@ function StatusMessage({
 }
 
 function getErrorMessage(error: Error) {
-  return error.message || "不明なエラー";
+  return error.message || i18n.t("不明なエラー");
 }
 
 function formatFileSize(size: string) {
@@ -932,6 +974,7 @@ function sortEntries(
   entries: DirectoryEntry[],
   column: SortColumn,
   direction: SortDirection,
+  locale: string,
 ) {
   const multiplier = direction === "asc" ? 1 : -1;
 
@@ -945,7 +988,7 @@ function sortEntries(
 
       switch (column) {
         case "name":
-          comparison = a.name.localeCompare(b.name, "ja");
+          comparison = a.name.localeCompare(b.name, locale);
           break;
         case "updatedAt":
           if (!a.updatedAt || !b.updatedAt) {
@@ -964,7 +1007,7 @@ function sortEntries(
       }
     }
 
-    if (comparison === 0) comparison = a.name.localeCompare(b.name, "ja");
+    if (comparison === 0) comparison = a.name.localeCompare(b.name, locale);
     return comparison * multiplier;
   });
 }

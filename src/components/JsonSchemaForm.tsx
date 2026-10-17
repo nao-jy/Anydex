@@ -7,6 +7,7 @@ import { JsonEditor } from "json-edit-react";
 import Ajv2020 from "ajv/dist/2020";
 import Ajv2019 from "ajv/dist/2019";
 import { useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 const DefaultObjectField = getDefaultRegistry().fields.ObjectField;
 const ThemedForm = withTheme(MantineTheme);
@@ -52,7 +53,8 @@ export const CustomObjectField = (props: FieldProps) => {
 };
 
 const SubmitButtonDefault = (_: SubmitButtonProps) => {
-  return <Button type="submit">保存</Button>;
+  const { t } = useTranslation();
+  return <Button type="submit">{t("保存")}</Button>;
 };
 
 export interface JsonSchemaFormParams {
