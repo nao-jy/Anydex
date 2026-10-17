@@ -12,6 +12,7 @@ import { Search } from "./pages/Search";
 import { Settings } from "./pages/Settings";
 import { Tasks } from "./pages/Tasks";
 import { OAuth } from "./pages/OAuth";
+import { Licenses } from "./pages/Licenses";
 import { Notifications } from "@mantine/notifications";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ function AppInner() {
           <Route path="oauth" element={<OAuth />} />
           <Route path="mcp" element={<Mcp />} />
           <Route path="tasks" element={<Tasks />} />
+          <Route path="licenses" element={<Licenses />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

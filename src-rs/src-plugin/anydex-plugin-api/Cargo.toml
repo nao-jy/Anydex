@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Anydex Plugin API"
 authors = ["you"]
 edition = "2021"
+license = "MIT"
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary

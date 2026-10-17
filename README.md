@@ -67,7 +67,7 @@ Anydex は MCP サーバーをホストできます。インデックスを選�
 
 ## 開発
 
-必要なもの: Node.js、Rust toolchain、および Tauri が要求する OS ごとの依存パッケージ。
+必要なもの: Node.js、Rust toolchain、`cargo-about`、および Tauri が要求する OS ごとの依存パッケージ。`cargo-about` は `cargo install --locked --features cli cargo-about` でインストールできます。
 
 デフォルトプラグインをビルドしてから、アプリを起動します。
 
@@ -90,5 +90,9 @@ npm run dev
 ```bash
 npm run tauri:build
 ```
+
+アプリ内の「ライセンス」ページに表示する依存ライブラリのライセンス情報は、`npm run dev` と `npm run build` の実行時に自動収集されます。npm の本番依存と、Tauri 本体・プラグインワークスペースの Cargo 依存が対象です。
+
+Anydex 本体と Rust プラグインのソースコードは [MIT License](./LICENSE) で提供します。
 
 CUDA / Metal 向けのビルド方法は [デフォルトプラグインの README](./src-rs/src-plugin/anydex-plugin-default-impl/README.md) を参照してください。独自プラグインを実装する場合は [Anydex Plugin API](./src-rs/src-plugin/anydex-plugin-api/) を参照してください。
