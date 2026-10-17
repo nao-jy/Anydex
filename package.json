@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run licenses && vite",
-    "build": "npm run licenses && tsc && vite build",
+    "dev": "vite",
+    "build": "tsc && vite build",
     "licenses": "node scripts/collect-licenses.mjs",
     "preview": "vite preview",
     "tauri": "tauri",

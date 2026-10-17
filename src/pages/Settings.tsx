@@ -6,12 +6,14 @@ import {
   Card,
   Code,
   Container,
+  Button,
   Group,
   Paper,
   Stack,
   Text,
   ThemeIcon,
 } from "@mantine/core";
+import { Link } from "react-router";
 import { commands } from "../bindings";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { unwrapCommandResult } from "../tauri";
@@ -97,6 +99,16 @@ export const Settings = () => {
             </Card>
           </Stack>
         )}
+
+        <Card withBorder radius="md" padding="lg" mt="lg">
+          <Text fw={700}>オープンソースライセンス</Text>
+          <Text size="sm" c="dimmed" mt="xs">
+            アプリで利用している依存ライブラリのライセンス情報を確認できます。
+          </Text>
+          <Button component={Link} to="/licenses" mt="md" variant="light">
+            ライセンス一覧を見る
+          </Button>
+        </Card>
       </Container>
     </Box>
   );

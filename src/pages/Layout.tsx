@@ -11,7 +11,6 @@ import {
 import { Outlet } from "react-router";
 import { useDisclosure } from "@mantine/hooks";
 import {
-  IconFileText,
   IconGauge,
   IconKey,
   IconListCheck,
@@ -27,7 +26,6 @@ const mockdata = [
   { label: "OAuth", icon: IconKey, link: "/oauth" },
   { label: "MCPサーバー", icon: IconServer, link: "/mcp" },
   { label: "タスク", icon: IconListCheck, link: "/tasks" },
-  { label: "ライセンス", icon: IconFileText, link: "/licenses" },
   { label: "設定", icon: IconSettings, link: "/settings" },
 ];
 
