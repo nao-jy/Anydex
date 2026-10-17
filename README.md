@@ -19,7 +19,7 @@ Like BYOK (Bring Your Own Key), Anydex lets you choose the components of your se
 | ------------------ | --------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | **File Source**    | Where files come from; choose services and connection settings        | OpenDAL-based, supporting various services including Google Drive        |
 | **File Extractor** | Extracts searchable text and images from files                        | Extraction from PDF, Office, HTML, and other formats; OCR; text chunking |
-| **Embedder**       | Converts text and images into vectors for search                      | Local embeddings with Qwen3-VL                                           |
+| **Embedder**       | Converts text and images into vectors for search                      | Local embeddings with Qwen3-VL or a JSON Web API                         |
 | **Vector Store**   | Stores file information and vectors, and performs similarity searches | LanceDB                                                                  |
 
 Plugin settings are rendered as forms from schemas and can be configured in the app. You can also test embedder connections and file sources. Custom plugins can be implemented in Rust and connected through the Anydex Plugin API.
