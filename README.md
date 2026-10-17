@@ -1,75 +1,77 @@
 # Anydex
 
+[日本語](./README.ja.md)
+
 > **Bring Your Own [ANY].**
-> ファイルも、抽出方法も、埋め込みモデルも、ベクトル DB も。使いたいものを選んで、自分の検索基盤を組み立てよう。
+> Choose your files, extraction methods, embedding models, and vector database to build the search platform that works for you.
 
-Anydex は、さまざまな場所にあるファイルを集めて検索できるデスクトップアプリです。テキストだけでなく画像も扱うセマンティック検索と、AI エージェントから使える MCP サーバーを備えています。
+Anydex is a desktop application for collecting and searching files from a variety of sources. It supports semantic search across text and images, and includes an MCP server that AI agents can use.
 
-「まずはデフォルトで始めて、必要になったら自分の環境に合わせる」——そんな使い方を目指しています。
+The idea is to get started with sensible defaults, then adapt the setup to your environment as your needs grow.
 
-> **開発中:** Anydex は現在開発中です。機能や設定方法は今後変更される可能性があります。
+> **In development:** Anydex is currently under active development. Features and configuration may change.
 
 ## Bring Your Own [ANY]
 
-BYOK（Bring Your Own Key）のように、Anydex では検索パイプラインの構成要素を自分で選べます。デフォルトの実装でも幅広い用途をカバーしつつ、必要なら各コンポーネントを設定・実装して差し替えられます。
+Like BYOK (Bring Your Own Key), Anydex lets you choose the components of your search pipeline. The default implementations cover a wide range of use cases, and you can configure or replace individual components when needed.
 
-| 拡張ポイント | 役割 | デフォルト実装 |
-| --- | --- | --- |
-| **File Source** | ファイルの取得元。サービスや接続設定を選ぶ | OpenDAL ベース。Google Drive を含む各種サービスに対応 |
-| **File Extractor** | ファイルから検索対象のテキストや画像を抽出 | PDF・Office・HTML などの抽出、OCR、テキスト分割 |
-| **Embedder** | テキストや画像を検索用ベクトルに変換 | Qwen3-VL によるローカル埋め込み |
-| **Vector Store** | ファイル情報やベクトルを保存し、類似検索 | LanceDB |
+| Extension point    | Role                                                                  | Default implementation                                                   |
+| ------------------ | --------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **File Source**    | Where files come from; choose services and connection settings        | OpenDAL-based, supporting various services including Google Drive        |
+| **File Extractor** | Extracts searchable text and images from files                        | Extraction from PDF, Office, HTML, and other formats; OCR; text chunking |
+| **Embedder**       | Converts text and images into vectors for search                      | Local embeddings with Qwen3-VL                                           |
+| **Vector Store**   | Stores file information and vectors, and performs similarity searches | LanceDB                                                                  |
 
-プラグインの設定項目はスキーマからフォームとして表示され、アプリ上で構成できます。埋め込みモデルの接続テストや、ファイルソースのテストも行えます。独自プラグインは Rust で実装し、Anydex のプラグイン API に接続できます。
+Plugin settings are rendered as forms from schemas and can be configured in the app. You can also test embedder connections and file sources. Custom plugins can be implemented in Rust and connected through the Anydex Plugin API.
 
-認証が必要なファイルソースには OAuth 2.0 PKCE を利用できます。クライアント ID、認可・トークンエンドポイント、スコープなどを設定できるため、サービスに合わせた OAuth クライアントを登録できます。
+File sources that require authentication can use OAuth 2.0 PKCE. You can configure a client ID, authorization and token endpoints, scopes, and other settings to register an OAuth client for your service.
 
-## AI エージェントに、あなたのファイル検索を
+## Search your files with AI agents
 
-Anydex は MCP サーバーをホストできます。インデックスを選んで公開すれば、MCP 対応の AI エージェントやクライアントから、ファイル検索機能をそのまま利用できます。
+Anydex can host an MCP server. Select and expose an index to let MCP-compatible AI agents and clients use its file search capabilities.
 
-利用できる MCP ツール:
+Available MCP tools:
 
-- 公開中のインデックス一覧
-- ディレクトリ内容の一覧
-- パスを指定したテキスト検索
-- テキストまたは画像によるセマンティック検索
-- ファイル情報の取得とファイルのダウンロード
+- List exposed indexes
+- List directory contents
+- Search text by path
+- Perform semantic searches using text or images
+- Retrieve file information and download files
 
-アプリでサーバーを起動し、MCP クライアントから `http://localhost:8080/mcp` に接続します。ポートはアプリ上で変更できます。
+Start the server in the app, then connect your MCP client to `http://localhost:8080/mcp`. You can change the port in the app.
 
-> **ネットワークに関する注意:** MCP サーバーは選択したポートで待ち受けます。環境によっては同じネットワーク上の他の端末からも接続できるため、公開するインデックスとポートの取り扱いに注意してください。
+> **Network note:** The MCP server listens on the selected port. Depending on your environment, other devices on the same network may also be able to connect. Take care when choosing which indexes to expose and which port to use.
 
-## できること
+## Features
 
-- **ファイルをまとめて検索:** 接続先・抽出器・埋め込みモデル・保存先を組み合わせてインデックスを作成
-- **意味で探す:** キーワード検索に加え、テキストや画像を使ったセマンティック検索
-- **ローカルで始める:** デフォルトの埋め込みモデルはローカルで実行。埋め込み API の用意なしで試せます
-- **定期的にインデックス:** スケジュールを設定してファイルをインデックス
-- **AI とつなぐ:** MCP 経由で、普段使っている MCP 対応クライアントから検索
-- **デスクトップで管理:** インデックス、OAuth、実行中タスク、検索結果をひとつのアプリで管理
+- **Search across your files:** Create indexes by combining data sources, extractors, embedding models, and storage
+- **Search by meaning:** In addition to keyword search, use text or images for semantic search
+- **Start locally:** The default embedding model runs locally, so you can try Anydex without setting up an embedding API
+- **Schedule indexing:** Set a schedule to index files
+- **Connect to AI:** Search through your usual MCP-compatible clients using MCP
+- **Manage everything on your desktop:** Manage indexes, OAuth, running tasks, and search results in one app
 
-## データの流れ
+## Data flow
 
 ```text
-ファイルソース
+File source
      │
      ▼
-ファイル抽出 ──► 埋め込み ──► ベクトルストア
-                                  │
-                     ┌────────────┴────────────┐
-                     ▼                         ▼
-                Anydex の検索 UI          MCP サーバー
-                                               │
-                                               ▼
-                                      AI エージェント
+File extraction ──► Embedding ──► Vector store
+                                    │
+                     ┌──────────────┴──────────────┐
+                     ▼                             ▼
+              Anydex search UI               MCP server
+                                                   │
+                                                   ▼
+                                              AI agent
 ```
 
-## 開発
+## Development
 
-必要なもの: Node.js、Rust toolchain、`cargo-about`、および Tauri が要求する OS ごとの依存パッケージ。`cargo-about` は `cargo install --locked --features cli cargo-about` でインストールできます。
+Requirements: Node.js, the Rust toolchain, `cargo-about`, and OS-specific dependencies required by Tauri. Install `cargo-about` with `cargo install --locked --features cli cargo-about`.
 
-デフォルトプラグインをビルドしてから、アプリを起動します。
+Build the default plugins, then start the app:
 
 ```bash
 cd src-rs/src-plugin/anydex-plugin-default-impl
@@ -79,20 +81,20 @@ npm install
 npm run tauri:dev
 ```
 
-フロントエンドだけを起動する場合:
+To start only the frontend:
 
 ```bash
 npm run dev
 ```
 
-配布用ビルド:
+To build a distributable:
 
 ```bash
 npm run tauri:build
 ```
 
-アプリ内の「ライセンス」ページに表示する依存ライブラリのライセンス情報は、`npm run dev` と `npm run build` の実行時に自動収集されます。npm の本番依存と、Tauri 本体・プラグインワークスペースの Cargo 依存が対象です。
+License information for dependency libraries shown on the in-app "Licenses" page is collected automatically when you run `npm run dev` or `npm run build`. This covers npm production dependencies and Cargo dependencies in the Tauri application and plugin workspace.
 
-Anydex 本体と Rust プラグインのソースコードは [MIT License](./LICENSE) で提供します。
+The Anydex application and Rust plugin source code are available under the [MIT License](./LICENSE).
 
-CUDA / Metal 向けのビルド方法は [デフォルトプラグインの README](./src-rs/src-plugin/anydex-plugin-default-impl/README.md) を参照してください。独自プラグインを実装する場合は [Anydex Plugin API](./src-rs/src-plugin/anydex-plugin-api/) を参照してください。
+For instructions on building for CUDA / Metal, see the [default plugins README](./src-rs/src-plugin/anydex-plugin-default-impl/README.md). To implement a custom plugin, see the [Anydex Plugin API](./src-rs/src-plugin/anydex-plugin-api/).
